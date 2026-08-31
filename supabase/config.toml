@@ -1,0 +1,68 @@
+# =============================================================================
+# supabase/config.toml
+#
+# Phase 17 (Deployment): the Supabase CLI's own project config file --
+# needed for `supabase link`, `supabase functions deploy`, and (for local
+# development against the REAL CLI, as opposed to this project's own
+# scripts/run_all_verifications.sh, which drives a bare `postgres` role
+# directly and has never depended on this file or the CLI) `supabase start`.
+#
+# HONESTY NOTE: every migration and verify script in this project (Phases
+# 02-16) has been applied and tested via `sudo -u postgres psql`, not the
+# Supabase CLI -- this sandbox has no Docker (the CLI's `supabase start`
+# needs it) and no network to `supabase link` to a real project. This file
+# is real, reviewable configuration in the shape the CLI expects, written
+# for the FIRST time a real deploy happens -- it has not itself been run
+# through the CLI here.
+#
+# project_id is a placeholder -- replace with the real project's ref
+# (Supabase dashboard -> Project Settings -> General) before `supabase
+# link`. See README's Phase 17 section for the full deploy runbook.
+# =============================================================================
+project_id = "your-project-ref"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+# -----------------------------------------------------------------------
+# Edge Functions. `verify_jwt = false` is required ONLY for the two
+# functions called by an external provider that has no Supabase session to
+# send an Authorization header with -- Stripe (stripe-webhook) and Twilio
+# (voice-webhook). Both verify authenticity their OWN way instead (Stripe's
+# signature header via STRIPE_WEBHOOK_SECRET, Twilio's X-Twilio-Signature
+# via TWILIO_AUTH_TOKEN -- see each function's own source). Getting this
+# backwards in either direction is a real, easy mistake: `verify_jwt = true`
+# on these two would make Supabase reject every real webhook delivery with
+# 401 before the function's own signature check ever runs; `verify_jwt =
+# false` on any of the others would let an anonymous caller invoke a
+# privileged function without even a valid Supabase session, one layer
+# earlier than that function's own internal authorization checks.
+# Every other function keeps the default (verify_jwt = true, omitted below)
+# -- each is called only by this project's own apps with a real Supabase
+# session (anon or authenticated), per every function's own header comment.
+# -----------------------------------------------------------------------
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.voice-webhook]
+verify_jwt = false
+
+[functions.bootstrap-restaurant]
+[functions.invite-staff-member]
+[functions.create-deposit-payment-intent]
+[functions.capture-noshow-deposit]
+[functions.refund-deposit]
+[functions.create-subscription-checkout]
+[functions.ai-gateway]

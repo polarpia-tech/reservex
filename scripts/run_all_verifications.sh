@@ -41,24 +41,40 @@ DB_NAME="${DB_NAME:-reservex_test}"
 LOG_DIR="${LOG_DIR:-/tmp/reservex_verify_logs}"
 mkdir -p "$LOG_DIR"
 
+# Phase 17: this script now runs in two places -- this sandbox (a local
+# Postgres reachable only as the `postgres` OS user, no TCP password, hence
+# `sudo -u postgres psql`) AND GitHub Actions' ci.yml (a `postgres:16`
+# service container reachable over TCP with a password, no `sudo` and no
+# `postgres` OS user to switch to at all). `psql` itself already reads
+# PGHOST/PGPORT/PGUSER/PGPASSWORD from the environment, so the only thing
+# that actually differs is whether the invocation is prefixed with `sudo -u
+# postgres`. PGHOST is unset in this sandbox and IS set by ci.yml (see that
+# workflow's `env:` block) -- used here purely as the signal for which mode
+# to run in, not because its value is otherwise read directly.
+if [ -n "${PGHOST:-}" ]; then
+  PSQL=(psql)
+else
+  PSQL=(sudo -u postgres psql)
+fi
+
 FAIL_COUNT=0
 EYEBALL_COUNT=0
 
 echo "=== 1/3: fresh database rebuild ($DB_NAME) ==="
-sudo -u postgres psql -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS $DB_NAME;" > "$LOG_DIR/00_rebuild.log" 2>&1
-sudo -u postgres psql -v ON_ERROR_STOP=1 -c "CREATE DATABASE $DB_NAME;" >> "$LOG_DIR/00_rebuild.log" 2>&1
-sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 -f scripts/local_dev_shim.sql >> "$LOG_DIR/00_rebuild.log" 2>&1 || { echo "FAIL local_dev_shim.sql -- see $LOG_DIR/00_rebuild.log"; exit 1; }
+"${PSQL[@]}" -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS $DB_NAME;" > "$LOG_DIR/00_rebuild.log" 2>&1
+"${PSQL[@]}" -v ON_ERROR_STOP=1 -c "CREATE DATABASE $DB_NAME;" >> "$LOG_DIR/00_rebuild.log" 2>&1
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f scripts/local_dev_shim.sql >> "$LOG_DIR/00_rebuild.log" 2>&1 || { echo "FAIL local_dev_shim.sql -- see $LOG_DIR/00_rebuild.log"; exit 1; }
 for f in supabase/migrations/*.sql; do
-  sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$f" >> "$LOG_DIR/00_rebuild.log" 2>&1 || { echo "FAIL migration $f -- see $LOG_DIR/00_rebuild.log"; exit 1; }
+  "${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$f" >> "$LOG_DIR/00_rebuild.log" 2>&1 || { echo "FAIL migration $f -- see $LOG_DIR/00_rebuild.log"; exit 1; }
 done
-sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 -f supabase/seed.sql >> "$LOG_DIR/00_rebuild.log" 2>&1 || { echo "FAIL seed.sql -- see $LOG_DIR/00_rebuild.log"; exit 1; }
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f supabase/seed.sql >> "$LOG_DIR/00_rebuild.log" 2>&1 || { echo "FAIL seed.sql -- see $LOG_DIR/00_rebuild.log"; exit 1; }
 echo "OK   $(ls supabase/migrations/*.sql | wc -l | tr -d ' ') migrations + seed applied cleanly"
 
 echo ""
 echo "=== 2/3: SQL verify scripts (eyeball-verified by design -- see header) ==="
 for f in scripts/verify_phase*.sql scripts/verify_schema.sql; do
   name="$(basename "$f")"
-  sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=0 -f "$f" > "$LOG_DIR/$name.log" 2>&1
+  "${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=0 -f "$f" > "$LOG_DIR/$name.log" 2>&1
   echo "RAN  $name -> $LOG_DIR/$name.log (review for anything NOT matching its own inline 'expected:' comment)"
   EYEBALL_COUNT=$((EYEBALL_COUNT + 1))
 done
@@ -81,6 +97,7 @@ run_checked "verify_phase12_payments_billing.mjs" node scripts/verify_phase12_pa
 run_checked "verify_phase14_web_pwa.mjs" node scripts/verify_phase14_web_pwa.mjs
 DB_NAME="$DB_NAME" run_checked "verify_phase15_concurrency.sh" scripts/verify_phase15_concurrency.sh
 run_checked "verify_phase16_ai_cost.mjs" node scripts/verify_phase16_ai_cost.mjs
+run_checked "verify_phase17_deployment.mjs" node scripts/verify_phase17_deployment.mjs
 
 # verify_phase16_optimization.sql is (like Phase 15's own SQL scripts and
 # every SQL script since Phase 04) eyeball-verified by design -- it prints
@@ -93,7 +110,7 @@ echo ""
 echo "=== Summary ==="
 echo "$EYEBALL_COUNT SQL script(s) ran -- logs in $LOG_DIR, read them (no automated verdict, see header note)."
 if [ "$FAIL_COUNT" -eq 0 ]; then
-  echo "OK: all $((7)) exit-code-checked scripts passed."
+  echo "OK: all $((8)) exit-code-checked scripts passed."
   exit 0
 else
   echo "FAILED: $FAIL_COUNT exit-code-checked script(s) failed -- see logs above."

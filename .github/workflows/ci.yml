@@ -1,0 +1,169 @@
+name: CI
+
+# =============================================================================
+# Phase 17 (Deployment): real, reviewable GitHub Actions configuration --
+# authored the same way every Edge Function/Stripe/Anthropic integration in
+# this project was: following each tool's own documented shape exactly, not
+# a stub. HONESTY NOTE, same as those: this sandbox has no git remote and no
+# network to actually push to GitHub, so this workflow has never been
+# executed by a real Actions runner. What HAS been verified here: every
+# command below is the same command already run and proven to work inside
+# this sandbox throughout Phases 02-17 (`node scripts/verify_ts_syntax.mjs`,
+# `bash scripts/run_all_verifications.sh`, etc.) -- this file wires them into
+# a runner, it does not invent new ones.
+#
+# Three jobs, all required on every push/PR (the `deploy` workflow only
+# fires after this one succeeds on `main` -- see deploy.yml):
+#   1. lint-typecheck -- turbo run lint / typecheck across every app+package.
+#   2. db-verify -- the exact same scripts/run_all_verifications.sh this
+#      project has run by hand after every phase since Phase 15, now against
+#      a `postgres:16` service container instead of this sandbox's local
+#      install. The 7 exit-code-checked scripts gate the job (a real
+#      pass/fail); the eyeball-verified SQL scripts (04-13, 15, 16 -- see
+#      that script's own header comment for why they can't have an
+#      automated verdict) are archived as a build artifact for human review
+#      instead of silently trusted.
+#   3. build -- `next build` for apps/web and apps/admin. apps/mobile has no
+#      "build" script (Expo/EAS builds are account-gated, native, and
+#      outside plain CI -- see README's Phase 17 section) so it is
+#      deliberately left out of this job; its own `typecheck` still runs in
+#      job 1.
+# =============================================================================
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # Pinned here (not just in package.json's `packageManager` field) so a
+  # cache key or a future contributor reading this file doesn't have to
+  # cross-reference -- kept in sync with package.json by hand, same as
+  # every other version pin in this project (see e.g. anthropic.ts's own
+  # "verify the current model catalogue" note for the same discipline).
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.9.0'
+
+jobs:
+  lint-typecheck:
+    name: Lint & typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+  db-verify:
+    name: Database migrations, RLS, and regression suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        # pg_isready gate -- run_all_verifications.sh's first real command
+        # is DROP DATABASE, which needs Postgres already accepting
+        # connections, not just the container started.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Presence of PGHOST is what run_all_verifications.sh and
+      # verify_phase15_concurrency.sh use to switch from this sandbox's
+      # `sudo -u postgres psql` to a plain TCP `psql` connection -- see the
+      # comment at the top of each script.
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run full regression suite
+        run: bash scripts/run_all_verifications.sh
+
+      - name: Archive eyeball-verified SQL logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-verify-logs
+          path: /tmp/reservex_verify_logs/
+          retention-days: 14
+
+  build:
+    name: Build web apps
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # NEXT_PUBLIC_* values are baked into the client bundle at build time,
+      # so `next build` needs them even for a CI build nobody will actually
+      # serve traffic from -- placeholder values, not real secrets, are
+      # fine here precisely because this build's output is discarded (the
+      # real production build+deploy that actually ships happens on
+      # Vercel's own build, not this job -- see README's Phase 17 section
+      # for why: Vercel's native GitHub integration builds and deploys
+      # apps/web and apps/admin directly on every push to main, with the
+      # REAL env vars set in the Vercel dashboard, which is simpler and
+      # less to maintain than reimplementing that here). This job exists to
+      # catch a build-breaking error before it reaches main, not to produce
+      # a deployable artifact.
+      - name: Build apps/web
+        run: pnpm --filter @reservex/web build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_ci_placeholder
+
+      - name: Build apps/admin
+        run: pnpm --filter @reservex/admin build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key

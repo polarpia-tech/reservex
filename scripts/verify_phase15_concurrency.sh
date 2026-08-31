@@ -37,8 +37,11 @@
 #
 # Run after migrations (through 0020) + seed.sql. Requires PGDATABASE (or
 # edit DB_NAME below) to point at a local Postgres with the `postgres`
-# superuser role reachable via `sudo -u postgres psql` (same convention as
-# every other verify_phaseNN script in this project).
+# superuser role reachable via `sudo -u postgres psql` in this sandbox, or
+# via a plain TCP `psql` connection (PGHOST/PGUSER/PGPASSWORD) in CI -- see
+# the PSQL dual-mode switch below, same convention as
+# run_all_verifications.sh and every other verify_phaseNN script in this
+# project.
 # =============================================================================
 set -uo pipefail
 
@@ -46,6 +49,15 @@ DB_NAME="${DB_NAME:-reservex_test}"
 SLOT_DATE="current_date + interval '5 days'"
 ATHENS_OWNER="11111111-1111-1111-1111-111111111111"
 ATHENS_RESTAURANT="bbbbbbbb-0000-0000-0000-000000000001"
+
+# Phase 17: same dual-mode switch as run_all_verifications.sh (its own
+# comment explains the two environments this now runs in -- this sandbox
+# vs. GitHub Actions' postgres:16 service container).
+if [ -n "${PGHOST:-}" ]; then
+  PSQL=(psql)
+else
+  PSQL=(sudo -u postgres psql)
+fi
 
 TMP_A=$(mktemp)
 TMP_B=$(mktemp)
@@ -57,7 +69,7 @@ trap 'rm -f "$TMP_A" "$TMP_B"' EXIT
 # guest name before racing again, so a second run doesn't spuriously see
 # "already booked" and mistake a stale leftover for a real double-booking
 # failure.
-sudo -u postgres psql -d "$DB_NAME" -qtAc "
+"${PSQL[@]}" -d "$DB_NAME" -qtAc "
   delete from public.reservations
   where restaurant_id = '${ATHENS_RESTAURANT}' and guest_name = 'Concurrency Test Guest';
 " >/dev/null
@@ -81,9 +93,9 @@ echo ""
 # `psql` processes start, connect, and begin their transaction within
 # milliseconds of each other, which is what makes this a genuine race rather
 # than two sequential calls dressed up to look like one.
-sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=0 -qtAc "$BOOK_SQL" >"$TMP_A" 2>&1 &
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=0 -qtAc "$BOOK_SQL" >"$TMP_A" 2>&1 &
 PID_A=$!
-sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=0 -qtAc "$BOOK_SQL" >"$TMP_B" 2>&1 &
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=0 -qtAc "$BOOK_SQL" >"$TMP_B" 2>&1 &
 PID_B=$!
 wait "$PID_A"
 wait "$PID_B"
@@ -127,7 +139,7 @@ fi
 
 echo ""
 echo "=== double-checking the database itself: T1 held exactly once for this slot ==="
-HOLD_COUNT=$(sudo -u postgres psql -d "$DB_NAME" -qtAc "
+HOLD_COUNT=$("${PSQL[@]}" -d "$DB_NAME" -qtAc "
   select count(*) from public.reservation_tables rt
   join public.reservations r on r.id = rt.reservation_id
   where rt.table_id = 'dddddddd-0000-0000-0000-000000000001'
@@ -144,7 +156,7 @@ fi
 
 echo ""
 echo "=== CLEANUP ==="
-sudo -u postgres psql -d "$DB_NAME" -qtAc "
+"${PSQL[@]}" -d "$DB_NAME" -qtAc "
   delete from public.reservations
   where restaurant_id = '${ATHENS_RESTAURANT}' and guest_name = 'Concurrency Test Guest';
 " >/dev/null

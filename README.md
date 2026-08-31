@@ -2318,3 +2318,219 @@ migration δίνει σε αυτές τις τέσσερις `anon, authenticate
   functions του public schema όταν τρέχτηκε, αλλά μια μελλοντική migration
   θα μπορούσε να ξαναεισάγει το ίδιο default χωρίς να το προσέξει κανείς αν
   δεν ξανατρέξει το `verify_phase16_optimization.sql`'s A1 sweep.
+
+## Φάση 17: Deployment
+
+Το blueprint όριζε τη Φάση 17 ελάχιστα -- "Production release, CI/CD,
+monitoring" -- χωρίς λεπτομερές sub-spec αλλού στο έγγραφο (σε αντίθεση με
+προηγούμενες φάσεις). Σημαντική διαπίστωση πριν χτιστεί οτιδήποτε: αυτό το
+project ΔΕΝ είχε ποτέ git repository μέσα σε αυτό το sandbox -- 16 φάσεις
+χτίστηκαν και επαληθεύτηκαν πάνω σε flat αρχεία, χωρίς version control.
+Χωρίς αυτό, "CI/CD" δεν σημαίνει τίποτα (προϋποθέτει git + remote). Οπότε η
+πρώτη ενέργεια της Φάσης 17 ήταν να αρχικοποιηθεί πραγματικό git repository
+με ένα πρώτο commit ("baseline snapshot: Phases 01-16"). Το υπόλοιπο της
+φάσης χτίστηκε πάνω σε αυτό: πραγματικά GitHub Actions workflows, ένα
+health-check endpoint, config για το Supabase CLI, και ένα πλήρες deployment
+runbook -- με τον ίδιο περιορισμό κάθε προηγούμενης φάσης: κανένα δίκτυο σε
+αυτό το sandbox για να γίνει πραγματικό `git push`/`supabase link`/deploy σε
+ζωντανό λογαριασμό, οπότε τίποτα από αυτά δεν έχει εκτελεστεί σε πραγματικό
+runner ή production περιβάλλον.
+
+### Τι χτίστηκε
+
+- **Πραγματικό git repository** (`git init` + πρώτο commit, branch
+  `main`). Χωρίς αυτό δεν υπάρχει καμία έννοια "push to main" για να
+  ενεργοποιήσει CI/CD.
+- **`.github/workflows/ci.yml`** (νέο): τρέχει σε κάθε push/PR, τρία jobs:
+  - `lint-typecheck`: `turbo run lint`/`typecheck` σε όλο το monorepo.
+  - `db-verify`: το ΙΔΙΟ `scripts/run_all_verifications.sh` που το project
+    τρέχει χειροκίνητα από τη Φάση 15, τώρα πάνω σε `postgres:16` service
+    container αντί για την τοπική εγκατάσταση αυτού του sandbox. Τα logs
+    των eyeball-verified SQL scripts ανεβαίνουν ως build artifact για
+    ανθρώπινη επιθεώρηση, όχι σιωπηλή εμπιστοσύνη.
+  - `build`: πραγματικό `next build` για `apps/web` και `apps/admin`.
+    Σκόπιμα ΔΕΝ περιλαμβάνει το `apps/mobile` (Expo/EAS builds χρειάζονται
+    λογαριασμό, native toolchain, εκτός απλού CI) -- το δικό του
+    `typecheck` καλύπτεται στο πρώτο job.
+- **`.github/workflows/deploy.yml`** (νέο): ενεργοποιείται ΜΟΝΟ αφού το CI
+  περάσει στο `main` (`workflow_run`, όχι δεύτερο ανεξάρτητο trigger) --
+  ένα deploy δεν μπορεί ποτέ να τρέξει πάνω σε κώδικα που δεν πέρασε
+  lint/typecheck/db-verify/build. Εφαρμόζει migrations (`supabase db push`)
+  και κάνει deploy όλα τα Edge Functions (`supabase functions deploy`).
+  Σκόπιμα ΔΕΝ ξαναθέτει τα secrets των Edge Functions σε κάθε deploy (δες
+  παρακάτω).
+- **`scripts/run_all_verifications.sh` / `scripts/verify_phase15_concurrency.sh`
+  ενημερώθηκαν** για dual-mode λειτουργία: το ίδιο script τρέχει είτε
+  τοπικά σε αυτό το sandbox (`sudo -u postgres psql`) είτε σε CI πάνω σε
+  TCP-συνδεδεμένο `postgres:16` container (απλό `psql` που διαβάζει
+  PGHOST/PGUSER/PGPASSWORD) -- η παρουσία του `PGHOST` env var είναι το
+  σήμα αλλαγής mode. Καμία διπλή λογική σε δύο μέρη, το ίδιο ακριβώς
+  script.
+- **`apps/web/app/api/health/route.ts`** (νέο): πραγματικό, testable
+  health-check endpoint -- κάνει μία φθηνή, πραγματική ερώτηση στη βάση
+  (`select id from restaurants ... head:true`, πάνω στην ήδη υπάρχουσα
+  δημόσια RLS policy της Φάσης 08) και επιστρέφει 200/503. Το μοναδικό
+  κομμάτι "monitoring" που μπορεί να χτιστεί ΚΑΙ να δοκιμαστεί πραγματικά
+  σε αυτό το sandbox χωρίς ζωντανό λογαριασμό.
+- **`supabase/config.toml`** (νέο): config για το Supabase CLI (project
+  ref placeholder, ρυθμίσεις ανά Edge Function). Σημαντικό: `verify_jwt =
+  false` ρητά μόνο για `stripe-webhook`/`voice-webhook` -- οι δύο functions
+  που καλούνται από εξωτερικό πάροχο (Stripe, Twilio) χωρίς Supabase
+  session, με δική τους ανεξάρτητη επαλήθευση υπογραφής. Λάθος κατεύθυνση
+  σε αυτό είναι πραγματικό, γνωστό Supabase πρόβλημα -- είτε απορρίπτει
+  ΚΑΘΕ πραγματικό webhook με 401 πριν καν φτάσει στον δικό του έλεγχο,
+  είτε ανοίγει μια function σε ανώνυμη κλήση ένα επίπεδο πριν τον δικό της
+  εσωτερικό έλεγχο.
+- **`scripts/verify_phase17_deployment.mjs`** (νέο, πραγματική εκτέλεση):
+  YAML syntax και των δύο workflows (μέσω πραγματικού parser, PyYAML),
+  TOML syntax του `config.toml` (μέσω `tomllib`), αυτοματοποιημένη
+  αντιστοίχιση ΚΑΘΕ φακέλου function στο `supabase/functions/` με το δικό
+  του `[functions.X]` block, επιβεβαίωση ότι ΜΟΝΟ οι δύο webhook functions
+  έχουν `verify_jwt = false`, και -- το πιο χρήσιμο εύρημα -- αυτόματος
+  έλεγχος ότι ΚΑΘΕ env var που πραγματικά διαβάζεται από τον κώδικα
+  (grep σε `Deno.env.get()`/`process.env.` σε όλο το repo) τεκμηριώνεται
+  κάπου σε `.env.example`.
+- **`.env.example` (root) ενημερώθηκε**: το `verify_phase17_deployment.mjs`
+  βρήκε ότι `TWILIO_AUTH_TOKEN`, `ANTHROPIC_MODEL_SMALL`,
+  `ANTHROPIC_MODEL_LARGE` διαβάζονται πραγματικά από κώδικα (Φάσεις 10, 11)
+  αλλά ΔΕΝ ήταν τεκμηριωμένα πουθενά -- πραγματικό, μικρό αλλά πραγματικό
+  κενό τεκμηρίωσης, διορθώθηκε. Προστέθηκε επίσης πίνακας με τα GitHub
+  repository secrets που χρειάζεται το `deploy.yml`.
+
+### Deployment runbook (πρώτη πραγματική παραγωγική έναρξη)
+
+1. **Δημιουργία πραγματικού GitHub repository** και `git push` του commit
+   ιστορικού που ξεκίνησε αυτή η φάση (`git remote add origin ...`, `git
+   push -u origin main`) -- δεν έγινε εδώ, χρειάζεται πραγματικό λογαριασμό
+   εκτός αυτού του sandbox.
+2. **Supabase**: δημιουργία νέου production project. Ενημέρωση του
+   `project_id` στο `supabase/config.toml` με το πραγματικό project ref.
+   Εφαρμογή migrations με `supabase db push` (ή αφήνοντας το `deploy.yml`
+   να το κάνει στο πρώτο πραγματικό merge σε `main`) -- ΠΟΤΕ το
+   `supabase/seed.sql`: περιέχει fake demo δεδομένα με hardcoded UUIDs
+   (Αθήνα/Μόναχο), σωστό μόνο για local dev/CI. Πραγματικά εστιατόρια
+   (τα 2-3 pilot) εγγράφονται μέσω του πραγματικού `bootstrap-restaurant`
+   flow (Φάση 04), όχι seed data.
+3. **Edge Function secrets**, μία φορά, χειροκίνητα: `supabase secrets set
+   ANTHROPIC_API_KEY=... STRIPE_SECRET_KEY=... STRIPE_WEBHOOK_SECRET=...
+   TWILIO_AUTH_TOKEN=...`. Σκόπιμα ΕΚΤΟΣ του `deploy.yml` -- δες το δικό
+   του header comment για το γιατί (θα ήταν τρόπος να αποθηκευτεί μια
+   ξεπερασμένη τιμή στο GitHub Actions history και να αντικαταστήσει
+   σιωπηλά μια χειροκίνητα ανανεωμένη μυστική τιμή).
+4. **GitHub repository secrets** (Settings -> Secrets and variables ->
+   Actions, ιδανικά κάτω από ένα "production" environment με required
+   reviewers): `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`,
+   `SUPABASE_DB_PASSWORD` -- πλήρης λίστα και πού βρίσκεται η κάθε τιμή
+   στο `.env.example`.
+5. **Vercel**: δύο ξεχωριστά Vercel projects, ένα ανά Next.js app
+   (`apps/web`, `apps/admin`), συνδεδεμένα στο ίδιο GitHub repo μέσω του
+   ΔΙΚΟΥ ΤΟΥ native GitHub integration του Vercel -- ΟΧΙ ένα ξεχωριστό
+   βήμα μέσα στο `ci.yml`/`deploy.yml`. Σκόπιμη επιλογή: το Vercel ήδη
+   κάνει build+deploy+preview-per-PR+custom-domain+SSL αυτόματα μόλις
+   συνδεθεί το repo -- αναδημιουργία αυτού μέσα σε GitHub Actions θα ήταν
+   διπλή συντήρηση για μηδενικό πραγματικό όφελος. Env vars (per project,
+   Vercel dashboard): `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, και για το `apps/web` επιπλέον
+   `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
+6. **Custom domain + SSL**: Vercel dashboard, ανά project -- αυτόματο
+   μόλις προστεθεί το domain, καμία επιπλέον ρύθμιση.
+7. **apps/mobile**: παραμένει εκτός production deploy pipeline -- δεν
+   υπάρχει λογαριασμός Apple Developer ακόμα (γνωστός περιορισμός από την
+   αρχή του project), οπότε το Web/PWA (Φάση 14) είναι η πραγματική
+   παραγωγική επιφάνεια για τώρα. Ένα πραγματικό EAS Build/Submit pipeline
+   είναι λογικό follow-up μόλις υπάρξει λογαριασμός.
+
+### Backup / rollback στρατηγική
+
+Καμία migration σε αυτό το project (0001-0021) δεν έχει το αντίστοιχο
+"down" της -- forward-only, ίδια σύμβαση με το πώς γράφτηκαν εξαρχής. Αυτό
+σημαίνει ότι ένα πραγματικό production rollback ΔΕΝ είναι "τρέξε την
+αντίστροφη migration" (δεν υπάρχει) -- είναι restore από πραγματικό Supabase
+backup (Point-in-Time Recovery σε paid tier, ή το πιο πρόσφατο daily backup
+στο free tier). Αυτό είναι ρητή, έντιμη αρχιτεκτονική παραδοχή, όχι κρυφό
+κενό: μια κακή migration σε production σημαίνει πραγματική απώλεια δεδομένων
+μεταξύ του backup point και της αποκατάστασης, όχι στιγμιαία αναίρεση. Για
+τα 2-3 pilot εστιατόρια, αυτό είναι αποδεκτό ρίσκο σε αυτή την κλίμακα --
+θα άξιζε επανεξέταση (π.χ. γραπτές down-migrations, staging environment πριν
+από κάθε production deploy) πριν από μεγαλύτερη κλίμακα.
+
+### Σημαντικές αρχιτεκτονικές αποφάσεις
+
+- **Vercel's native GitHub integration αντί για custom deploy step στο
+  GitHub Actions για τα Next.js apps.** Λιγότερος κώδικας να συντηρείται,
+  ίδιο αποτέλεσμα, και το Vercel ήδη λύνει preview deployments ανά PR
+  δωρεάν -- κάτι που θα έπρεπε να ξαναχτιστεί χειροκίνητα αλλιώς.
+- **Το `deploy.yml` δεν ξαναθέτει secrets σε κάθε τρέξιμο.** Θα ήταν
+  εύκολο (και λάθος) να προστεθεί ένα `supabase secrets set` βήμα "για να
+  είναι πάντα ενημερωμένο" -- αυτό θα σήμαινε ότι η πραγματική μυστική
+  τιμή πρέπει ούτως ή άλλως να ζει σαν GitHub secret, και ένα deploy θα
+  μπορούσε σιωπηλά να αντικαταστήσει μια χειροκίνητα rotated τιμή με μια
+  παλιά.
+- **`run_all_verifications.sh`/`verify_phase15_concurrency.sh` έγιναν
+  dual-mode αντί να γραφτεί ξεχωριστή λογική στο YAML.** Η εναλλακτική
+  (να ξαναγραφτούν όλα τα βήματα rebuild+verify απευθείας μέσα στο
+  `ci.yml`) θα σήμαινε δύο μέρη να μένουν συγχρονισμένα χειροκίνητα κάθε
+  φορά που προστίθεται νέο verify script -- ήδη ξέχασα να το κάνω αυτό
+  κάποια στιγμή σε προηγούμενη φάση, δεν άξιζε το ρίσκο ξανά.
+- **`verify_phase17_deployment.mjs`'s env-var cross-check είναι το πιο
+  αξιόλογο εύρημα της φάσης**: ένα πραγματικό, μικρό κενό τεκμηρίωσης
+  (3 env vars) που ΔΕΝ θα είχε προσεχθεί με απλή ανθρώπινη ανάγνωση --
+  ακριβώς το είδος ελέγχου που αξίζει να είναι αυτοματοποιημένο, όχι μια
+  φορά σωστό.
+
+### Τι ΔΕΝ χτίστηκε (σκόπιμα)
+
+- **Κανένα πραγματικό deploy.** Ούτε ένα `git push` σε πραγματικό remote,
+  ούτε ένα `supabase link`, ούτε ένα Vercel project -- κανένα δίκτυο σε
+  αυτό το sandbox. Ό,τι χτίστηκε είναι πραγματικός, reviewable κώδικας
+  στο σχήμα που περιμένει το κάθε εργαλείο, ποτέ εκτελεσμένος έξω από
+  αυτό το sandbox.
+- **Κανένα Sentry / error tracking.** Θα χρειαζόταν πραγματικό DSN/
+  λογαριασμό. Το `/api/health` endpoint είναι το μόνο πραγματικό,
+  testable κομμάτι monitoring που χτίστηκε εδώ· Sentry, Vercel
+  Analytics/Speed Insights, το ενσωματωμένο dashboard του Supabase, και
+  τα δικά τους dashboards Stripe/Twilio μένουν τεκμηριωμένα ως το επόμενο
+  βήμα, όχι wired up.
+- **Κανένα staging environment.** Το project έχει μόνο "local sandbox" και
+  "production" σήμερα -- ένα ενδιάμεσο staging Supabase project/Vercel
+  preview environment θα ήταν λογικό επόμενο βήμα πριν το πρώτο πραγματικό
+  production deploy, ειδικά δεδομένης της "forward-only migrations, καμία
+  αυτόματη rollback" πραγματικότητας παραπάνω.
+- **Κανένα EAS Build/Submit για apps/mobile.** Χρειάζεται λογαριασμό Apple
+  Developer, ρητά εκτός εύρους μέχρι να υπάρξει (γνωστός περιορισμός από
+  την αρχή του project).
+- **Κανένα rate limiting/WAF σε επίπεδο πλατφόρμας (π.χ. Cloudflare).** Το
+  project έχει ήδη εφαρμοσμένο application-level rate limiting στο
+  `book_public_reservation` (Φάση 08) -- ένα CDN/WAF layer είναι
+  ορθογώνιο, πιθανό follow-up.
+
+### Τι επαληθεύτηκε πραγματικά εδώ (και τι όχι)
+
+✅ Επαληθεύτηκε με πραγματική εκτέλεση:
+- Πραγματικό `git init` + commit -- υπαρκτό, ελεγμένο ιστορικό.
+- `scripts/verify_phase17_deployment.mjs`: 21 checks πέρασαν -- πραγματικό
+  YAML/TOML parsing (όχι regex), αντιστοίχιση κάθε function σε
+  `config.toml`, σωστό `verify_jwt` και στις 9 functions, και το
+  env-var-πληρότητας εύρημα.
+- `.github/workflows/ci.yml`/`deploy.yml`: valid YAML, δομημένα σύμφωνα
+  με τη δημόσια τεκμηρίωση GitHub Actions/Supabase CLI/Vercel -- ΔΕΝ
+  εκτελέστηκαν σε πραγματικό runner.
+- `apps/web/app/api/health/route.ts`: περνάει το ίδιο syntax check με
+  κάθε άλλο αρχείο του project (127 αρχεία συνολικά τώρα).
+- **Ολόκληρη η προηγούμενη σουίτα (Φάσεις 04-16) ξανατρέχτηκε** μέσα από
+  το ενημερωμένο, dual-mode `run_all_verifications.sh` -- μηδέν
+  regressions, 8/8 exit-code-checked scripts OK.
+
+⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**:
+- Ότι το `ci.yml`/`deploy.yml` πραγματικά τρέχουν επιτυχώς σε πραγματικό
+  GitHub Actions runner -- απαιτεί πραγματικό repository + push, εκτός
+  αυτού του sandbox.
+- Ότι το `supabase db push`/`supabase functions deploy` πραγματικά
+  δουλεύουν έναντι ζωντανού production project -- απαιτεί πραγματικό
+  λογαριασμό Supabase + access token.
+- Ότι το `/api/health` endpoint επιστρέφει σωστά αποτελέσματα έναντι
+  ζωντανής βάσης -- η λογική ελέγχθηκε (syntax + επισκόπηση), όχι
+  εκτελέστηκε έναντι πραγματικού Supabase project.
+- Ότι το Vercel native integration συμπεριφέρεται όπως τεκμηριώνεται εδώ
+  σε πραγματικό deploy -- βασισμένο σε δημόσια τεκμηρίωση Vercel, όχι σε
+  πραγματική δοκιμή.

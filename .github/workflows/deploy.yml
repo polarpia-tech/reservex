@@ -1,0 +1,82 @@
+name: Deploy
+
+# =============================================================================
+# Phase 17 (Deployment). Fires only after CI (ci.yml) finishes on `main` --
+# `workflow_run` + the conclusion check below, rather than a second
+# `push: branches: [main]` trigger on this file, so a deploy can never run
+# against code that hasn't passed lint/typecheck/db-verify/build. See
+# ci.yml's own header for the same HONESTY NOTE: real, reviewable YAML,
+# never executed by a real Actions runner in this sandbox (no git remote,
+# no network, and the secrets below don't exist here).
+#
+# Deploys the two things that are NOT already handled by Vercel's own
+# native GitHub integration (see README's Phase 17 section for why web
+# app hosting itself is deliberately NOT reimplemented here):
+#   1. Database migrations -- `supabase db push`, applying any new
+#      migration file to the linked production project. Forward-only, same
+#      as every migration in supabase/migrations/ -- there is no down-
+#      migration to run automatically if one turns out to be wrong (see
+#      README's rollback/backup section for what a real rollback means
+#      here).
+#   2. Edge Functions -- `supabase functions deploy` for every function
+#      under supabase/functions/, excluding the shared `_shared` helper
+#      directory (not itself a deployable function).
+#
+# Deliberately NOT done here: `supabase functions secrets set` for
+# ANTHROPIC_API_KEY/STRIPE_SECRET_KEY/etc. Function secrets are set ONCE,
+# by hand, outside of CI (README's Phase 17 runbook) -- re-running a
+# `secrets set` command on every deploy is how a CI template accidentally
+# encodes secret rotation/leakage into version control history (the value
+# would need to live in a GitHub Actions secret either way, at which point
+# it is simpler and safer to set it directly in the Supabase dashboard
+# once than to add a step here that could silently overwrite a manually
+# rotated secret with a stale one).
+# =============================================================================
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy migrations + Edge Functions
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link production project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+      - name: Apply database migrations
+        run: supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+      - name: Deploy Edge Functions
+        run: |
+          for fn in supabase/functions/*/; do
+            name="$(basename "$fn")"
+            if [ "$name" = "_shared" ]; then
+              continue
+            fi
+            echo "Deploying $name..."
+            supabase functions deploy "$name"
+          done
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
