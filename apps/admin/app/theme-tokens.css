@@ -1,0 +1,47 @@
+/* Same token set as apps/web/app/theme-tokens.css (generated from
+   packages/ui/src/tokens.ts), with one deliberate difference: --accent uses
+   the AI/system violet instead of the booking-flow orange. This is an
+   internal ReservX ops tool, not a restaurant/customer-facing surface --
+   the accent swap is a small, real visual signal so nobody mistakes an
+   admin screenshot for the product itself. */
+:root {
+  --background: #FAFAFA;
+  --surface: #FFFFFF;
+  --surface-elevated: #F2F1EE;
+  --border: #E4E2DD;
+  --text-primary: #14151A;
+  --text-muted: #6B7280;
+  --accent: #6A4CFF;
+  --success: #0F9D6E;
+  --warning: #B27C00;
+  --danger: #D64545;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+  --space-4xl: 40px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+  --font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+  --background: #0B0C10;
+  --surface: #16181D;
+  --surface-elevated: #1E2129;
+  --border: #2A2E38;
+  --text-primary: #F2F3F5;
+  --text-muted: #8B909C;
+  --accent: #7C5CFF;
+  --success: #34D399;
+  --warning: #FBBF24;
+  --danger: #F87171;
+  }
+}
