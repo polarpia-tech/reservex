@@ -1,4 +1,4 @@
-import type { AiToolDefinition } from './types';
+﻿import type { AiToolDefinition } from './types.ts';
 
 /**
  * The AI Gateway's entire closed tool set (blueprint Part 05, "risk table").

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Two-model-size cost strategy (blueprint Part 05): route simple,
  * short, tool-free-so-far turns to a small/fast model, and anything longer
  * or already mid-tool-chain to a larger model. This is a plain heuristic,
@@ -25,4 +25,4 @@ export class VoiceNotImplementedError extends Error {
   }
 }
 
-export { type AIProvider, type AiChatInput, type AiChatResult, type AiChatMessage, type AiToolCallRequest } from './types';
+export { type AIProvider, type AiChatInput, type AiChatResult, type AiChatMessage, type AiToolCallRequest } from './types.ts';

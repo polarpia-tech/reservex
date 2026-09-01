@@ -1,5 +1,5 @@
-import type { AIProvider, AiChatInput, AiChatResult, AiChatMessage, AiToolName } from '../types';
-import { VoiceNotImplementedError } from '../provider';
+﻿import type { AIProvider, AiChatInput, AiChatResult, AiChatMessage, AiToolName } from '../types.ts';
+import { VoiceNotImplementedError } from '../provider.ts';
 
 /**
  * Anthropic Claude provider -- the blueprint's recommended primary
