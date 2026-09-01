@@ -1,4 +1,4 @@
-// Phase 12: Stripe webhook signature verification. Pure, runtime-agnostic
+﻿// Phase 12: Stripe webhook signature verification. Pure, runtime-agnostic
 // (WebCrypto, identical in Deno and modern Node) -- no network, no Stripe
 // SDK -- exactly the same shape as packages/ai/src/voice.ts's
 // verifyTwilioSignature() from Phase 11, and the same honesty boundary
@@ -23,7 +23,7 @@ function parseSignatureHeader(header: string): { timestamp: string | null; v1Sig
   const v1Signatures: string[] = [];
   for (const part of header.split(',')) {
     const [key, value] = part.split('=', 2);
-    if (key === 't') timestamp = value;
+    if (key === 't') timestamp = value ?? null;
     else if (key === 'v1' && value) v1Signatures.push(value);
   }
   return { timestamp, v1Signatures };
