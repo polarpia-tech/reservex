@@ -1,8 +1,10 @@
-import { fetchPublicRestaurantDirectory } from '@reservex/core';
+﻿import { fetchPublicRestaurantDirectory } from '@reservex/core';
 import Link from 'next/link';
 
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
+
+export const dynamic = 'force-dynamic';
 
 const TYPE_LABEL_KEY: Record<string, string> = {
   restaurant: 'restaurantTypes.restaurant',
@@ -59,7 +61,7 @@ export default async function RestaurantDirectoryPage({ params }: { params: { lo
                 <div style={{ fontWeight: 600, fontSize: 16 }}>{restaurant.name}</div>
                 <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                   {t(dict, TYPE_LABEL_KEY[restaurant.restaurantType] ?? 'restaurantTypes.restaurant')}
-                  {restaurant.city ? ` · ${restaurant.city}` : ''}
+                  {restaurant.city ? ` Â· ${restaurant.city}` : ''}
                 </div>
               </div>
               <Link
