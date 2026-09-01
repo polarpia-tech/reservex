@@ -10,8 +10,8 @@
     "dev:mobile": "pnpm --filter @reservex/mobile start",
     "dev:web": "pnpm --filter @reservex/web dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint --continue",
+    "typecheck": "turbo run typecheck --continue",
     "test": "turbo run test"
   },
   "devDependencies": {

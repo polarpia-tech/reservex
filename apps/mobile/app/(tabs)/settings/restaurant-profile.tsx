@@ -1,4 +1,4 @@
-import type { Restaurant, RestaurantProfileUpdate } from '@reservex/core';
+﻿import type { Restaurant, RestaurantProfileUpdate } from '@reservex/core';
 import { updateRestaurant } from '@reservex/core';
 import { spacing, typeScale } from '@reservex/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -107,7 +107,7 @@ export default function RestaurantProfileScreen() {
   }
 
   function handleSave() {
-    if (!form) return;
+    if (!form || !membership) return;
     mutation.mutate({
       name: form.name.trim(),
       description: form.description.trim() || null,
