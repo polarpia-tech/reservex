@@ -1,4 +1,4 @@
-// Phase 11: voice readiness. Everything in this file is a pure, runtime-
+﻿// Phase 11: voice readiness. Everything in this file is a pure, runtime-
 // agnostic building block (string templating + WebCrypto, both identical in
 // Deno and modern Node) with NO network calls and NO Twilio SDK dependency
 // -- exactly the kind of thing that CAN be genuinely unit-tested in this
@@ -24,7 +24,7 @@ const TWIML_LOCALE_MAP: Record<string, string> = {
 };
 
 function twilioLocale(locale?: string): string {
-  return TWIML_LOCALE_MAP[locale ?? 'en'] ?? TWIML_LOCALE_MAP.en;
+  return TWIML_LOCALE_MAP[locale ?? 'en'] ?? TWIML_LOCALE_MAP.en ?? 'en-US';
 }
 
 function escapeXml(text: string): string {
