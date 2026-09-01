@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+﻿import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { ISODate, ISODateTime, UUID, WaitlistEntry, WaitlistStatus } from '../types/database';
 import { bookReservation, type BookReservationInput } from './reservations';
@@ -29,7 +29,7 @@ interface WaitlistEntryRow {
 function parseTstzRange(raw: string): { from: ISODateTime; to: ISODateTime } {
   const match = /^[[(]"?([^",]+)"?,"?([^",)\]]+)"?[)\]]$/.exec(raw.trim());
   if (!match) throw new Error(`Could not parse tstzrange: ${raw}`);
-  return { from: new Date(match[1]).toISOString(), to: new Date(match[2]).toISOString() };
+  return { from: new Date(match[1]!).toISOString(), to: new Date(match[2]!).toISOString() };
 }
 
 function toTstzRangeLiteral(from: ISODateTime, to: ISODateTime): string {
