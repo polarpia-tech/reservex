@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import {
   ensureMyCustomerProfile,
@@ -12,7 +12,7 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 
-import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
+import { DEFAULT_LOCALE, getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 import { formatDateTimeInTimeZone } from '@/lib/timezone';
 
@@ -41,8 +41,7 @@ const CANCELLABLE_STATUSES = new Set(['pending', 'confirmed']);
  * follow-up), and email confirmation UX beyond Supabase's default.
  */
 export default function AccountPage({ params }: { params: { locale: string } }) {
-  if (!isSupportedLocale(params.locale)) return null;
-  const locale: SupportedLocale = params.locale;
+  const locale: SupportedLocale = isSupportedLocale(params.locale) ? params.locale : DEFAULT_LOCALE;
   const dict = getDictionary(locale);
 
   const [session, setSession] = useState<Session | null>(null);
@@ -135,6 +134,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
     setReservationsLoaded(false);
   }
 
+  if (!isSupportedLocale(params.locale)) return null;
   if (!sessionLoaded) return null;
 
   if (!session) {
@@ -201,7 +201,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{reservation.restaurantName ?? '—'}</div>
+                  <div style={{ fontWeight: 600 }}>{reservation.restaurantName ?? 'â€”'}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                     {/* Shown in the VISITOR's own local time here (unlike the booking
                         confirmation screen, which deliberately uses the restaurant's
@@ -210,7 +210,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
                         served by their own clock anyway. */}
                     {new Date(reservation.startsAt).toLocaleString(locale)}
                   </div>
-                  <div style={{ fontSize: 13 }}>{t(dict, STATUS_KEY[reservation.status] ?? 'reservations.status.pending')} · {reservation.partySize}</div>
+                  <div style={{ fontSize: 13 }}>{t(dict, STATUS_KEY[reservation.status] ?? 'reservations.status.pending')} Â· {reservation.partySize}</div>
                 </div>
                 {CANCELLABLE_STATUSES.has(reservation.status) && (
                   <button type="button" onClick={() => handleCancel(reservation.id)} disabled={cancellingId === reservation.id} style={secondaryButtonStyle}>
