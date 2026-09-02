@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import {
   ensureMyCustomerProfile,
@@ -170,7 +170,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
       </div>
 
       <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-md)' }}>
           <Field label={t(dict, 'public.account.fullName')}>
             <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
           </Field>
@@ -201,7 +201,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{reservation.restaurantName ?? 'â€”'}</div>
+                  <div style={{ fontWeight: 600 }}>{reservation.restaurantName ?? '—'}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                     {/* Shown in the VISITOR's own local time here (unlike the booking
                         confirmation screen, which deliberately uses the restaurant's
@@ -210,7 +210,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
                         served by their own clock anyway. */}
                     {new Date(reservation.startsAt).toLocaleString(locale)}
                   </div>
-                  <div style={{ fontSize: 13 }}>{t(dict, STATUS_KEY[reservation.status] ?? 'reservations.status.pending')} Â· {reservation.partySize}</div>
+                  <div style={{ fontSize: 13 }}>{t(dict, STATUS_KEY[reservation.status] ?? 'reservations.status.pending')} · {reservation.partySize}</div>
                 </div>
                 {CANCELLABLE_STATUSES.has(reservation.status) && (
                   <button type="button" onClick={() => handleCancel(reservation.id)} disabled={cancellingId === reservation.id} style={secondaryButtonStyle}>
@@ -277,9 +277,14 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
   );
 }
 
+// minWidth: 0 overrides the browser default of `min-width: auto` on grid/flex
+// items -- without it, a native input's own intrinsic content width becomes
+// a hard floor on this cell's size, defeating `repeat(auto-fit, minmax(...))`
+// above and pushing the row wider than the viewport on narrow phones instead
+// of actually wrapping (same fix as BookingForm.tsx's Field/inputStyle).
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--text-muted)' }}>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--text-muted)', minWidth: 0 }}>
       {label}
       {children}
     </label>
@@ -294,6 +299,7 @@ const inputStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 'var(--radius-md)',
   padding: '8px 10px',
+  width: '100%',
 };
 
 const primaryButtonStyle: CSSProperties = {

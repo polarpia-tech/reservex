@@ -28,14 +28,17 @@ export default function LocaleLayout({ children, params }: { children: ReactNode
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: 'var(--space-lg) var(--space-2xl)',
+          flexWrap: 'wrap',
+          rowGap: 'var(--space-sm)',
+          columnGap: 'var(--space-md)',
+          padding: 'var(--space-lg) clamp(1rem, 4vw, var(--space-2xl))',
           borderBottom: '1px solid var(--border)',
         }}
       >
         <Link href={`/${locale}`} style={{ fontWeight: 700, fontSize: 18, textDecoration: 'none', color: 'var(--text-primary)' }}>
           {t(dict, 'common.appName')}
         </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-lg)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
           <Link href={`/${locale}/account`} style={{ fontSize: 14, textDecoration: 'none', color: 'var(--text-primary)' }}>
             {t(dict, 'public.account.title')}
           </Link>

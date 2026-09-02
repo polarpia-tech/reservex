@@ -219,7 +219,7 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 'var(--space-md)' }}>
           <Field label={t(dict, 'public.booking.date')}>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={inputStyle} />
           </Field>
@@ -248,7 +248,7 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
         <Field label={t(dict, 'public.booking.guestName')}>
           <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} required style={inputStyle} />
         </Field>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-md)' }}>
           <Field label={t(dict, 'public.booking.guestPhone')}>
             <input type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} style={inputStyle} />
           </Field>
@@ -289,9 +289,14 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
   );
 }
 
+// minWidth: 0 overrides the browser default of `min-width: auto` on grid/flex
+// items -- without it, a native <input type="date"/"time"> or similar's own
+// intrinsic content width becomes a hard floor on this cell's size, which
+// defeats `repeat(auto-fit, minmax(...))` above and pushes the row wider
+// than the viewport on narrow phone screens instead of actually wrapping.
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--text-muted)' }}>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--text-muted)', minWidth: 0 }}>
       {label}
       {children}
     </label>
@@ -306,4 +311,5 @@ const inputStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 'var(--radius-md)',
   padding: '8px 10px',
+  width: '100%',
 };
