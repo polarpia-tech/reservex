@@ -1,5 +1,5 @@
 import { fetchReservations } from '@reservex/core';
-import { radii, spacing, typeScale } from '@reservex/ui';
+import { radii, spacing } from '@reservex/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Stack, useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { useMyRestaurant } from '@/hooks/useMyRestaurant';
 import { supabase } from '@/services/supabase';
@@ -94,9 +95,7 @@ export default function ReservationsScreen() {
           data={reservationsQuery.data ?? []}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            !reservationsQuery.isLoading ? <Text style={[styles.empty, { color: theme.textMuted }]}>{t('reservations.noReservations')}</Text> : null
-          }
+          ListEmptyComponent={!reservationsQuery.isLoading ? <EmptyState icon="calendar-outline" label={t('reservations.noReservations')} /> : null}
           renderItem={({ item }) => {
             const time = new Date(item.startsAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
             const tableLabel =
@@ -114,7 +113,7 @@ export default function ReservationsScreen() {
                   <View style={styles.infoCol}>
                     <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{item.guestName ?? t('reservations.guestName')}</Text>
                     <Text style={{ color: theme.textMuted, marginTop: 2 }}>
-                      {t('reservations.partySize')}: {item.partySize} · {tableLabel}
+                      {t('reservations.partySize')}: {item.partySize} Â· {tableLabel}
                     </Text>
                   </View>
                   <StatusPill status={item.status} label={t(`reservations.status.${item.status}`)} />
@@ -142,7 +141,6 @@ const styles = StyleSheet.create({
   },
   dateLabelWrap: { alignItems: 'center' },
   listContent: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing['4xl'] },
-  empty: { ...typeScale.body, textAlign: 'center', marginTop: spacing['3xl'] },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -12,6 +12,7 @@ import {
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 
+import { BellIcon, CalendarOffIcon, PhoneIcon } from '@/components/icons';
 import { DEFAULT_LOCALE, getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 import { formatDateTimeInTimeZone } from '@/lib/timezone';
@@ -41,6 +42,14 @@ const CANCELLABLE_STATUSES = new Set(['pending', 'confirmed']);
  * follow-up), and email confirmation UX beyond Supabase's default.
  */
 export default function AccountPage({ params }: { params: { locale: string } }) {
+  // Rules of Hooks: every hook below must run on every render regardless of
+  // whether the locale is valid, so the invalid-locale bail-out moves below
+  // all hooks (see the `if (!isSupportedLocale(...))` check further down) --
+  // an early return here, before the hooks, would make React see a
+  // different number/order of hooks between an invalid- and a valid-locale
+  // render of the same component instance. DEFAULT_LOCALE is just a safe
+  // placeholder so getDictionary() never receives an unsupported key while
+  // that check hasn't run yet; it is never actually rendered.
   const locale: SupportedLocale = isSupportedLocale(params.locale) ? params.locale : DEFAULT_LOCALE;
   const dict = getDictionary(locale);
 
@@ -174,7 +183,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
           <Field label={t(dict, 'public.account.fullName')}>
             <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
           </Field>
-          <Field label={t(dict, 'public.account.phone')}>
+          <Field label={t(dict, 'public.account.phone')} icon={<PhoneIcon size={13} />}>
             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
           </Field>
         </div>
@@ -192,7 +201,12 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
 
       <section>
         <h2 style={{ fontSize: 18 }}>{t(dict, 'public.account.myReservationsTitle')}</h2>
-        {reservationsLoaded && reservations.length === 0 && <p style={{ color: 'var(--text-muted)' }}>{t(dict, 'public.account.noReservations')}</p>}
+        {reservationsLoaded && reservations.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-2xl) 0', color: 'var(--text-muted)' }}>
+            <CalendarOffIcon size={32} style={{ opacity: 0.5 }} />
+            <p style={{ margin: 0 }}>{t(dict, 'public.account.noReservations')}</p>
+          </div>
+        )}
         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
           {reservations.map((reservation) => (
             <li
@@ -201,7 +215,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{reservation.restaurantName ?? '—'}</div>
+                  <div style={{ fontWeight: 600 }}>{reservation.restaurantName ?? 'â€”'}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
                     {/* Shown in the VISITOR's own local time here (unlike the booking
                         confirmation screen, which deliberately uses the restaurant's
@@ -210,7 +224,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
                         served by their own clock anyway. */}
                     {new Date(reservation.startsAt).toLocaleString(locale)}
                   </div>
-                  <div style={{ fontSize: 13 }}>{t(dict, STATUS_KEY[reservation.status] ?? 'reservations.status.pending')} · {reservation.partySize}</div>
+                  <div style={{ fontSize: 13 }}>{t(dict, STATUS_KEY[reservation.status] ?? 'reservations.status.pending')} Â· {reservation.partySize}</div>
                 </div>
                 {CANCELLABLE_STATUSES.has(reservation.status) && (
                   <button type="button" onClick={() => handleCancel(reservation.id)} disabled={cancellingId === reservation.id} style={secondaryButtonStyle}>
@@ -224,8 +238,16 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
       </section>
 
       <section>
-        <h2 style={{ fontSize: 18 }}>{t(dict, 'public.account.notificationsTitle')}</h2>
-        {notificationsLoaded && notifications.length === 0 && <p style={{ color: 'var(--text-muted)' }}>{t(dict, 'public.account.noNotifications')}</p>}
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 18 }}>
+          <BellIcon size={17} style={{ color: 'var(--text-muted)' }} />
+          {t(dict, 'public.account.notificationsTitle')}
+        </h2>
+        {notificationsLoaded && notifications.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-2xl) 0', color: 'var(--text-muted)' }}>
+            <BellIcon size={32} style={{ opacity: 0.5 }} />
+            <p style={{ margin: 0 }}>{t(dict, 'public.account.noNotifications')}</p>
+          </div>
+        )}
         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
           {notifications.map((notification) => {
             const isUnread = notification.status !== 'read';
@@ -282,10 +304,13 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
 // a hard floor on this cell's size, defeating `repeat(auto-fit, minmax(...))`
 // above and pushing the row wider than the viewport on narrow phones instead
 // of actually wrapping (same fix as BookingForm.tsx's Field/inputStyle).
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--text-muted)', minWidth: 0 }}>
-      {label}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {icon}
+        {label}
+      </span>
       {children}
     </label>
   );

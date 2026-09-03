@@ -1,5 +1,6 @@
 import type { OpeningHours, SpecialHours } from '@reservex/core';
 
+import { ClockIcon } from '@/components/icons';
 import { getDictionary, t, type SupportedLocale } from '@/lib/dictionary';
 import { truncateToHm } from '@/lib/timezone';
 
@@ -30,7 +31,10 @@ export function OpeningHoursList({
 
   return (
     <section>
-      <h2 style={{ fontSize: 18, marginBottom: 'var(--space-sm)' }}>{t(dict, 'public.restaurant.openingHoursTitle')}</h2>
+      <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 18, marginBottom: 'var(--space-sm)' }}>
+        <ClockIcon size={18} style={{ color: 'var(--text-muted)' }} />
+        {t(dict, 'public.restaurant.openingHoursTitle')}
+      </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {[0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => {
           const shifts = (hoursByDay.get(dayOfWeek) ?? []).filter((s) => !s.isClosed);
@@ -40,7 +44,7 @@ export function OpeningHoursList({
               <span>
                 {shifts.length === 0
                   ? t(dict, 'public.restaurant.closedAllDay')
-                  : shifts.map((s) => `${truncateToHm(s.opensAt)}–${truncateToHm(s.closesAt)}`).join(', ')}
+                  : shifts.map((s) => `${truncateToHm(s.opensAt)}â€“${truncateToHm(s.closesAt)}`).join(', ')}
               </span>
             </div>
           );
@@ -52,9 +56,9 @@ export function OpeningHoursList({
             <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--warning)' }}>
               <span>
                 {s.date}
-                {s.reason ? ` — ${s.reason}` : ''}
+                {s.reason ? ` â€” ${s.reason}` : ''}
               </span>
-              <span>{s.isClosed ? t(dict, 'public.restaurant.closedAllDay') : s.opensAt && s.closesAt ? `${truncateToHm(s.opensAt)}–${truncateToHm(s.closesAt)}` : ''}</span>
+              <span>{s.isClosed ? t(dict, 'public.restaurant.closedAllDay') : s.opensAt && s.closesAt ? `${truncateToHm(s.opensAt)}â€“${truncateToHm(s.closesAt)}` : ''}</span>
             </div>
           ))}
         </div>

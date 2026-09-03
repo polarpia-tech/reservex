@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { GlobeIcon } from '@/components/icons';
 import { SUPPORTED_LOCALES, type SupportedLocale } from '@/lib/dictionary';
 
 const LABELS: Record<SupportedLocale, string> = { de: 'DE', en: 'EN', el: 'EL', tr: 'TR' };
@@ -13,7 +14,8 @@ export function LocaleSwitcher({ current }: { current: SupportedLocale }) {
   const rest = pathname.split('/').slice(2).join('/');
 
   return (
-    <nav style={{ display: 'flex', gap: 'var(--space-sm)' }} aria-label="Language">
+    <nav style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }} aria-label="Language">
+      <GlobeIcon style={{ color: 'var(--text-muted)' }} />
       {SUPPORTED_LOCALES.map((locale) => (
         <Link
           key={locale}

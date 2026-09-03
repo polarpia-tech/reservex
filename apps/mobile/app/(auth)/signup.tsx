@@ -2,7 +2,7 @@ import { spacing, typeScale } from '@reservex/ui';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -75,6 +75,7 @@ export default function SignupScreen() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Image source={require('../../assets/icon.png')} style={styles.logo} />
         <Text style={[styles.title, { color: theme.textPrimary }]}>{t('auth.createAccount')}</Text>
 
         <TextField
@@ -115,6 +116,7 @@ export default function SignupScreen() {
 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, justifyContent: 'center', padding: spacing['2xl'], gap: spacing.lg },
+  logo: { width: 64, height: 64, borderRadius: 16, alignSelf: 'center' },
   title: { ...typeScale.h1, textAlign: 'center', marginBottom: spacing.md },
   errorText: { ...typeScale.caption, textAlign: 'center' },
   linkCentered: { ...typeScale.caption, textAlign: 'center' },

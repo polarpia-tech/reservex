@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { TableStatusPicker } from '@/components/tables/TableStatusPicker';
 import { useMyRestaurant } from '@/hooks/useMyRestaurant';
@@ -76,7 +77,7 @@ export default function FloorViewScreen() {
       />
       <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.content}>
         {tablesQuery.isLoading ? <Text style={{ color: theme.textMuted }}>{t('common.loading')}</Text> : null}
-        {!tablesQuery.isLoading && tables.length === 0 ? <Text style={{ color: theme.textMuted }}>{t('tables.noTables')}</Text> : null}
+        {!tablesQuery.isLoading && tables.length === 0 ? <EmptyState icon="grid-outline" label={t('tables.noTables')} /> : null}
 
         {zones.map((zone) => {
           const zoneTables = tables.filter((table) => table.zoneId === zone.id);
@@ -141,7 +142,7 @@ function TableRow({
             <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{table.label}</Text>
             {table.isVip ? <Ionicons name="star" color={theme.accent} size={14} /> : null}
             <Text style={{ color: theme.textMuted }}>
-              {table.capacityMin}–{table.capacityMax} {t('tables.capacity').toLowerCase()}
+              {table.capacityMin}â€“{table.capacityMax} {t('tables.capacity').toLowerCase()}
             </Text>
           </View>
           <StatusPill status={table.status} label={t(`tables.status.${table.status}`)} />

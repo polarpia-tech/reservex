@@ -2,7 +2,7 @@ import { spacing, typeScale } from '@reservex/ui';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -42,6 +42,10 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* apps/mobile/assets/icon.png already exists for the OS app icon --
+            this is the first time it's rendered INSIDE the app itself,
+            rather than only ever appearing on the home screen. */}
+        <Image source={require('../../assets/icon.png')} style={styles.logo} />
         <Text style={[styles.appName, { color: theme.accent }]}>{t('common.appName')}</Text>
         <Text style={[styles.title, { color: theme.textPrimary }]}>{t('auth.welcomeBack')}</Text>
 
@@ -82,6 +86,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, justifyContent: 'center', padding: spacing['2xl'], gap: spacing.lg },
+  logo: { width: 64, height: 64, borderRadius: 16, alignSelf: 'center' },
   appName: { ...typeScale.label, textAlign: 'center', letterSpacing: 1.5, textTransform: 'uppercase' },
   title: { ...typeScale.h1, textAlign: 'center', marginBottom: spacing.md },
   errorText: { ...typeScale.caption, textAlign: 'center' },

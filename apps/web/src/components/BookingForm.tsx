@@ -13,6 +13,7 @@ import {
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 
 import { DepositPaymentStep } from '@/components/DepositPaymentStep';
+import { CalendarIcon, CheckCircleIcon, ClockIcon, PhoneIcon, UsersIcon } from '@/components/icons';
 import { getDictionary, interpolate, t, type SupportedLocale } from '@/lib/dictionary';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 import { formatDateTimeInTimeZone, zonedTimeToUtc } from '@/lib/timezone';
@@ -160,7 +161,10 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
   if (confirmedReservation) {
     return (
       <section style={{ border: '1px solid var(--success)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', background: 'var(--surface)' }}>
-        <h2 style={{ color: 'var(--success)', marginTop: 0 }}>{t(dict, 'public.booking.confirmedTitle')}</h2>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', color: 'var(--success)', marginTop: 0 }}>
+          <CheckCircleIcon />
+          {t(dict, 'public.booking.confirmedTitle')}
+        </h2>
         <p>{t(dict, 'public.booking.confirmedBody')}</p>
         <dl style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '4px 16px', fontSize: 14 }}>
           <dt style={{ color: 'var(--text-muted)' }}>{t(dict, 'public.booking.confirmedRestaurant')}</dt>
@@ -185,7 +189,7 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
         ) : null}
         {depositPaid ? (
           <p style={{ color: 'var(--success)', marginTop: 'var(--space-lg)' }}>
-            <strong>{t(dict, 'public.booking.deposit.paidTitle')}</strong> — {t(dict, 'public.booking.deposit.paidBody')}
+            <strong>{t(dict, 'public.booking.deposit.paidTitle')}</strong> â€” {t(dict, 'public.booking.deposit.paidBody')}
           </p>
         ) : null}
         {depositQuote && !depositIntent && !depositPaid ? (
@@ -220,13 +224,13 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 'var(--space-md)' }}>
-          <Field label={t(dict, 'public.booking.date')}>
+          <Field label={t(dict, 'public.booking.date')} icon={<CalendarIcon size={13} />}>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={inputStyle} />
           </Field>
-          <Field label={t(dict, 'public.booking.time')}>
+          <Field label={t(dict, 'public.booking.time')} icon={<ClockIcon size={13} />}>
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required style={inputStyle} />
           </Field>
-          <Field label={t(dict, 'public.booking.partySize')}>
+          <Field label={t(dict, 'public.booking.partySize')} icon={<UsersIcon size={13} />}>
             <input
               type="number"
               min={restaurant.minPartySize}
@@ -249,7 +253,7 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
           <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} required style={inputStyle} />
         </Field>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-md)' }}>
-          <Field label={t(dict, 'public.booking.guestPhone')}>
+          <Field label={t(dict, 'public.booking.guestPhone')} icon={<PhoneIcon size={13} />}>
             <input type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} style={inputStyle} />
           </Field>
           <Field label={t(dict, 'public.booking.guestEmail')}>
@@ -294,10 +298,13 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
 // intrinsic content width becomes a hard floor on this cell's size, which
 // defeats `repeat(auto-fit, minmax(...))` above and pushes the row wider
 // than the viewport on narrow phone screens instead of actually wrapping.
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--text-muted)', minWidth: 0 }}>
-      {label}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {icon}
+        {label}
+      </span>
       {children}
     </label>
   );

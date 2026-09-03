@@ -1,11 +1,12 @@
 import { fetchWaitlist } from '@reservex/core';
-import { radii, spacing, typeScale } from '@reservex/ui';
+import { radii, spacing } from '@reservex/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { useMyRestaurant } from '@/hooks/useMyRestaurant';
 import { supabase } from '@/services/supabase';
@@ -50,7 +51,7 @@ export default function WaitlistScreen() {
         data={waitlistQuery.data ?? []}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
-        ListEmptyComponent={!waitlistQuery.isLoading ? <Text style={[styles.empty, { color: theme.textMuted }]}>{t('waitlist.noEntries')}</Text> : null}
+        ListEmptyComponent={!waitlistQuery.isLoading ? <EmptyState icon="hourglass-outline" label={t('waitlist.noEntries')} /> : null}
         renderItem={({ item }) => {
           const from = new Date(item.requestedFrom).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
           const to = new Date(item.requestedTo).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
@@ -60,7 +61,7 @@ export default function WaitlistScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{item.guestName ?? t('waitlist.guestName')}</Text>
                   <Text style={{ color: theme.textMuted, marginTop: 2 }}>
-                    {item.requestedDate} · {from}–{to} · {t('reservations.partySize')}: {item.partySize}
+                    {item.requestedDate} Â· {from}â€“{to} Â· {t('reservations.partySize')}: {item.partySize}
                   </Text>
                 </View>
                 <StatusPill status={item.status} label={t(`waitlist.status.${item.status}`)} />
@@ -75,6 +76,5 @@ export default function WaitlistScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing['4xl'] },
-  empty: { ...typeScale.body, textAlign: 'center', marginTop: spacing['3xl'] },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radii.lg, borderWidth: StyleSheet.hairlineWidth },
 });

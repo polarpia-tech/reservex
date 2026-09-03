@@ -1,9 +1,21 @@
-﻿import { fetchPublicRestaurantDirectory } from '@reservex/core';
+import { fetchPublicRestaurantDirectory } from '@reservex/core';
 import Link from 'next/link';
 
+import { ArrowRightIcon, MapPinIcon, UtensilsIcon } from '@/components/icons';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
 
+// This page's own header comment already documents the intent: fetched
+// anonymously at REQUEST time, not baked in at build time -- a live
+// restaurant directory would otherwise go stale between deploys. Next.js
+// 14's App Router doesn't reliably detect that intent on its own here (the
+// Supabase client's fetch isn't Next's native `fetch`), so without this it
+// tries to statically prerender the page during `next build` for every
+// locale in generateStaticParams (../layout.tsx) -- which is exactly what
+// broke CI: the build step's placeholder Supabase URL
+// (ci-placeholder.supabase.co, see ci.yml) doesn't resolve, so the
+// build-time fetch fails outright. `force-dynamic` makes the already-
+// documented behavior the actual behavior.
 export const dynamic = 'force-dynamic';
 
 const TYPE_LABEL_KEY: Record<string, string> = {
@@ -40,7 +52,10 @@ export default async function RestaurantDirectoryPage({ params }: { params: { lo
       <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>{t(dict, 'public.directory.subtitle')}</p>
 
       {restaurants.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)' }}>{t(dict, 'public.directory.noRestaurants')}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-4xl) 0', color: 'var(--text-muted)' }}>
+          <UtensilsIcon size={36} style={{ opacity: 0.5 }} />
+          <p style={{ margin: 0 }}>{t(dict, 'public.directory.noRestaurants')}</p>
+        </div>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
           {restaurants.map((restaurant) => (
@@ -59,14 +74,25 @@ export default async function RestaurantDirectoryPage({ params }: { params: { lo
             >
               <div>
                 <div style={{ fontWeight: 600, fontSize: 16 }}>{restaurant.name}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                  {t(dict, TYPE_LABEL_KEY[restaurant.restaurantType] ?? 'restaurantTypes.restaurant')}
-                  {restaurant.city ? ` Â· ${restaurant.city}` : ''}
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-xs) var(--space-sm)', color: 'var(--text-muted)', fontSize: 13 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <UtensilsIcon size={13} />
+                    {t(dict, TYPE_LABEL_KEY[restaurant.restaurantType] ?? 'restaurantTypes.restaurant')}
+                  </span>
+                  {restaurant.city && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <MapPinIcon size={13} />
+                      {restaurant.city}
+                    </span>
+                  )}
                 </div>
               </div>
               <Link
                 href={`/${locale}/r/${restaurant.slug}`}
                 style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
                   fontSize: 14,
                   fontWeight: 600,
                   color: 'var(--surface)',
@@ -78,6 +104,7 @@ export default async function RestaurantDirectoryPage({ params }: { params: { lo
                 }}
               >
                 {t(dict, 'public.directory.viewAndBook')}
+                <ArrowRightIcon size={14} />
               </Link>
             </li>
           ))}

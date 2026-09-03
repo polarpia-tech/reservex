@@ -1,6 +1,7 @@
 import { fetchOpeningHours, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
 
 import { BookingForm } from '@/components/BookingForm';
+import { MapPinIcon, PhoneIcon } from '@/components/icons';
 import { OpeningHoursList } from '@/components/OpeningHoursList';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
@@ -39,9 +40,17 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
       <div>
         <h1 style={{ fontSize: 28, marginBottom: 'var(--space-xs)' }}>{restaurant.name}</h1>
         {(restaurant.addressLine || restaurant.city) && (
-          <p style={{ color: 'var(--text-muted)', margin: 0 }}>{[restaurant.addressLine, restaurant.city].filter(Boolean).join(', ')}</p>
+          <p style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', margin: 0 }}>
+            <MapPinIcon size={15} />
+            {[restaurant.addressLine, restaurant.city].filter(Boolean).join(', ')}
+          </p>
         )}
-        {restaurant.phone && <p style={{ color: 'var(--text-muted)', margin: 0 }}>{restaurant.phone}</p>}
+        {restaurant.phone && (
+          <p style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', margin: 0 }}>
+            <PhoneIcon size={15} />
+            {restaurant.phone}
+          </p>
+        )}
         {restaurant.description && <p style={{ marginTop: 'var(--space-md)' }}>{restaurant.description}</p>}
       </div>
 

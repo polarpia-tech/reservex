@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { LocaleSwitcher } from '@/components/LocaleSwitcher';
+import { LogoMark, UserIcon } from '@/components/icons';
 import { getDictionary, isSupportedLocale, SUPPORTED_LOCALES, t, type SupportedLocale } from '@/lib/dictionary';
 
 export function generateStaticParams() {
@@ -35,11 +36,19 @@ export default function LocaleLayout({ children, params }: { children: ReactNode
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <Link href={`/${locale}`} style={{ fontWeight: 700, fontSize: 18, textDecoration: 'none', color: 'var(--text-primary)' }}>
+        <Link
+          href={`/${locale}`}
+          style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontWeight: 700, fontSize: 18, textDecoration: 'none', color: 'var(--text-primary)' }}
+        >
+          <LogoMark />
           {t(dict, 'common.appName')}
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
-          <Link href={`/${locale}/account`} style={{ fontSize: 14, textDecoration: 'none', color: 'var(--text-primary)' }}>
+          <Link
+            href={`/${locale}/account`}
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', fontSize: 14, textDecoration: 'none', color: 'var(--text-primary)' }}
+          >
+            <UserIcon />
             {t(dict, 'public.account.title')}
           </Link>
           <LocaleSwitcher current={locale} />
