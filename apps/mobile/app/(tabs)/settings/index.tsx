@@ -56,6 +56,11 @@ export default function SettingsHubScreen() {
         subtitle={t('settings.restaurantSubtitle')}
         onPress={() => router.push('/(tabs)/settings/restaurant-profile')}
       />
+      <NavRow
+        title={t('settings.openingHoursNav')}
+        subtitle={t('settings.openingHoursNavSubtitle')}
+        onPress={() => router.push('/(tabs)/settings/opening-hours')}
+      />
 
       <Text style={[styles.sectionTitle, { color: theme.textMuted, marginTop: spacing['3xl'] }]}>
         {t('settings.language')}

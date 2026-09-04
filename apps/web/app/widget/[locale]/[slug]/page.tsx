@@ -7,6 +7,13 @@ import { WidgetResizeReporter } from '@/components/WidgetResizeReporter';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
 
+// Same reasoning as app/[locale]/page.tsx and app/[locale]/r/[slug]/page.tsx:
+// this embeds live opening hours and booking availability into someone
+// else's website, so it must reflect edits made in the mobile app on the
+// very next request -- not a stale build/cache from whenever the iframe
+// first loaded.
+export const dynamic = 'force-dynamic';
+
 /**
  * Phase 14: the embeddable booking widget -- a restaurant's own website
  * pastes `<iframe src="https://<your-domain>/widget/en/my-restaurant">`

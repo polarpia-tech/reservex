@@ -5,16 +5,19 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@babel/runtime": "7.29.7",
     "@expo-google-fonts/ibm-plex-mono": "^0.2.3",
     "@expo-google-fonts/plus-jakarta-sans": "^0.2.3",
     "@expo/vector-icons": "^14.0.0",
+    "@formatjs/intl-pluralrules": "^6.3.13",
     "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-native/assets-registry": "0.74.87",
     "@reservex/core": "workspace:*",
     "@reservex/i18n": "workspace:*",
     "@reservex/ui": "workspace:*",
@@ -37,6 +40,8 @@
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@babel/plugin-transform-class-static-block": "^7",
+    "@react-native/gradle-plugin": "0.74.87",
     "@types/node": "^20.14.0",
     "@types/react": "~18.2.79",
     "typescript": "^5.5.4"

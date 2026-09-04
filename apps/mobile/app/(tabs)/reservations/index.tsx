@@ -113,7 +113,7 @@ export default function ReservationsScreen() {
                   <View style={styles.infoCol}>
                     <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{item.guestName ?? t('reservations.guestName')}</Text>
                     <Text style={{ color: theme.textMuted, marginTop: 2 }}>
-                      {t('reservations.partySize')}: {item.partySize} Â· {tableLabel}
+                      {t('reservations.partySize')}: {item.partySize} {'\u00B7'} {tableLabel}
                     </Text>
                   </View>
                   <StatusPill status={item.status} label={t(`reservations.status.${item.status}`)} />

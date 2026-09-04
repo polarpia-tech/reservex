@@ -6,6 +6,15 @@ import { OpeningHoursList } from '@/components/OpeningHoursList';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
 
+// Same reasoning as app/[locale]/page.tsx's own force-dynamic: opening
+// hours, special-hours exceptions and live table availability all change
+// after a restaurant owner edits them in the mobile app, and this page
+// must reflect that on the very next visit -- not whenever Next/Vercel's
+// static cache next happens to expire. Without this, the page renders
+// once (e.g. right after the restaurant is created, before any opening
+// hours exist) and keeps serving that same stale HTML indefinitely.
+export const dynamic = 'force-dynamic';
+
 /**
  * A restaurant's public profile + inline booking form. Server Component for
  * everything that's just a read (profile, opening hours, special hours --
