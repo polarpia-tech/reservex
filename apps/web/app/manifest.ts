@@ -25,11 +25,13 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'ReservX',
     short_name: 'ReservX',
-    description: 'AI-first restaurant, café, bar & venue reservations.',
+    description: 'AI-first restaurant, cafÃ©, bar & venue reservations.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#FAFAFA',
-    theme_color: '#E85D2C',
+    // Matches app/theme-editorial.css's --background/--accent -- the site
+    // is dark-only now, so the PWA install splash screen should be too.
+    background_color: '#12181F',
+    theme_color: '#E8A33D',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

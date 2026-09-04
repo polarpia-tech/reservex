@@ -24,7 +24,7 @@ export function LocaleSwitcher({ current }: { current: SupportedLocale }) {
             fontSize: 12,
             fontWeight: locale === current ? 700 : 400,
             padding: '4px 8px',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-full)',
             color: locale === current ? 'var(--text-primary)' : 'var(--text-muted)',
             background: locale === current ? 'var(--surface-elevated)' : 'transparent',
             textDecoration: 'none',

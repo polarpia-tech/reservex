@@ -23,16 +23,15 @@ export const metadata: Metadata = {
   },
 };
 
-// theme-color intentionally tracks the same two values as
-// app/theme-tokens.css's --accent (light/dark) -- this is what colors the
-// browser chrome/status bar in a standalone PWA window and Android's task
-// switcher card, so it should visually match the app itself, not be an
-// unrelated brand color.
+// theme-color intentionally tracks app/theme-editorial.css's --accent --
+// this is what colors the browser chrome/status bar in a standalone PWA
+// window and Android's task switcher card, so it should visually match
+// the app itself, not be an unrelated brand color. A single value, not a
+// light/dark pair: the site is dark-only by design now (see
+// theme-editorial.css's header comment), so there is no light variant to
+// track.
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#E85D2C' },
-    { media: '(prefers-color-scheme: dark)', color: '#FF7A45' },
-  ],
+  themeColor: '#E8A33D',
 };
 
 // Locale-aware routing (app/[locale]/...) was built in Phase 08 alongside
@@ -50,6 +49,22 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Display (Fraunces) + body (Inter) typefaces for the dark
+            editorial theme -- see theme-editorial.css. A plain <link>
+            rather than next/font/google: this exact Google Fonts request
+            (same families/weights/axes) is what the approved design
+            mockup itself used, so it's a known-working request rather
+            than a guess at next/font's variable-font weight API. Greek
+            text (almost everything real users see) has no Fraunces
+            glyphs, so it gracefully falls through to the Georgia
+            fallback in the `--font-display` stack -- expected, and the
+            same thing the mockup itself rendered. */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
+        />
+      </head>
       <body>
         <ServiceWorkerRegister />
         {children}

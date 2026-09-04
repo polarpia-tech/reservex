@@ -47,9 +47,21 @@ export default async function RestaurantDirectoryPage({ params }: { params: { lo
   const restaurants = await fetchPublicRestaurantDirectory(supabase);
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: 'var(--space-2xl)' }}>
-      <h1 style={{ fontSize: 28, marginBottom: 'var(--space-xs)' }}>{t(dict, 'public.directory.title')}</h1>
-      <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>{t(dict, 'public.directory.subtitle')}</p>
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: 'clamp(var(--space-xl), 6vw, 64px) var(--space-2xl) var(--space-4xl)' }}>
+      <h1
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 600,
+          fontSize: 'clamp(28px, 5vw, 42px)',
+          lineHeight: 1.1,
+          margin: '0 0 var(--space-sm)',
+        }}
+      >
+        {t(dict, 'public.directory.title')}
+      </h1>
+      <p style={{ color: 'var(--text-muted)', marginTop: 0, marginBottom: 'var(--space-3xl)', maxWidth: 520, lineHeight: 1.55 }}>
+        {t(dict, 'public.directory.subtitle')}
+      </p>
 
       {restaurants.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-4xl) 0', color: 'var(--text-muted)' }}>
@@ -57,23 +69,31 @@ export default async function RestaurantDirectoryPage({ params }: { params: { lo
           <p style={{ margin: 0 }}>{t(dict, 'public.directory.noRestaurants')}</p>
         </div>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+        <ul
+          style={{
+            listStyle: 'none',
+            padding: 0,
+            margin: 0,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 'var(--space-md)',
+          }}
+        >
           {restaurants.map((restaurant) => (
             <li
               key={restaurant.id}
               style={{
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-lg)',
-                padding: 'var(--space-lg)',
+                padding: 'var(--space-xl)',
                 background: 'var(--surface)',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 'var(--space-lg)',
+                flexDirection: 'column',
+                gap: 'var(--space-md)',
               }}
             >
               <div>
-                <div style={{ fontWeight: 600, fontSize: 16 }}>{restaurant.name}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18, marginBottom: 6 }}>{restaurant.name}</div>
                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-xs) var(--space-sm)', color: 'var(--text-muted)', fontSize: 13 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <UtensilsIcon size={13} />
@@ -92,13 +112,15 @@ export default async function RestaurantDirectoryPage({ params }: { params: { lo
                 style={{
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: 6,
                   fontSize: 14,
                   fontWeight: 600,
                   color: 'var(--surface)',
                   background: 'var(--accent)',
                   borderRadius: 'var(--radius-full)',
-                  padding: '8px 16px',
+                  padding: '11px 16px',
+                  minHeight: 44,
                   textDecoration: 'none',
                   whiteSpace: 'nowrap',
                 }}

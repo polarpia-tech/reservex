@@ -38,7 +38,17 @@ export default function LocaleLayout({ children, params }: { children: ReactNode
       >
         <Link
           href={`/${locale}`}
-          style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontWeight: 700, fontSize: 18, textDecoration: 'none', color: 'var(--text-primary)' }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-sm)',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            fontSize: 19,
+            letterSpacing: '0.01em',
+            textDecoration: 'none',
+            color: 'var(--text-primary)',
+          }}
         >
           <LogoMark />
           {t(dict, 'common.appName')}

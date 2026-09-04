@@ -31,8 +31,18 @@ export function OpeningHoursList({
 
   return (
     <section>
-      <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 18, marginBottom: 'var(--space-sm)' }}>
-        <ClockIcon size={18} style={{ color: 'var(--text-muted)' }} />
+      <h2
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-sm)',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 600,
+          fontSize: 18,
+          margin: '0 0 var(--space-md)',
+        }}
+      >
+        <ClockIcon size={18} style={{ color: 'var(--accent)' }} />
         {t(dict, 'public.restaurant.openingHoursTitle')}
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

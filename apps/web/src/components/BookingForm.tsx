@@ -161,7 +161,7 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
   if (confirmedReservation) {
     return (
       <section style={{ border: '1px solid var(--success)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', background: 'var(--surface)' }}>
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', color: 'var(--success)', marginTop: 0 }}>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--success)', margin: 0 }}>
           <CheckCircleIcon />
           {t(dict, 'public.booking.confirmedTitle')}
         </h2>
@@ -217,7 +217,7 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
 
   return (
     <section style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', background: 'var(--surface)' }}>
-      <h2 style={{ marginTop: 0 }}>{t(dict, 'public.booking.title')}</h2>
+      <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginTop: 0 }}>{t(dict, 'public.booking.title')}</h2>
       <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: '-8px' }}>
         {isSignedIn ? interpolate(t(dict, 'public.booking.signedInNotice'), { name: profileName ?? guestEmail ?? '' }) : t(dict, 'public.booking.guestNotice')}
       </p>

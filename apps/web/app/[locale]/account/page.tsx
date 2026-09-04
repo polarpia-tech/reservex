@@ -171,8 +171,8 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: 'var(--space-2xl)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2xl)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: 24, margin: 0 }}>{t(dict, 'public.account.title')}</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, margin: 0 }}>{t(dict, 'public.account.title')}</h1>
         <button type="button" onClick={handleSignOut} style={secondaryButtonStyle}>
           {t(dict, 'public.account.signOut')}
         </button>
@@ -200,7 +200,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
       </form>
 
       <section>
-        <h2 style={{ fontSize: 18 }}>{t(dict, 'public.account.myReservationsTitle')}</h2>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>{t(dict, 'public.account.myReservationsTitle')}</h2>
         {reservationsLoaded && reservations.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-2xl) 0', color: 'var(--text-muted)' }}>
             <CalendarOffIcon size={32} style={{ opacity: 0.5 }} />
@@ -213,10 +213,10 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
               key={reservation.id}
               style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-lg)', background: 'var(--surface)' }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{reservation.restaurantName ?? 'â€”'}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15.5, marginBottom: 4 }}>{reservation.restaurantName ?? 'â€”'}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 6 }}>
                     {/* Shown in the VISITOR's own local time here (unlike the booking
                         confirmation screen, which deliberately uses the restaurant's
                         timezone) -- this list has no restaurant timezone to hand without
@@ -224,7 +224,10 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
                         served by their own clock anyway. */}
                     {new Date(reservation.startsAt).toLocaleString(locale)}
                   </div>
-                  <div style={{ fontSize: 13 }}>{t(dict, STATUS_KEY[reservation.status] ?? 'reservations.status.pending')} Â· {reservation.partySize}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+                    <StatusPill status={reservation.status} label={t(dict, STATUS_KEY[reservation.status] ?? 'reservations.status.pending')} />
+                    <span style={{ color: 'var(--text-muted)' }}>{reservation.partySize}</span>
+                  </div>
                 </div>
                 {CANCELLABLE_STATUSES.has(reservation.status) && (
                   <button type="button" onClick={() => handleCancel(reservation.id)} disabled={cancellingId === reservation.id} style={secondaryButtonStyle}>
@@ -238,7 +241,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
       </section>
 
       <section>
-        <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 18 }}>
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>
           <BellIcon size={17} style={{ color: 'var(--text-muted)' }} />
           {t(dict, 'public.account.notificationsTitle')}
         </h2>
@@ -275,6 +278,44 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
         </ul>
       </section>
     </div>
+  );
+}
+
+// Status -> visual tone for the reservation-card badge (StatusPill below).
+// pending/confirmed/seated/completed/cancelled/no_show are the full set of
+// reservation.status values this app models (see STATUS_KEY above) --
+// every one of them maps to something here, not just the two the design
+// mockup happened to show a screenshot of (pending, confirmed).
+const STATUS_TONE: Record<string, { fg: string; bg: string }> = {
+  pending: { fg: 'var(--warning)', bg: 'rgba(232, 163, 61, 0.15)' },
+  confirmed: { fg: 'var(--success)', bg: 'rgba(78, 156, 147, 0.15)' },
+  seated: { fg: 'var(--success)', bg: 'rgba(78, 156, 147, 0.15)' },
+  completed: { fg: 'var(--text-muted)', bg: 'var(--surface-elevated)' },
+  cancelled: { fg: 'var(--text-muted)', bg: 'var(--surface-elevated)' },
+  no_show: { fg: 'var(--danger)', bg: 'rgba(224, 102, 90, 0.15)' },
+};
+
+function StatusPill({ status, label }: { status: string; label: string }) {
+  const tone = STATUS_TONE[status] ?? STATUS_TONE.pending;
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '3px 10px 3px 8px',
+        borderRadius: 'var(--radius-full)',
+        background: tone.bg,
+        border: `1px solid ${tone.fg}`,
+        color: tone.fg,
+        fontSize: 11.5,
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: tone.fg, display: 'inline-block' }} />
+      {label}
+    </span>
   );
 }
 
