@@ -217,9 +217,31 @@ const KNOWN_ERROR_CODES: readonly string[] = [
   'DOUBLE_BOOKED',
 ];
 
-/** Pulls a known engine error code out of a raw Postgres error message, if there is one. Returns null for anything else (e.g. an RLS denial), so the caller can fall back to a generic error message rather than mis-labeling it. */
+/**
+ * Pulls a known engine error code out of a raw Postgres error message, if
+ * there is one. Returns null for anything else (e.g. an RLS denial), so the
+ * caller can fall back to a generic error message rather than mis-labeling
+ * it.
+ *
+ * Bug fixed here: this used to only check `error instanceof Error` (or a
+ * plain string), which never matched -- supabase-js's `.rpc()` error is a
+ * PLAIN OBJECT shaped like `{ message, details, hint, code }` (a
+ * PostgrestError-shaped object, not an actual `Error` instance), so
+ * `error instanceof Error` was always false and this silently fell through
+ * to the empty-string branch. Every book_reservation() failure (including
+ * NO_AVAILABILITY, DOUBLE_BOOKED, etc.) therefore always showed the generic
+ * "could not save" message instead of its real, specific one. Fixed by also
+ * accepting any object with a string `message` property.
+ */
 export function parseBookReservationErrorCode(error: unknown): BookReservationErrorCode | null {
-  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const message =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string'
+          ? (error as { message: string }).message
+          : '';
   const match = KNOWN_ERROR_CODES.find((code) => message.includes(code));
   return (match as BookReservationErrorCode | undefined) ?? null;
 }

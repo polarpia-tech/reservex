@@ -94,9 +94,27 @@ const PUBLIC_ERROR_CODES: readonly string[] = [
 
 export type PublicReservationErrorCode = BookPublicReservationErrorCode | 'RESTAURANT_NOT_FOUND' | 'NO_AVAILABILITY' | 'DOUBLE_BOOKED';
 
-/** Same pattern as parseBookReservationErrorCode() -- returns null for anything unrecognized (e.g. a network error) so the caller can fall back to a generic message. */
+/**
+ * Same pattern as parseBookReservationErrorCode() -- returns null for
+ * anything unrecognized (e.g. a network error) so the caller can fall back
+ * to a generic message.
+ *
+ * Same bug fixed here as in reservations.ts: this only checked
+ * `error instanceof Error` (or a plain string), which never matches --
+ * supabase-js's `.rpc()` error is a PLAIN OBJECT shaped like `{ message,
+ * details, hint, code }`, not an actual `Error` instance, so this always
+ * fell through to the empty-string branch and every specific error code
+ * silently became the generic message.
+ */
 export function parsePublicReservationErrorCode(error: unknown): PublicReservationErrorCode | null {
-  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const message =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string'
+          ? (error as { message: string }).message
+          : '';
   const match = PUBLIC_ERROR_CODES.find((code) => message.includes(code));
   return (match as PublicReservationErrorCode | undefined) ?? null;
 }
