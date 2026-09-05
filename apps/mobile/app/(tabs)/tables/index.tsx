@@ -142,7 +142,7 @@ function TableRow({
             <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{table.label}</Text>
             {table.isVip ? <Ionicons name="star" color={theme.accent} size={14} /> : null}
             <Text style={{ color: theme.textMuted }}>
-              {table.capacityMin}â€“{table.capacityMax} {t('tables.capacity').toLowerCase()}
+              {table.capacityMin}–{table.capacityMax} {t('tables.capacity').toLowerCase()}
             </Text>
           </View>
           <StatusPill status={table.status} label={t(`tables.status.${table.status}`)} />

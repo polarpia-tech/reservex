@@ -25,7 +25,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'ReservX',
     short_name: 'ReservX',
-    description: 'AI-first restaurant, cafÃ©, bar & venue reservations.',
+    description: 'AI-first restaurant, café, bar & venue reservations.',
     start_url: '/',
     display: 'standalone',
     // Matches app/theme-editorial.css's --background/--accent -- the site

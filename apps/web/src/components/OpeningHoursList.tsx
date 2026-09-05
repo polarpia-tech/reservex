@@ -54,7 +54,7 @@ export function OpeningHoursList({
               <span>
                 {shifts.length === 0
                   ? t(dict, 'public.restaurant.closedAllDay')
-                  : shifts.map((s) => `${truncateToHm(s.opensAt)}â€“${truncateToHm(s.closesAt)}`).join(', ')}
+                  : shifts.map((s) => `${truncateToHm(s.opensAt)}–${truncateToHm(s.closesAt)}`).join(', ')}
               </span>
             </div>
           );
@@ -66,9 +66,9 @@ export function OpeningHoursList({
             <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--warning)' }}>
               <span>
                 {s.date}
-                {s.reason ? ` â€” ${s.reason}` : ''}
+                {s.reason ? ` — ${s.reason}` : ''}
               </span>
-              <span>{s.isClosed ? t(dict, 'public.restaurant.closedAllDay') : s.opensAt && s.closesAt ? `${truncateToHm(s.opensAt)}â€“${truncateToHm(s.closesAt)}` : ''}</span>
+              <span>{s.isClosed ? t(dict, 'public.restaurant.closedAllDay') : s.opensAt && s.closesAt ? `${truncateToHm(s.opensAt)}–${truncateToHm(s.closesAt)}` : ''}</span>
             </div>
           ))}
         </div>

@@ -189,7 +189,7 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
         ) : null}
         {depositPaid ? (
           <p style={{ color: 'var(--success)', marginTop: 'var(--space-lg)' }}>
-            <strong>{t(dict, 'public.booking.deposit.paidTitle')}</strong> â€” {t(dict, 'public.booking.deposit.paidBody')}
+            <strong>{t(dict, 'public.booking.deposit.paidTitle')}</strong> — {t(dict, 'public.booking.deposit.paidBody')}
           </p>
         ) : null}
         {depositQuote && !depositIntent && !depositPaid ? (

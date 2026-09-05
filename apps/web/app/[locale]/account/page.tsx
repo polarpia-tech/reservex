@@ -215,7 +215,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
                 <div>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15.5, marginBottom: 4 }}>{reservation.restaurantName ?? 'â€”'}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15.5, marginBottom: 4 }}>{reservation.restaurantName ?? '—'}</div>
                   <div style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 6 }}>
                     {/* Shown in the VISITOR's own local time here (unlike the booking
                         confirmation screen, which deliberately uses the restaurant's
