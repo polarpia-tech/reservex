@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { mapRestaurantRow, type RestaurantRow } from './restaurants';
-import type { ISODateTime, Reservation, ReservationSource, ReservationStatus, Restaurant } from '../types/database';
+import type { ISODate, ISODateTime, Reservation, ReservationSource, ReservationStatus, Restaurant } from '../types/database';
 
 // ---------------------------------------------------------------------------
 // The anonymous/customer-facing side of Phase 08: browsing a restaurant's
@@ -205,4 +205,90 @@ export async function bookPublicReservation(client: SupabaseClient, input: BookP
   // serves it as a single JSON object.
   if (error) throw error;
   return mapReservationRowLite(data as unknown as ReservationRowLite);
+}
+
+// ---------------------------------------------------------------------------
+// get_public_availability_summary() wrapper -- Phase 1 ("DB/RPC foundation")
+// of the Live Availability upgrade, migration 0023. Anon-callable, returns
+// ONLY aggregated counts/booleans per bookable time slot -- no table id, no
+// guest data, nothing that identifies any individual booking. See that
+// migration's header comment for the full reasoning (privacy + no-fake-
+// scarcity by construction) and its one documented limitation (a shift that
+// crosses midnight produces no slots yet).
+//
+// Deliberately NOT wired into any screen yet -- this is foundation only, so
+// existing behaviour is completely unchanged until a later phase actually
+// calls this from the web app's restaurant page.
+// ---------------------------------------------------------------------------
+export interface PublicAvailabilitySlot {
+  slotStartsAt: ISODateTime;
+  slotEndsAt: ISODateTime;
+  availableTableCount: number;
+  hasCombinableOption: boolean;
+}
+
+interface PublicAvailabilitySlotRow {
+  slot_starts_at: string;
+  slot_ends_at: string;
+  available_table_count: number;
+  has_combinable_option: boolean;
+}
+
+function mapPublicAvailabilitySlotRow(row: PublicAvailabilitySlotRow): PublicAvailabilitySlot {
+  return {
+    slotStartsAt: row.slot_starts_at,
+    slotEndsAt: row.slot_ends_at,
+    availableTableCount: row.available_table_count,
+    hasCombinableOption: row.has_combinable_option,
+  };
+}
+
+export interface FetchPublicAvailabilitySummaryInput {
+  restaurantSlug: string;
+  date: ISODate;
+  partySize?: number;
+  intervalMinutes?: number;
+}
+
+/** The error codes get_public_availability_summary() can raise (see migration 0023). */
+export type PublicAvailabilitySummaryErrorCode = 'RESTAURANT_NOT_FOUND' | 'PARTY_SIZE_OUT_OF_RANGE' | 'INVALID_ARGUMENTS';
+
+const PUBLIC_AVAILABILITY_ERROR_CODES: readonly PublicAvailabilitySummaryErrorCode[] = [
+  'RESTAURANT_NOT_FOUND',
+  'PARTY_SIZE_OUT_OF_RANGE',
+  'INVALID_ARGUMENTS',
+];
+
+/** Same pattern as parsePublicReservationErrorCode() -- returns null for anything unrecognized. */
+export function parsePublicAvailabilitySummaryErrorCode(error: unknown): PublicAvailabilitySummaryErrorCode | null {
+  const message =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string'
+          ? (error as { message: string }).message
+          : '';
+  return PUBLIC_AVAILABILITY_ERROR_CODES.find((code) => message.includes(code)) ?? null;
+}
+
+/**
+ * Empty array means "closed that day" (no opening_hours/special_hours shift
+ * covers it) -- not an error, and indistinguishable on purpose from a day
+ * with a shift so short no slot fits, same "don't leak more than the
+ * customer needs" spirit as fetchPublicRestaurant()'s not-found handling
+ * above.
+ */
+export async function fetchPublicAvailabilitySummary(
+  client: SupabaseClient,
+  input: FetchPublicAvailabilitySummaryInput,
+): Promise<PublicAvailabilitySlot[]> {
+  const { data, error } = await client.rpc('get_public_availability_summary', {
+    p_restaurant_slug: input.restaurantSlug,
+    p_date: input.date,
+    p_party_size: input.partySize ?? 2,
+    p_interval_minutes: input.intervalMinutes ?? 30,
+  });
+  if (error) throw error;
+  return (data as unknown as PublicAvailabilitySlotRow[]).map(mapPublicAvailabilitySlotRow);
 }
