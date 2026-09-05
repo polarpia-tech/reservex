@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { ScreenHeaderTitle } from '@/components/ScreenHeaderTitle';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export default function TabsLayout() {
@@ -47,6 +48,7 @@ export default function TabsLayout() {
         name="ai"
         options={{
           title: t('nav.ai'),
+          headerTitle: () => <ScreenHeaderTitle title={t('nav.ai')} />,
           tabBarIcon: ({ color, size }) => <Ionicons name="sparkles-outline" color={color} size={size} />,
         }}
       />

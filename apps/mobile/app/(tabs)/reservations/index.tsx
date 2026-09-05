@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ScreenHeaderTitle } from '@/components/ScreenHeaderTitle';
 import { AnimatedListItem } from '@/components/ui/AnimatedListItem';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -63,6 +64,7 @@ export default function ReservationsScreen() {
       <Stack.Screen
         options={{
           title: t('reservations.title'),
+          headerTitle: () => <ScreenHeaderTitle title={t('reservations.title')} />,
           headerRight: () => (
             <View style={styles.headerActions}>
               <Link href="/(tabs)/reservations/waitlist" asChild>

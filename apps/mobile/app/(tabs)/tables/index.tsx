@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { ScreenHeaderTitle } from '@/components/ScreenHeaderTitle';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusPill } from '@/components/ui/StatusPill';
@@ -64,6 +65,7 @@ export default function FloorViewScreen() {
       <Stack.Screen
         options={{
           title: t('tables.title'),
+          headerTitle: () => <ScreenHeaderTitle title={t('tables.title')} />,
           headerRight: isOwnerOrManager
             ? () => (
                 <Link href="/(tabs)/tables/manage" asChild>

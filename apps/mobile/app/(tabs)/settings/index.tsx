@@ -5,6 +5,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { ScreenHeaderTitle } from '@/components/ScreenHeaderTitle';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useMyRestaurant } from '@/hooks/useMyRestaurant';
@@ -32,7 +33,12 @@ export default function SettingsHubScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t('nav.settings') }} />
+      <Stack.Screen
+        options={{
+          title: t('nav.settings'),
+          headerTitle: () => <ScreenHeaderTitle title={t('nav.settings')} />,
+        }}
+      />
       <ScrollView style={{ backgroundColor: theme.background }} contentContainerStyle={styles.content}>
       <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>{t('settings.profile')}</Text>
       <Card style={{ gap: spacing.sm }}>
