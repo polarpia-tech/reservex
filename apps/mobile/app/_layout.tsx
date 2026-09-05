@@ -10,9 +10,10 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
 
+import { SplashIntro } from '@/components/SplashIntro';
 import { useMyRestaurants } from '@/hooks/useMyRestaurants';
 import { i18n } from '@/i18n';
 import { rootModeScreenOptions } from '@/navigation/screenTransitions';
@@ -21,13 +22,13 @@ import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
-// Keep the native splash screen up until fonts are ready. This is the
-// FULL extent of the "premium opening experience" for the MVP: a static,
-// on-brand splash with no JS work blocking it, per the blueprint's explicit
-// call to never trade startup performance for a flashy animation. A richer
-// animated sequence (Part "Splash Screen" of the original brief) is a
-// Phase-08-or-later polish item, once there is a real screen worth
-// transitioning INTO.
+// Keep the native splash screen up until fonts are ready -- still true, and
+// still with no JS work blocking it, per the blueprint's explicit call to
+// never trade startup performance for a flashy animation. The richer
+// animated sequence from the original brief is <SplashIntro> below: it
+// takes over the INSTANT this native splash hides (same background color,
+// no gap), and is a pure visual overlay on top of the real screen, which
+// keeps resolving its own data underneath the whole time.
 void SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
@@ -49,6 +50,8 @@ function RootNavigator() {
     isResolving,
   });
 
+  const [introDone, setIntroDone] = useState(false);
+
   return (
     <>
       <StatusBar style="light" />
@@ -63,6 +66,14 @@ function RootNavigator() {
         <Stack.Screen name="(onboarding)" options={{ headerShown: false, ...rootModeScreenOptions }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false, ...rootModeScreenOptions }} />
       </Stack>
+      {/*
+        Rendered on top of the Stack above, not instead of it -- the real
+        navigator (and useProtectedRoute's redirect above) keeps resolving
+        underneath the whole time this is visible. See SplashIntro.tsx for
+        why that matters and how the "first launch vs every launch after"
+        behavior works.
+      */}
+      {!introDone ? <SplashIntro onFinish={() => setIntroDone(true)} /> : null}
     </>
   );
 }
