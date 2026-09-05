@@ -1,4 +1,4 @@
-﻿import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { ISODate, ISODateTime, UUID, WaitlistEntry, WaitlistStatus } from '../types/database';
 import { bookReservation, type BookReservationInput } from './reservations';
@@ -29,7 +29,50 @@ interface WaitlistEntryRow {
 function parseTstzRange(raw: string): { from: ISODateTime; to: ISODateTime } {
   const match = /^[[(]"?([^",]+)"?,"?([^",)\]]+)"?[)\]]$/.exec(raw.trim());
   if (!match) throw new Error(`Could not parse tstzrange: ${raw}`);
-  return { from: new Date(match[1]!).toISOString(), to: new Date(match[2]!).toISOString() };
+  // noUncheckedIndexedAccess (tsconfig.base.json) types match[1]/match[2] as
+  // `string | undefined` on every index access, even here where `match` was
+  // just confirmed non-null: the regex above has exactly two (non-optional)
+  // capture groups, so whenever the overall match succeeds both are always
+  // real strings -- the `!` asserts that guarantee to the type checker.
+  return { from: parsePostgresTimestamp(match[1]!), to: parsePostgresTimestamp(match[2]!) };
+}
+
+/**
+ * Confirmed via a temporary diagnostic against the real backend: Postgres
+ * sends each timestamp inside the range as e.g. "2026-09-05 17:00:00+00" --
+ * a space-separated date/time with a bare, colon-less UTC offset. Passing
+ * that string straight to `new Date(...)` (the previous implementation)
+ * works in V8 (Node, Chrome), which leniently accepts this legacy format as
+ * a non-standard extension -- but Hermes, the JS engine this app actually
+ * runs on in production, does not, and throws "Date value out of bounds".
+ *
+ * This parses the string by hand into its numeric parts and builds the
+ * instant with `Date.UTC(...)`, which every JS engine (including Hermes)
+ * implements identically per spec -- no reliance on any engine's string
+ * parser, lenient or otherwise. Handles a fractional-seconds component and
+ * both colon-less ("+00") and full ("+05:30") offsets, since Postgres can
+ * emit either depending on the session's configured timezone.
+ */
+function parsePostgresTimestamp(raw: string): ISODateTime {
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?([+-]\d{2})(?::?(\d{2}))?$/.exec(
+    raw.trim(),
+  );
+  if (!match) throw new Error(`Could not parse Postgres timestamp: ${raw}`);
+  const [, year, month, day, hour, minute, second, fraction, offsetHours, offsetMinutes] = match;
+  const milliseconds = fraction ? Math.round(Number(`0.${fraction}`) * 1000) : 0;
+  const utcMillis = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+    milliseconds,
+  );
+  const offsetHoursNum = Number(offsetHours);
+  const offsetMinutesNum = Number(offsetMinutes ?? 0);
+  const totalOffsetMinutes = offsetHoursNum * 60 + (offsetHoursNum < 0 ? -offsetMinutesNum : offsetMinutesNum);
+  return new Date(utcMillis - totalOffsetMinutes * 60_000).toISOString();
 }
 
 function toTstzRangeLiteral(from: ISODateTime, to: ISODateTime): string {

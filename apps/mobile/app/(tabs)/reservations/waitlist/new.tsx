@@ -66,12 +66,33 @@ export default function NewWaitlistEntryScreen() {
       await queryClient.invalidateQueries({ queryKey: ['waitlist', restaurantId] });
       router.back();
     },
+    // This screen previously had NO onError at all: a failed save (of any
+    // kind -- not just the invalid-time-range case below) silently did
+    // nothing, which is exactly the bug report that led here. The database
+    // only rejects genuinely malformed input at this point (RLS already
+    // covers permissions the same way as every other write in this app),
+    // so there's no specific error code worth parsing out -- one generic,
+    // translated message is the honest, correct fix.
+    onError: () => setValidationError(t('waitlist.errors.generic')),
   });
 
   function handleSubmit() {
     setValidationError(null);
     if (!DATE_PATTERN.test(date) || !TIME_PATTERN.test(fromTime) || !TIME_PATTERN.test(toTime)) {
       setValidationError(t('common.error'));
+      return;
+    }
+    // Catches, before ever reaching the server, exactly the failure this
+    // screen was reported for: requested "from" >= "to" makes an empty or
+    // backwards time range, which Postgres's tstzrange type rejects
+    // outright (error 22000, "range lower bound must be less than or equal
+    // to range upper bound") -- confirmed via a temporary diagnostic log
+    // against the real backend before this fix was written. Checking it
+    // here means the host sees an immediate, specific, in-place message
+    // instead of a round trip to the server for something we can already
+    // tell is wrong.
+    if (toInstant(date, fromTime).getTime() >= toInstant(date, toTime).getTime()) {
+      setValidationError(t('waitlist.errors.invalidTimeRange'));
       return;
     }
     mutation.mutate();
