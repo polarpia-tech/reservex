@@ -11,6 +11,7 @@
     "retry": "Try again",
     "yes": "Yes",
     "no": "No",
+    "done": "Done",
     "comingSoon": "This screen will be built in a later phase."
   },
   "nav": {
@@ -110,6 +111,7 @@
     "shiftLabelPlaceholder": "e.g. lunch, dinner",
     "saveButton": "Save weekly hours",
     "saved": "Weekly hours updated.",
+    "invalidTimeFormat": "Time must be in 24-hour HH:MM format (e.g. 08:00 or 23:00).",
     "specialTitle": "Exceptions & special dates",
     "specialSubtitle": "Holidays, private buyouts, or reduced hours for one specific date.",
     "addException": "Add exception",
@@ -172,6 +174,10 @@
     "guestName": "Guest name",
     "specialRequests": "Special requests",
     "confirmBooking": "Confirm booking",
+    "success": {
+      "title": "Reservation confirmed!",
+      "restaurant": "Restaurant"
+    },
     "status": {
       "pending": "Pending",
       "confirmed": "Confirmed",

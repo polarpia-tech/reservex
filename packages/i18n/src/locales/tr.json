@@ -11,6 +11,7 @@
     "retry": "Tekrar dene",
     "yes": "Evet",
     "no": "Hayır",
+    "done": "Tamam",
     "comingSoon": "Bu ekran ileriki bir aşamada geliştirilecek."
   },
   "nav": {
@@ -110,6 +111,7 @@
     "shiftLabelPlaceholder": "ör. öğle, akşam",
     "saveButton": "Haftalık saatleri kaydet",
     "saved": "Haftalık saatler güncellendi.",
+    "invalidTimeFormat": "Saat 24 saatlik SS:DD biçiminde olmalıdır (örn. 08:00 veya 23:00).",
     "specialTitle": "İstisnalar ve özel tarihler",
     "specialSubtitle": "Belirli bir tarih için tatiller, özel etkinlikler veya kısaltılmış saatler.",
     "addException": "İstisna ekle",
@@ -172,6 +174,10 @@
     "guestName": "Misafir adı",
     "specialRequests": "Özel istekler",
     "confirmBooking": "Rezervasyonu onayla",
+    "success": {
+      "title": "Rezervasyon onaylandı!",
+      "restaurant": "Restoran"
+    },
     "status": {
       "pending": "Beklemede",
       "confirmed": "Onaylandı",

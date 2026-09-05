@@ -11,6 +11,7 @@
     "retry": "Erneut versuchen",
     "yes": "Ja",
     "no": "Nein",
+    "done": "Fertig",
     "comingSoon": "Dieser Bildschirm wird in einer späteren Phase entwickelt."
   },
   "nav": {
@@ -110,6 +111,7 @@
     "shiftLabelPlaceholder": "z. B. Mittagessen, Abendessen",
     "saveButton": "Wochenplan speichern",
     "saved": "Wochenplan aktualisiert.",
+    "invalidTimeFormat": "Die Uhrzeit muss im 24-Stunden-Format HH:MM sein (z. B. 08:00 oder 23:00).",
     "specialTitle": "Ausnahmen & besondere Termine",
     "specialSubtitle": "Feiertage, private Veranstaltungen oder verkürzte Öffnungszeiten an einem bestimmten Tag.",
     "addException": "Ausnahme hinzufügen",
@@ -172,6 +174,10 @@
     "guestName": "Gastname",
     "specialRequests": "Besondere Wünsche",
     "confirmBooking": "Reservierung bestätigen",
+    "success": {
+      "title": "Reservierung bestätigt!",
+      "restaurant": "Restaurant"
+    },
     "status": {
       "pending": "Ausstehend",
       "confirmed": "Bestätigt",

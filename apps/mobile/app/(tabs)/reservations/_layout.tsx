@@ -21,6 +21,17 @@ export default function ReservationsLayout() {
         headerTintColor: theme.textPrimary,
         contentStyle: { backgroundColor: theme.background },
       }}
-    />
+    >
+      {/*
+        Every other screen in this folder (index, new, [id], waitlist, ...)
+        still auto-registers from the filesystem exactly as before -- Expo
+        Router lets a Stack.Screen here override just ONE named route while
+        leaving the rest on the screenOptions above. "success" needs its own
+        override because it should present as a modal (a distinct confirmation
+        moment, not another page in the push stack) rather than the default
+        push-from-the-side transition every other screen here uses.
+      */}
+      <Stack.Screen name="success" options={{ presentation: 'modal', headerShown: false }} />
+    </Stack>
   );
 }

@@ -125,7 +125,19 @@ export default function NewReservationScreen() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['reservations', restaurantId] });
-      router.back();
+      // replace, not push: the success screen takes this form's place in the
+      // stack, so dismissing it goes straight back to the day agenda instead
+      // of back through the now-stale form.
+      router.replace({
+        pathname: '/(tabs)/reservations/success',
+        params: {
+          restaurantName: restaurant?.name ?? '',
+          date,
+          time,
+          partySize,
+          guestName: guestName.trim(),
+        },
+      });
     },
     onError: (err) => setFormError(t(`reservations.errors.${parseBookReservationErrorCode(err) ?? 'generic'}`)),
   });
