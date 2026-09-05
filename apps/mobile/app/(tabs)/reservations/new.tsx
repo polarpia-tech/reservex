@@ -233,7 +233,13 @@ export default function NewReservationScreen() {
 
           {formError ? <Text style={[styles.errorText, { color: theme.danger }]}>{formError}</Text> : null}
 
-          <Button label={t('reservations.confirmBooking')} onPress={() => bookMutation.mutate()} loading={bookMutation.isPending} disabled={!canSubmit} />
+          <Button
+            label={t('reservations.confirmBooking')}
+            onPress={() => bookMutation.mutate()}
+            loading={bookMutation.isPending}
+            disabled={!canSubmit}
+            breathing
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </>
