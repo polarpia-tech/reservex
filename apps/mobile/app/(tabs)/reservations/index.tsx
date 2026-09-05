@@ -7,7 +7,9 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AnimatedListItem } from '@/components/ui/AnimatedListItem';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { useMyRestaurant } from '@/hooks/useMyRestaurant';
 import { supabase } from '@/services/supabase';
@@ -91,37 +93,56 @@ export default function ReservationsScreen() {
           </Pressable>
         </View>
 
-        <FlatList
-          data={reservationsQuery.data ?? []}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={!reservationsQuery.isLoading ? <EmptyState icon="calendar-outline" label={t('reservations.noReservations')} /> : null}
-          renderItem={({ item }) => {
-            const time = new Date(item.startsAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
-            const tableLabel =
-              item.tables.length === 0
-                ? t('reservations.noTablesAssigned')
-                : item.tables.length === 1
-                  ? item.tables[0].label
-                  : `${t('reservations.combination')}: ${item.tables.map((tt) => tt.label).join(' + ')}`;
-            return (
-              <Pressable accessibilityRole="button" onPress={() => router.push(`/(tabs)/reservations/${item.id}`)}>
-                <View style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <View style={styles.timeCol}>
-                    <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{time}</Text>
-                  </View>
-                  <View style={styles.infoCol}>
-                    <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{item.guestName ?? t('reservations.guestName')}</Text>
-                    <Text style={{ color: theme.textMuted, marginTop: 2 }}>
-                      {t('reservations.partySize')}: {item.partySize} {'\u00B7'} {tableLabel}
-                    </Text>
-                  </View>
-                  <StatusPill status={item.status} label={t(`reservations.status.${item.status}`)} />
+        {reservationsQuery.isLoading ? (
+          <View style={styles.listContent}>
+            {[0, 1, 2, 3].map((i) => (
+              <View key={i} style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={styles.timeCol}>
+                  <Skeleton width={40} height={14} />
                 </View>
-              </Pressable>
-            );
-          }}
-        />
+                <View style={[styles.infoCol, styles.skeletonInfoCol]}>
+                  <Skeleton width="55%" height={14} />
+                  <Skeleton width="75%" height={12} />
+                </View>
+                <Skeleton width={64} height={22} borderRadius={radii.full} />
+              </View>
+            ))}
+          </View>
+        ) : (
+          <FlatList
+            data={reservationsQuery.data ?? []}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={<EmptyState icon="calendar-outline" label={t('reservations.noReservations')} />}
+            renderItem={({ item, index }) => {
+              const time = new Date(item.startsAt).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
+              const tableLabel =
+                item.tables.length === 0
+                  ? t('reservations.noTablesAssigned')
+                  : item.tables.length === 1
+                    ? item.tables[0].label
+                    : `${t('reservations.combination')}: ${item.tables.map((tt) => tt.label).join(' + ')}`;
+              return (
+                <AnimatedListItem index={index}>
+                  <Pressable accessibilityRole="button" onPress={() => router.push(`/(tabs)/reservations/${item.id}`)}>
+                    <View style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                      <View style={styles.timeCol}>
+                        <Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{time}</Text>
+                      </View>
+                      <View style={styles.infoCol}>
+                        <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{item.guestName ?? t('reservations.guestName')}</Text>
+                        <Text style={{ color: theme.textMuted, marginTop: 2 }}>
+                          {t('reservations.partySize')}: {item.partySize} {'\u00B7'} {tableLabel}
+                        </Text>
+                      </View>
+                      <StatusPill status={item.status} label={t(`reservations.status.${item.status}`)} />
+                    </View>
+                  </Pressable>
+                </AnimatedListItem>
+              );
+            }}
+          />
+        )}
       </View>
     </>
   );
@@ -151,4 +172,5 @@ const styles = StyleSheet.create({
   },
   timeCol: { width: 56 },
   infoCol: { flex: 1 },
+  skeletonInfoCol: { gap: spacing.xs },
 });

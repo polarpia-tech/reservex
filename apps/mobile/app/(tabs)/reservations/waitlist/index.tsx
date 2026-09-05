@@ -6,7 +6,9 @@ import { Link, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AnimatedListItem } from '@/components/ui/AnimatedListItem';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { StatusPill } from '@/components/ui/StatusPill';
 import { useMyRestaurant } from '@/hooks/useMyRestaurant';
 import { supabase } from '@/services/supabase';
@@ -46,30 +48,46 @@ export default function WaitlistScreen() {
           ),
         }}
       />
-      <FlatList
-        style={{ backgroundColor: theme.background }}
-        data={waitlistQuery.data ?? []}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.content}
-        ListEmptyComponent={!waitlistQuery.isLoading ? <EmptyState icon="hourglass-outline" label={t('waitlist.noEntries')} /> : null}
-        renderItem={({ item }) => {
-          const from = new Date(item.requestedFrom).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
-          const to = new Date(item.requestedTo).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
-          return (
-            <Pressable accessibilityRole="button" onPress={() => router.push(`/(tabs)/reservations/waitlist/${item.id}`)}>
-              <View style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{item.guestName ?? t('waitlist.guestName')}</Text>
-                  <Text style={{ color: theme.textMuted, marginTop: 2 }}>
-                    {item.requestedDate} Â· {from}â€“{to} Â· {t('reservations.partySize')}: {item.partySize}
-                  </Text>
-                </View>
-                <StatusPill status={item.status} label={t(`waitlist.status.${item.status}`)} />
+      {waitlistQuery.isLoading ? (
+        <View style={[styles.content, { backgroundColor: theme.background }]}>
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.skeletonInfo}>
+                <Skeleton width="50%" height={14} />
+                <Skeleton width="80%" height={12} />
               </View>
-            </Pressable>
-          );
-        }}
-      />
+              <Skeleton width={64} height={22} borderRadius={radii.full} />
+            </View>
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          style={{ backgroundColor: theme.background }}
+          data={waitlistQuery.data ?? []}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.content}
+          ListEmptyComponent={<EmptyState icon="hourglass-outline" label={t('waitlist.noEntries')} />}
+          renderItem={({ item, index }) => {
+            const from = new Date(item.requestedFrom).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
+            const to = new Date(item.requestedTo).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
+            return (
+              <AnimatedListItem index={index}>
+                <Pressable accessibilityRole="button" onPress={() => router.push(`/(tabs)/reservations/waitlist/${item.id}`)}>
+                  <View style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{item.guestName ?? t('waitlist.guestName')}</Text>
+                      <Text style={{ color: theme.textMuted, marginTop: 2 }}>
+                        {item.requestedDate} · {from}–{to} · {t('reservations.partySize')}: {item.partySize}
+                      </Text>
+                    </View>
+                    <StatusPill status={item.status} label={t(`waitlist.status.${item.status}`)} />
+                  </View>
+                </Pressable>
+              </AnimatedListItem>
+            );
+          }}
+        />
+      )}
     </>
   );
 }
@@ -77,4 +95,5 @@ export default function WaitlistScreen() {
 const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing['4xl'] },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radii.lg, borderWidth: StyleSheet.hairlineWidth },
+  skeletonInfo: { flex: 1, gap: spacing.xs },
 });
