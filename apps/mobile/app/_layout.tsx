@@ -15,6 +15,7 @@ import { I18nextProvider } from 'react-i18next';
 
 import { useMyRestaurants } from '@/hooks/useMyRestaurants';
 import { i18n } from '@/i18n';
+import { rootModeScreenOptions } from '@/navigation/screenTransitions';
 import { useProtectedRoute } from '@/navigation/useProtectedRoute';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { QueryProvider } from '@/providers/QueryProvider';
@@ -58,9 +59,9 @@ function RootNavigator() {
           contentStyle: { backgroundColor: theme.background },
         }}
       >
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false, ...rootModeScreenOptions }} />
+        <Stack.Screen name="(onboarding)" options={{ headerShown: false, ...rootModeScreenOptions }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, ...rootModeScreenOptions }} />
       </Stack>
     </>
   );

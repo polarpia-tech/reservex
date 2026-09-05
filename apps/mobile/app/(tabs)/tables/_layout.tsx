@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 
+import { pushScreenOptions } from '@/navigation/screenTransitions';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
@@ -16,6 +17,7 @@ export default function TablesStackLayout() {
         headerStyle: { backgroundColor: theme.background },
         headerTintColor: theme.textPrimary,
         contentStyle: { backgroundColor: theme.background },
+        ...pushScreenOptions,
       }}
     />
   );

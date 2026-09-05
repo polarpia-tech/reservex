@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 
+import { modalScreenOptions, pushScreenOptions } from '@/navigation/screenTransitions';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
@@ -20,6 +21,7 @@ export default function ReservationsLayout() {
         headerStyle: { backgroundColor: theme.background },
         headerTintColor: theme.textPrimary,
         contentStyle: { backgroundColor: theme.background },
+        ...pushScreenOptions,
       }}
     >
       {/*
@@ -31,7 +33,7 @@ export default function ReservationsLayout() {
         moment, not another page in the push stack) rather than the default
         push-from-the-side transition every other screen here uses.
       */}
-      <Stack.Screen name="success" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="success" options={{ headerShown: false, ...modalScreenOptions }} />
     </Stack>
   );
 }
