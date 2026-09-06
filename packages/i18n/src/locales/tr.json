@@ -366,7 +366,8 @@
     "convertTitle": "Bu bekleme listesi kaydını rezerve et",
     "saved": "Kaydedildi.",
     "errors": {
-      "generic": "Bu bekleme listesi kaydı kaydedilemedi."
+      "generic": "Bu bekleme listesi kaydı kaydedilemedi.",
+      "invalidTimeRange": "Bitiş saati başlangıç saatinden sonra olmalıdır."
     }
   },
   "public": {
@@ -407,6 +408,16 @@
       "confirmedPartySize": "Kişi sayısı",
       "confirmedReference": "Rezervasyon kodu",
       "bookAnother": "Başka bir masa ayırt",
+      "liveAvailability": {
+        "title": "Uygunluk",
+        "loading": "Uygunluk kontrol ediliyor…",
+        "closed": "Bu tarihte kapalı.",
+        "hint": "Otomatik doldurmak için bir saat seçin.",
+        "tableAvailableOne": "{{count}} masa uygun",
+        "tablesAvailableOther": "{{count}} masa uygun",
+        "availableCombinable": "Uygun (birleştirilmiş masalar)",
+        "none": "Uygunluk yok"
+      },
       "errors": {
         "PARTY_SIZE_OUT_OF_RANGE": "Bu restoran {{min}}–{{max}} kişilik grupları kabul ediyor.",
         "OUTSIDE_BOOKING_WINDOW": "Bu restoran yalnızca izin verilen rezervasyon zaman aralığında online rezervasyon kabul ediyor.",

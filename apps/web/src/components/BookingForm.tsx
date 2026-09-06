@@ -5,9 +5,11 @@ import {
   createDepositPaymentIntent,
   ensureMyCustomerProfile,
   fetchMyCustomerProfile,
+  fetchPublicAvailabilitySummary,
   parsePublicReservationErrorCode,
   quoteDepositAmount,
   type DepositQuote,
+  type PublicAvailabilitySlot,
   type Reservation,
 } from '@reservex/core';
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
@@ -16,7 +18,7 @@ import { DepositPaymentStep } from '@/components/DepositPaymentStep';
 import { CalendarIcon, CheckCircleIcon, ClockIcon, PhoneIcon, UsersIcon } from '@/components/icons';
 import { getDictionary, interpolate, t, type SupportedLocale } from '@/lib/dictionary';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
-import { formatDateTimeInTimeZone, zonedTimeToUtc } from '@/lib/timezone';
+import { formatDateTimeInTimeZone, formatTimeInTimeZone, zonedTimeToUtc } from '@/lib/timezone';
 
 interface BookingRestaurant {
   id: string;
@@ -42,7 +44,20 @@ interface BookingRestaurant {
  * does not let a guest read their own booking back afterward. This is the
  * ONE chance to show them their booking details.
  */
-export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; restaurant: BookingRestaurant }) {
+export function BookingForm({
+  locale,
+  restaurant,
+  // Optional, defaulting to off: the booking widget page (widget/[locale]/
+  // [slug]) also renders this same form and doesn't check the flag itself
+  // yet -- an omitted prop must mean "behave exactly as before this feature
+  // existed", never a type error at every other call site every time a new
+  // opt-in capability like this one is added.
+  liveAvailabilityEnabled = false,
+}: {
+  locale: SupportedLocale;
+  restaurant: BookingRestaurant;
+  liveAvailabilityEnabled?: boolean;
+}) {
   const dict = getDictionary(locale);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -70,6 +85,16 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
   const [depositPaid, setDepositPaid] = useState(false);
   const [depositSkipped, setDepositSkipped] = useState(false);
 
+  // Phase 2 of the Live Availability upgrade (migration 0023/0024). `null`
+  // means "haven't fetched yet" (or the flag is off, or no date is picked)
+  // -- distinct from `[]`, which means "fetched, and the restaurant is
+  // simply closed that day" (get_public_availability_summary's own
+  // documented empty-result convention). Only ever populated when
+  // liveAvailabilityEnabled is true, so this whole feature is inert for
+  // every restaurant that hasn't opted in.
+  const [availabilitySlots, setAvailabilitySlots] = useState<PublicAvailabilitySlot[] | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
   useEffect(() => {
     const client = getSupabaseBrowserClient();
     void client.auth.getUser().then(async ({ data }) => {
@@ -96,6 +121,42 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
       cancelled = true;
     };
   }, [restaurant.id, partySize]);
+
+  // Debounced (350ms) so typing a two-digit party size or dragging the date
+  // picker doesn't fire a request per keystroke -- same "don't hammer the
+  // backend on every render" spirit as the Phase 42 spec's performance
+  // section (§38). A stale response from a superseded date/partySize is
+  // dropped via the `cancelled` flag, never rendered.
+  useEffect(() => {
+    if (!liveAvailabilityEnabled || !date || partySize <= 0) {
+      setAvailabilitySlots(null);
+      setAvailabilityLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setAvailabilityLoading(true);
+    const client = getSupabaseBrowserClient();
+    const timer = setTimeout(() => {
+      void fetchPublicAvailabilitySummary(client, { restaurantSlug: restaurant.slug, date, partySize })
+        .then((slots) => {
+          if (!cancelled) setAvailabilitySlots(slots);
+        })
+        .catch(() => {
+          // A failed check (e.g. party size momentarily outside the
+          // restaurant's range while the visitor is still typing) just
+          // hides the panel -- the plain date/time/party-size inputs below
+          // still work exactly as before this feature existed.
+          if (!cancelled) setAvailabilitySlots(null);
+        })
+        .finally(() => {
+          if (!cancelled) setAvailabilityLoading(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [liveAvailabilityEnabled, restaurant.slug, date, partySize]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -243,6 +304,18 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
           </Field>
         </div>
 
+        {liveAvailabilityEnabled && date ? (
+          <LiveAvailabilityPanel
+            locale={locale}
+            dict={dict}
+            timezone={restaurant.timezone}
+            loading={availabilityLoading}
+            slots={availabilitySlots}
+            selectedTime={time}
+            onPickTime={setTime}
+          />
+        ) : null}
+
         {depositQuote ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
             {t(dict, 'public.booking.deposit.noticePrefix')} {(depositQuote.amountCents / 100).toFixed(2)}
@@ -290,6 +363,98 @@ export function BookingForm({ locale, restaurant }: { locale: SupportedLocale; r
         </button>
       </form>
     </section>
+  );
+}
+
+/**
+ * Phase 2 of the Live Availability upgrade. Shows one chip per bookable
+ * time slot on the picked date, each labelled with the REAL count of
+ * standalone free tables get_public_availability_summary() (0023) returned
+ * -- never a made-up or rounded number, per the spec's "no fake scarcity"
+ * rule. A slot with zero standalone tables but a combinable option is still
+ * clickable (book_reservation, called downstream, already knows how to
+ * merge tables); a slot with neither is shown, not hidden, but disabled --
+ * telling the guest honestly why they can't pick it beats silently
+ * removing it. Clicking a slot just fills in the existing `time` input;
+ * it doesn't bypass or change anything about how the form actually submits.
+ */
+function LiveAvailabilityPanel({
+  locale,
+  dict,
+  timezone,
+  loading,
+  slots,
+  selectedTime,
+  onPickTime,
+}: {
+  locale: SupportedLocale;
+  dict: ReturnType<typeof getDictionary>;
+  timezone: string;
+  loading: boolean;
+  slots: PublicAvailabilitySlot[] | null;
+  selectedTime: string;
+  onPickTime: (time: string) => void;
+}) {
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px var(--space-md)', background: 'var(--background)' }}>
+      <p style={{ margin: '0 0 8px', fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+        {t(dict, 'public.booking.liveAvailability.title')}
+      </p>
+      {loading && !slots ? (
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.loading')}</p>
+      ) : slots && slots.length === 0 ? (
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.closed')}</p>
+      ) : slots && slots.length > 0 ? (
+        <>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {slots.map((slot) => {
+              const localTime = formatTimeInTimeZone(slot.slotStartsAt, timezone, locale);
+              const isAvailable = slot.availableTableCount > 0 || slot.hasCombinableOption;
+              const isSelected = selectedTime === localTime;
+              return (
+                <button
+                  type="button"
+                  key={slot.slotStartsAt}
+                  disabled={!isAvailable}
+                  onClick={() => onPickTime(localTime)}
+                  style={{
+                    fontFamily: 'var(--font-family)',
+                    textAlign: 'center',
+                    fontSize: 12.5,
+                    lineHeight: 1.3,
+                    padding: '6px 10px',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isSelected ? 'var(--accent)' : isAvailable ? 'var(--surface)' : 'var(--background)',
+                    color: isSelected ? 'var(--surface)' : isAvailable ? 'var(--text-primary)' : 'var(--text-muted)',
+                    cursor: isAvailable ? 'pointer' : 'default',
+                    opacity: isAvailable ? 1 : 0.55,
+                  }}
+                >
+                  <span style={{ display: 'block', fontWeight: 600 }}>{localTime}</span>
+                  <span style={{ display: 'block', fontSize: 10.5, opacity: 0.85 }}>
+                    {slot.availableTableCount > 0
+                      ? interpolate(
+                          t(
+                            dict,
+                            slot.availableTableCount === 1
+                              ? 'public.booking.liveAvailability.tableAvailableOne'
+                              : 'public.booking.liveAvailability.tablesAvailableOther',
+                          ),
+                          { count: slot.availableTableCount },
+                        )
+                      : slot.hasCombinableOption
+                        ? t(dict, 'public.booking.liveAvailability.availableCombinable')
+                        : t(dict, 'public.booking.liveAvailability.none')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.hint')}</p>
+        </>
+      ) : null}
+    </div>
   );
 }
 

@@ -1,4 +1,4 @@
-import { fetchOpeningHours, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
+import { fetchIsFeatureEnabledForRestaurant, fetchOpeningHours, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
 
 import { BookingForm } from '@/components/BookingForm';
 import { MapPinIcon, PhoneIcon } from '@/components/icons';
@@ -39,9 +39,15 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
     );
   }
 
-  const [openingHours, specialHours] = await Promise.all([
+  const [openingHours, specialHours, liveAvailabilityEnabled] = await Promise.all([
     fetchOpeningHours(supabase, restaurant.id),
     fetchSpecialHours(supabase, restaurant.id),
+    // Phase 2 of the Live Availability upgrade (migration 0024): off for
+    // every restaurant until its owner (or a platform admin) explicitly
+    // turns it on, so this changes nothing for the overwhelming majority of
+    // restaurants today. Never throws -- see fetchIsFeatureEnabledForRestaurant's
+    // own comment -- so a flag-check hiccup can never take down this page.
+    fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'live_availability'),
   ]);
 
   return (
@@ -86,6 +92,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
             bookingWindowMinHours: restaurant.bookingWindowMinHours,
             bookingWindowMaxDays: restaurant.bookingWindowMaxDays,
           }}
+          liveAvailabilityEnabled={liveAvailabilityEnabled}
         />
       </div>
     </div>

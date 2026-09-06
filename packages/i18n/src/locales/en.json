@@ -366,7 +366,8 @@
     "convertTitle": "Book this waitlist entry",
     "saved": "Saved.",
     "errors": {
-      "generic": "Could not save this waitlist entry."
+      "generic": "Could not save this waitlist entry.",
+      "invalidTimeRange": "The end time must be after the start time."
     }
   },
   "public": {
@@ -407,6 +408,16 @@
       "confirmedPartySize": "Party size",
       "confirmedReference": "Booking reference",
       "bookAnother": "Book another table",
+      "liveAvailability": {
+        "title": "Availability",
+        "loading": "Checking availability…",
+        "closed": "Closed on this date.",
+        "hint": "Pick a time to fill it in automatically.",
+        "tableAvailableOne": "{{count}} table available",
+        "tablesAvailableOther": "{{count}} tables available",
+        "availableCombinable": "Available (combined tables)",
+        "none": "No availability"
+      },
       "errors": {
         "PARTY_SIZE_OUT_OF_RANGE": "This restaurant accepts parties of {{min}}–{{max}} guests.",
         "OUTSIDE_BOOKING_WINDOW": "This restaurant only takes online bookings within its allowed booking window.",

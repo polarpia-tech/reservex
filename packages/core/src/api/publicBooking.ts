@@ -292,3 +292,27 @@ export async function fetchPublicAvailabilitySummary(
   if (error) throw error;
   return (data as unknown as PublicAvailabilitySlotRow[]).map(mapPublicAvailabilitySlotRow);
 }
+
+// ---------------------------------------------------------------------------
+// is_feature_enabled_for_restaurant() wrapper -- migration 0024. This is how
+// an anonymous (or signed-in) visitor's browser finds out whether a given
+// opt-in capability (e.g. 'live_availability') is turned on for the ONE
+// restaurant they're looking at, without needing the `feature_flags_select`
+// RLS policy's `auth.uid() is not null` requirement (0011) -- see that
+// migration's header comment for why a narrow boolean RPC, not a widened
+// table grant.
+//
+// Never throws: the underlying function returns false (not an error) for an
+// unrecognized restaurant slug or flag key, and this wrapper additionally
+// swallows any transport error into `false` too -- a feature-flag check is
+// never allowed to break the page it's gating. Callers that need to
+// distinguish "flag off" from "couldn't check" should not use this helper.
+// ---------------------------------------------------------------------------
+export async function fetchIsFeatureEnabledForRestaurant(client: SupabaseClient, restaurantSlug: string, flagKey: string): Promise<boolean> {
+  const { data, error } = await client.rpc('is_feature_enabled_for_restaurant', {
+    p_restaurant_slug: restaurantSlug,
+    p_flag_key: flagKey,
+  });
+  if (error) return false;
+  return Boolean(data);
+}

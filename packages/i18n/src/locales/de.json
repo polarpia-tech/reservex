@@ -366,7 +366,8 @@
     "convertTitle": "Diesen Wartelisteneintrag buchen",
     "saved": "Gespeichert.",
     "errors": {
-      "generic": "Dieser Wartelisteneintrag konnte nicht gespeichert werden."
+      "generic": "Dieser Wartelisteneintrag konnte nicht gespeichert werden.",
+      "invalidTimeRange": "Die Endzeit muss nach der Startzeit liegen."
     }
   },
   "public": {
@@ -407,6 +408,16 @@
       "confirmedPartySize": "Personenzahl",
       "confirmedReference": "Buchungsnummer",
       "bookAnother": "Weiteren Tisch buchen",
+      "liveAvailability": {
+        "title": "Verfügbarkeit",
+        "loading": "Verfügbarkeit wird geprüft…",
+        "closed": "An diesem Tag geschlossen.",
+        "hint": "Wählen Sie eine Uhrzeit, um sie automatisch einzutragen.",
+        "tableAvailableOne": "{{count}} Tisch verfügbar",
+        "tablesAvailableOther": "{{count}} Tische verfügbar",
+        "availableCombinable": "Verfügbar (kombinierte Tische)",
+        "none": "Keine Verfügbarkeit"
+      },
       "errors": {
         "PARTY_SIZE_OUT_OF_RANGE": "Dieses Restaurant nimmt Gruppen von {{min}}–{{max}} Personen an.",
         "OUTSIDE_BOOKING_WINDOW": "Dieses Restaurant nimmt Online-Buchungen nur innerhalb seines zulässigen Buchungszeitraums an.",
