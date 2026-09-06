@@ -8,6 +8,7 @@ import {
   fetchPublicAvailabilitySummary,
   parsePublicReservationErrorCode,
   quoteDepositAmount,
+  subscribeToAvailabilityChanges,
   type DepositQuote,
   type PublicAvailabilitySlot,
   type Reservation,
@@ -157,6 +158,52 @@ export function BookingForm({
       clearTimeout(timer);
     };
   }, [liveAvailabilityEnabled, restaurant.slug, date, partySize]);
+
+  // Phase 3 of the Live Availability upgrade (migration 0025): a Realtime
+  // subscription that quietly re-checks availability the instant someone
+  // else's booking could have changed it, instead of only ever reflecting
+  // whatever was true 350ms after this visitor last touched an input.
+  //
+  // Deliberately a SEPARATE effect from the debounced fetch above, and
+  // deliberately does NOT touch availabilityLoading: this refresh is
+  // triggered by someone else's activity, not something this visitor asked
+  // for -- flashing the loading state over table counts they're already
+  // looking at would be worse UX than briefly showing a half-second-stale
+  // count. A failed background refresh is silently ignored, keeping
+  // whatever slots are already on screen -- same "never break the plain
+  // form" spirit as the debounced fetch's own .catch() above.
+  useEffect(() => {
+    if (!liveAvailabilityEnabled || !date || partySize <= 0) return;
+    let cancelled = false;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const client = getSupabaseBrowserClient();
+
+    const refetchQuietly = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      // Same 350ms coalescing idea as the debounced fetch above -- a burst
+      // of several bookings landing within milliseconds of each other (or
+      // the delete+insert pair a single reschedule produces, see 0025's
+      // header comment) should trigger one re-check, not one per event.
+      debounceTimer = setTimeout(() => {
+        void fetchPublicAvailabilitySummary(client, { restaurantSlug: restaurant.slug, date, partySize })
+          .then((slots) => {
+            if (!cancelled) setAvailabilitySlots(slots);
+          })
+          .catch(() => {
+            // Keep showing the last known-good slots rather than clearing
+            // the panel over a transient background-refresh failure.
+          });
+      }, 350);
+    };
+
+    const unsubscribe = subscribeToAvailabilityChanges(client, restaurant.id, refetchQuietly);
+
+    return () => {
+      cancelled = true;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      unsubscribe();
+    };
+  }, [liveAvailabilityEnabled, restaurant.id, restaurant.slug, date, partySize]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();

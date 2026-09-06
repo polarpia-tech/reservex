@@ -316,3 +316,40 @@ export async function fetchIsFeatureEnabledForRestaurant(client: SupabaseClient,
   if (error) return false;
   return Boolean(data);
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3 of the Live Availability upgrade (migration 0025): subscribe to
+// restaurant_availability_versions via Supabase Realtime so the customer's
+// browser learns the instant someone else's booking could have changed the
+// picture it's showing -- without polling on a timer (spec section 38) and
+// without exposing any guest/booking data (spec section 28; see 0025's own
+// header comment for why this narrow heartbeat table exists at all instead
+// of subscribing to reservations/reservation_tables directly).
+//
+// Deliberately fires onChange for EVERY row event on this table for the
+// given restaurant, without inspecting the payload -- there is nothing in
+// the row worth inspecting (no date, no table, no count), the caller is
+// expected to just re-run its own existing fetch (e.g.
+// fetchPublicAvailabilitySummary) for whatever date it currently has
+// selected. Returns a plain unsubscribe function so a React effect's
+// cleanup can call it directly.
+// ---------------------------------------------------------------------------
+export function subscribeToAvailabilityChanges(client: SupabaseClient, restaurantId: string, onChange: () => void): () => void {
+  const channel = client
+    .channel(`restaurant-availability-${restaurantId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'restaurant_availability_versions',
+        filter: `restaurant_id=eq.${restaurantId}`,
+      },
+      () => onChange(),
+    )
+    .subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}
