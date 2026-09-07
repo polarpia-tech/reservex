@@ -20,6 +20,20 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: t('nav.dashboard'),
+          // Phase 4 of the Live Availability upgrade: a single-screen tab
+          // (like ai.tsx below), not a nested Stack, so it keeps the outer
+          // Tabs header instead of hiding it -- same pattern as ai.tsx.
+          // Placed FIRST/leftmost: this is meant to be the screen staff
+          // land on to see how the day is going at a glance, before diving
+          // into the reservations list itself.
+          headerTitle: () => <ScreenHeaderTitle title={t('nav.dashboard')} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="speedometer-outline" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="reservations"
         options={{
           title: t('nav.reservations'),

@@ -15,6 +15,7 @@
     "comingSoon": "Bu ekran ileriki bir aşamada geliştirilecek."
   },
   "nav": {
+    "dashboard": "Panel",
     "reservations": "Rezervasyonlar",
     "tables": "Masalar",
     "ai": "Asistan",
@@ -559,5 +560,21 @@
     "noPolicies": "Henüz depozito politikası yok.",
     "deletePolicyConfirmTitle": "Bu depozito politikası silinsin mi?",
     "deletePolicyConfirmBody": "Bu politika kapsamında zaten alınmış ödemeler etkilenmez."
+  },
+  "dashboard": {
+    "title": "Kontrol Paneli",
+    "reservationsLabel": "Rezervasyonlar",
+    "coversLabel": "Kişi Sayısı",
+    "noShowsLabel": "Gelmeyenler",
+    "cancellationsLabel": "İptaller",
+    "occupancyTitle": "Şu Anki Doluluk",
+    "occupancyTablesLabel": "{{active}} masadan {{occupied}} tanesi dolu",
+    "hourlyTitle": "Saatlik Rezervasyonlar",
+    "emptyToday": "Bugün için henüz rezervasyon yok.",
+    "insightsTitle": "İçgörüler",
+    "insightPeakHour": "Bugünün yoğun saati: {{hour}}:00, {{covers}} kişi.",
+    "insightHighOccupancy": "Yüksek talep — masaların %{{percent}} kadarı şu anda dolu.",
+    "insightLowOccupancy": "Bolca uygunluk var — masaların yalnızca %{{percent}} kadarı şu anda dolu.",
+    "loadError": "Panel verileri yüklenemedi."
   }
 }

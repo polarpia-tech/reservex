@@ -15,6 +15,7 @@
     "comingSoon": "This screen will be built in a later phase."
   },
   "nav": {
+    "dashboard": "Dashboard",
     "reservations": "Reservations",
     "tables": "Tables",
     "ai": "Assistant",
@@ -559,5 +560,21 @@
     "noPolicies": "No deposit policies yet.",
     "deletePolicyConfirmTitle": "Delete this deposit policy?",
     "deletePolicyConfirmBody": "Payments already taken under it are not affected."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "reservationsLabel": "Reservations",
+    "coversLabel": "Covers",
+    "noShowsLabel": "No-shows",
+    "cancellationsLabel": "Cancellations",
+    "occupancyTitle": "Occupancy right now",
+    "occupancyTablesLabel": "{{occupied}} of {{active}} tables occupied",
+    "hourlyTitle": "Reservations by hour",
+    "emptyToday": "No reservations for today yet.",
+    "insightsTitle": "Insights",
+    "insightPeakHour": "Peak hour today: {{hour}}:00 with {{covers}} covers.",
+    "insightHighOccupancy": "High demand — {{percent}}% of tables are occupied right now.",
+    "insightLowOccupancy": "Plenty of availability — only {{percent}}% of tables are occupied right now.",
+    "loadError": "Couldn't load dashboard stats."
   }
 }

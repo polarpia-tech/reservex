@@ -13,3 +13,4 @@ export * from './api/notifications';
 export * from './api/ai';
 export * from './api/payments';
 export * from './api/admin';
+export * from './api/ownerDashboard';

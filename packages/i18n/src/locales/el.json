@@ -15,6 +15,7 @@
     "comingSoon": "Αυτή η οθόνη θα υλοποιηθεί σε επόμενη φάση."
   },
   "nav": {
+    "dashboard": "Πίνακας",
     "reservations": "Κρατήσεις",
     "tables": "Τραπέζια",
     "ai": "Βοηθός",
@@ -559,5 +560,21 @@
     "noPolicies": "Δεν υπάρχουν πολιτικές προκαταβολής ακόμη.",
     "deletePolicyConfirmTitle": "Διαγραφή αυτής της πολιτικής προκαταβολής;",
     "deletePolicyConfirmBody": "Πληρωμές που έχουν ήδη ληφθεί βάσει αυτής δεν επηρεάζονται."
+  },
+  "dashboard": {
+    "title": "Πίνακας Ελέγχου",
+    "reservationsLabel": "Κρατήσεις",
+    "coversLabel": "Άτομα",
+    "noShowsLabel": "Απουσίες",
+    "cancellationsLabel": "Ακυρώσεις",
+    "occupancyTitle": "Πληρότητα αυτή τη στιγμή",
+    "occupancyTablesLabel": "{{occupied}} από {{active}} τραπέζια κατειλημμένα",
+    "hourlyTitle": "Κρατήσεις ανά ώρα",
+    "emptyToday": "Δεν υπάρχουν κρατήσεις για σήμερα ακόμα.",
+    "insightsTitle": "Πληροφορίες",
+    "insightPeakHour": "Ώρα αιχμής σήμερα: {{hour}}:00 με {{covers}} άτομα.",
+    "insightHighOccupancy": "Υψηλή ζήτηση — {{percent}}% των τραπεζιών είναι κατειλημμένα αυτή τη στιγμή.",
+    "insightLowOccupancy": "Αρκετή διαθεσιμότητα — μόνο {{percent}}% των τραπεζιών είναι κατειλημμένα αυτή τη στιγμή.",
+    "loadError": "Δεν ήταν δυνατή η φόρτωση των στατιστικών."
   }
 }

@@ -15,6 +15,7 @@
     "comingSoon": "Dieser Bildschirm wird in einer späteren Phase entwickelt."
   },
   "nav": {
+    "dashboard": "Dashboard",
     "reservations": "Reservierungen",
     "tables": "Tische",
     "ai": "Assistent",
@@ -559,5 +560,21 @@
     "noPolicies": "Noch keine Anzahlungsregeln.",
     "deletePolicyConfirmTitle": "Diese Anzahlungsregel löschen?",
     "deletePolicyConfirmBody": "Bereits erhaltene Anzahlungen sind davon nicht betroffen."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "reservationsLabel": "Reservierungen",
+    "coversLabel": "Gedecke",
+    "noShowsLabel": "Nichterscheinen",
+    "cancellationsLabel": "Stornierungen",
+    "occupancyTitle": "Aktuelle Auslastung",
+    "occupancyTablesLabel": "{{occupied}} von {{active}} Tischen belegt",
+    "hourlyTitle": "Reservierungen nach Stunde",
+    "emptyToday": "Noch keine Reservierungen für heute.",
+    "insightsTitle": "Einblicke",
+    "insightPeakHour": "Stoßzeit heute: {{hour}}:00 Uhr mit {{covers}} Gedecken.",
+    "insightHighOccupancy": "Hohe Nachfrage — {{percent}}% der Tische sind gerade belegt.",
+    "insightLowOccupancy": "Viel Verfügbarkeit — nur {{percent}}% der Tische sind gerade belegt.",
+    "loadError": "Dashboard-Daten konnten nicht geladen werden."
   }
 }
