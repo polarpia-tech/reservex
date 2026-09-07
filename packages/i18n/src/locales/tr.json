@@ -168,6 +168,8 @@
   },
   "reservations": {
     "title": "Rezervasyonlar",
+    "listView": "Liste görünümü",
+    "timelineView": "Zaman çizelgesi görünümü",
     "newReservation": "Yeni rezervasyon",
     "partySize": "Kişi sayısı",
     "date": "Tarih",
@@ -221,6 +223,9 @@
       "noShow": "Gelmedi",
       "edit": "Düzenle"
     },
+    "timeline": {
+      "noTables": "Gösterilecek aktif masa yok."
+    },
     "errors": {
       "NO_AVAILABILITY": "Bu kişi sayısı ve saat için müsait masa veya kombinasyon yok.",
       "DOUBLE_BOOKED": "Bu masa az önce başka biri tarafından rezerve edildi — başka bir saat veya masa seçin.",
@@ -233,6 +238,8 @@
   },
   "tables": {
     "title": "Masalar",
+    "listView": "Liste görünümü",
+    "mapView": "Harita görünümü",
     "zones": "Bölgeler",
     "capacity": "Kapasite",
     "status": {

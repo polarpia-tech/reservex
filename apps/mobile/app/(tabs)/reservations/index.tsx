@@ -1,9 +1,9 @@
-import { fetchReservations } from '@reservex/core';
+import { fetchReservations, fetchTableZones, fetchTables, subscribeToRestaurantReservations } from '@reservex/core';
 import { radii, spacing } from '@reservex/ui';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Stack, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -12,9 +12,12 @@ import { AnimatedListItem } from '@/components/ui/AnimatedListItem';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { ReservationTimeline } from '@/components/reservations/ReservationTimeline';
 import { useMyRestaurant } from '@/hooks/useMyRestaurant';
 import { supabase } from '@/services/supabase';
 import { useTheme } from '@/theme/ThemeProvider';
+
+type ViewMode = 'list' | 'timeline';
 
 function startOfDay(date: Date): Date {
   const d = new Date(date);
@@ -41,8 +44,10 @@ export default function ReservationsScreen() {
   const router = useRouter();
   const { membership } = useMyRestaurant();
   const restaurantId = membership?.restaurant.id;
+  const queryClient = useQueryClient();
 
   const [selectedDate, setSelectedDate] = useState(() => startOfDay(new Date()));
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const range = useMemo(() => {
     const from = selectedDate;
@@ -56,6 +61,40 @@ export default function ReservationsScreen() {
     enabled: Boolean(restaurantId),
   });
 
+  // Phase 5 of the Live Availability upgrade: table/zone data is only
+  // needed to build the Timeline's rows, so it's fetched lazily (enabled
+  // only in that view mode) rather than on every visit to this tab --
+  // section 38 ("PERFORMANCE"), don't fetch what the current view doesn't
+  // render.
+  const tablesQuery = useQuery({
+    queryKey: ['tables', restaurantId],
+    queryFn: () => fetchTables(supabase, restaurantId!),
+    enabled: Boolean(restaurantId) && viewMode === 'timeline',
+  });
+  const zonesQuery = useQuery({
+    queryKey: ['table-zones', restaurantId],
+    queryFn: () => fetchTableZones(supabase, restaurantId!),
+    enabled: Boolean(restaurantId) && viewMode === 'timeline',
+  });
+
+  // Realtime: same restaurant_availability_versions heartbeat as the
+  // Tables tab's subscription (see tables/index.tsx and
+  // subscribeToRestaurantTables's own header comment) -- a booking,
+  // reschedule, cancellation, status change or table-status change from
+  // any terminal silently re-fetches this day's reservations, keeping
+  // both the List and the new Timeline live. Invalidates by the
+  // ['reservations', restaurantId] key PREFIX (React Query matches any
+  // query whose key starts with this), not a single exact key, so it
+  // covers whichever day is currently selected without needing to know
+  // `range.fromInclusive` here.
+  useEffect(() => {
+    if (!restaurantId) return;
+    const unsubscribe = subscribeToRestaurantReservations(supabase, restaurantId, () => {
+      void queryClient.invalidateQueries({ queryKey: ['reservations', restaurantId] });
+    });
+    return unsubscribe;
+  }, [restaurantId, queryClient]);
+
   const dateLabel = selectedDate.toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long' });
   const isToday = selectedDate.getTime() === startOfDay(new Date()).getTime();
 
@@ -65,6 +104,17 @@ export default function ReservationsScreen() {
         options={{
           title: t('reservations.title'),
           headerTitle: () => <ScreenHeaderTitle title={t('reservations.title')} />,
+          headerLeft: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={viewMode === 'list' ? t('reservations.timelineView') : t('reservations.listView')}
+              hitSlop={8}
+              onPress={() => setViewMode((cur) => (cur === 'list' ? 'timeline' : 'list'))}
+              style={styles.headerIcon}
+            >
+              <Ionicons name={viewMode === 'list' ? 'bar-chart-outline' : 'list-outline'} color={theme.textPrimary} size={22} />
+            </Pressable>
+          ),
           headerRight: () => (
             <View style={styles.headerActions}>
               <Link href="/(tabs)/reservations/waitlist" asChild>
@@ -95,7 +145,22 @@ export default function ReservationsScreen() {
           </Pressable>
         </View>
 
-        {reservationsQuery.isLoading ? (
+        {viewMode === 'timeline' ? (
+          reservationsQuery.isLoading || tablesQuery.isLoading || zonesQuery.isLoading ? (
+            <View style={styles.listContent}>
+              <Skeleton width="100%" height={220} />
+            </View>
+          ) : (
+            <ReservationTimeline
+              dayStart={selectedDate}
+              reservations={reservationsQuery.data ?? []}
+              tables={(tablesQuery.data ?? []).filter((table) => table.isActive)}
+              zones={zonesQuery.data ?? []}
+              onPressReservation={(reservationId) => router.push(`/(tabs)/reservations/${reservationId}`)}
+              isToday={isToday}
+            />
+          )
+        ) : reservationsQuery.isLoading ? (
           <View style={styles.listContent}>
             {[0, 1, 2, 3].map((i) => (
               <View key={i} style={[styles.row, { backgroundColor: theme.surface, borderColor: theme.border }]}>

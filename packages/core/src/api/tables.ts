@@ -211,3 +211,38 @@ export async function deleteTable(client: SupabaseClient, tableId: UUID): Promis
   const { error } = await client.from('tables').update({ deleted_at: new Date().toISOString() }).eq('id', tableId);
   if (error) throw error;
 }
+
+/**
+ * Phase 5 of the Live Availability upgrade: subscribes to the same
+ * restaurant_availability_versions heartbeat Phase 3/4 use (see
+ * ownerDashboard.ts's subscribeToRestaurantDashboard), under its own
+ * channel name so it never collides with the dashboard's or the public
+ * booking form's subscription if more than one is open in the same
+ * client. As of migration 0027, this heartbeat also bumps on a direct
+ * `tables.status` change (not just on reservation_tables changes) --
+ * see that migration's header for why that gap existed and was closed --
+ * so this single subscription is enough to keep both the floor list and
+ * the new visual map (TableMapView) live: a status change from this
+ * staff member's own updateTable() call OR from any other terminal.
+ * onChange fires with no payload -- the caller re-fetches via React Query
+ * cache invalidation, matching the rest of the app's data-fetching pattern.
+ */
+export function subscribeToRestaurantTables(client: SupabaseClient, restaurantId: string, onChange: () => void): () => void {
+  const channel = client
+    .channel(`restaurant-tables-${restaurantId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'restaurant_availability_versions',
+        filter: `restaurant_id=eq.${restaurantId}`,
+      },
+      () => onChange(),
+    )
+    .subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}

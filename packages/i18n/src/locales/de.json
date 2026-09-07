@@ -168,6 +168,8 @@
   },
   "reservations": {
     "title": "Reservierungen",
+    "listView": "Listenansicht",
+    "timelineView": "Zeitachsenansicht",
     "newReservation": "Neue Reservierung",
     "partySize": "Personenzahl",
     "date": "Datum",
@@ -221,6 +223,9 @@
       "noShow": "Nicht erschienen",
       "edit": "Bearbeiten"
     },
+    "timeline": {
+      "noTables": "Keine aktiven Tische vorhanden."
+    },
     "errors": {
       "NO_AVAILABILITY": "Kein Tisch oder keine Kombination ist für diese Personenzahl und Uhrzeit frei.",
       "DOUBLE_BOOKED": "Dieser Tisch wurde gerade von jemand anderem gebucht — bitte eine andere Uhrzeit oder einen anderen Tisch wählen.",
@@ -233,6 +238,8 @@
   },
   "tables": {
     "title": "Tische",
+    "listView": "Listenansicht",
+    "mapView": "Kartenansicht",
     "zones": "Bereiche",
     "capacity": "Kapazität",
     "status": {

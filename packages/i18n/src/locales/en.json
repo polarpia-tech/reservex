@@ -168,6 +168,8 @@
   },
   "reservations": {
     "title": "Reservations",
+    "listView": "List view",
+    "timelineView": "Timeline view",
     "newReservation": "New reservation",
     "partySize": "Party size",
     "date": "Date",
@@ -221,6 +223,9 @@
       "noShow": "No-show",
       "edit": "Edit"
     },
+    "timeline": {
+      "noTables": "No active tables to show."
+    },
     "errors": {
       "NO_AVAILABILITY": "No table or combination is free for this party size and time.",
       "DOUBLE_BOOKED": "That table was just booked by someone else — pick another time or table.",
@@ -233,6 +238,8 @@
   },
   "tables": {
     "title": "Tables",
+    "listView": "List view",
+    "mapView": "Map view",
     "zones": "Zones",
     "capacity": "Capacity",
     "status": {

@@ -1,9 +1,17 @@
-import { fetchTableZones, fetchTables, updateTable, type RestaurantTable, type TableStatus, type TableZone } from '@reservex/core';
+import {
+  fetchTableZones,
+  fetchTables,
+  subscribeToRestaurantTables,
+  updateTable,
+  type RestaurantTable,
+  type TableStatus,
+  type TableZone,
+} from '@reservex/core';
 import { spacing, typeScale } from '@reservex/ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -11,10 +19,13 @@ import { ScreenHeaderTitle } from '@/components/ScreenHeaderTitle';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusPill } from '@/components/ui/StatusPill';
+import { TableMapView } from '@/components/tables/TableMapView';
 import { TableStatusPicker } from '@/components/tables/TableStatusPicker';
 import { useMyRestaurant } from '@/hooks/useMyRestaurant';
 import { supabase } from '@/services/supabase';
 import { useTheme } from '@/theme/ThemeProvider';
+
+type ViewMode = 'list' | 'map';
 
 /**
  * The floor view: this phase's real, non-placeholder replacement for the
@@ -24,6 +35,13 @@ import { useTheme } from '@/theme/ThemeProvider';
  * scripts/verify_phase06_floor_plan.sql). Structural changes (add/edit/
  * delete a table or zone) live behind the "manage" header button, shown
  * only to owner/manager.
+ *
+ * Phase 5 of the Live Availability upgrade added the List/Map toggle
+ * (headerLeft) and the realtime subscription below -- both List and Map
+ * share this screen's single `tables` query, so live updates and the
+ * status-change mutation behave identically in either view; TableMapView
+ * is a pure alternate renderer, never its own data source (see its own
+ * header comment).
  */
 export default function FloorViewScreen() {
   const { t } = useTranslation();
@@ -31,6 +49,8 @@ export default function FloorViewScreen() {
   const { membership, isOwnerOrManager } = useMyRestaurant();
   const restaurantId = membership?.restaurant.id;
   const queryClient = useQueryClient();
+
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const zonesQuery = useQuery({
     queryKey: ['table-zones', restaurantId],
@@ -42,6 +62,19 @@ export default function FloorViewScreen() {
     queryFn: () => fetchTables(supabase, restaurantId!),
     enabled: Boolean(restaurantId),
   });
+
+  // Realtime: any staff member's status change (or a reservation change
+  // that frees/blocks a table) silently re-fetches this screen's tables
+  // query -- never touches isLoading, so a background refresh doesn't
+  // flash a skeleton over a list/map the host is actively looking at.
+  // Same pattern as dashboard.tsx's Phase 4 effect.
+  useEffect(() => {
+    if (!restaurantId) return;
+    const unsubscribe = subscribeToRestaurantTables(supabase, restaurantId, () => {
+      void queryClient.invalidateQueries({ queryKey: ['tables', restaurantId] });
+    });
+    return unsubscribe;
+  }, [restaurantId, queryClient]);
 
   const [expandedTableId, setExpandedTableId] = useState<string | null>(null);
 
@@ -66,6 +99,17 @@ export default function FloorViewScreen() {
         options={{
           title: t('tables.title'),
           headerTitle: () => <ScreenHeaderTitle title={t('tables.title')} />,
+          headerLeft: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={viewMode === 'list' ? t('tables.mapView') : t('tables.listView')}
+              hitSlop={8}
+              onPress={() => setViewMode((cur) => (cur === 'list' ? 'map' : 'list'))}
+              style={styles.viewToggle}
+            >
+              <Ionicons name={viewMode === 'list' ? 'grid-outline' : 'list-outline'} color={theme.textPrimary} size={22} />
+            </Pressable>
+          ),
           headerRight: isOwnerOrManager
             ? () => (
                 <Link href="/(tabs)/tables/manage" asChild>
@@ -81,41 +125,54 @@ export default function FloorViewScreen() {
         {tablesQuery.isLoading ? <Text style={{ color: theme.textMuted }}>{t('common.loading')}</Text> : null}
         {!tablesQuery.isLoading && tables.length === 0 ? <EmptyState icon="grid-outline" label={t('tables.noTables')} /> : null}
 
-        {zones.map((zone) => {
-          const zoneTables = tables.filter((table) => table.zoneId === zone.id);
-          if (zoneTables.length === 0) return null;
-          return (
-            <View key={zone.id} style={styles.zoneSection}>
-              <Text style={[styles.zoneTitle, { color: theme.textMuted }]}>{zone.name}</Text>
-              {zoneTables.map((table) => (
-                <TableRow
-                  key={table.id}
-                  table={table}
-                  expanded={expandedTableId === table.id}
-                  onToggle={() => setExpandedTableId((cur) => (cur === table.id ? null : table.id))}
-                  onChangeStatus={(status) => statusMutation.mutate({ tableId: table.id, status })}
-                  loading={statusMutation.isPending && statusMutation.variables?.tableId === table.id}
-                />
-              ))}
-            </View>
-          );
-        })}
+        {viewMode === 'map' ? (
+          <TableMapView
+            zones={zones}
+            tables={tables}
+            expandedTableId={expandedTableId}
+            onToggleTable={(tableId) => setExpandedTableId((cur) => (cur === tableId ? null : tableId))}
+            onChangeStatus={(tableId, status) => statusMutation.mutate({ tableId, status })}
+            statusLoadingTableId={statusMutation.isPending ? (statusMutation.variables?.tableId ?? null) : null}
+          />
+        ) : (
+          <>
+            {zones.map((zone) => {
+              const zoneTables = tables.filter((table) => table.zoneId === zone.id);
+              if (zoneTables.length === 0) return null;
+              return (
+                <View key={zone.id} style={styles.zoneSection}>
+                  <Text style={[styles.zoneTitle, { color: theme.textMuted }]}>{zone.name}</Text>
+                  {zoneTables.map((table) => (
+                    <TableRow
+                      key={table.id}
+                      table={table}
+                      expanded={expandedTableId === table.id}
+                      onToggle={() => setExpandedTableId((cur) => (cur === table.id ? null : table.id))}
+                      onChangeStatus={(status) => statusMutation.mutate({ tableId: table.id, status })}
+                      loading={statusMutation.isPending && statusMutation.variables?.tableId === table.id}
+                    />
+                  ))}
+                </View>
+              );
+            })}
 
-        {unzonedTables.length > 0 ? (
-          <View style={styles.zoneSection}>
-            <Text style={[styles.zoneTitle, { color: theme.textMuted }]}>{t('tables.unzoned')}</Text>
-            {unzonedTables.map((table) => (
-              <TableRow
-                key={table.id}
-                table={table}
-                expanded={expandedTableId === table.id}
-                onToggle={() => setExpandedTableId((cur) => (cur === table.id ? null : table.id))}
-                onChangeStatus={(status) => statusMutation.mutate({ tableId: table.id, status })}
-                loading={statusMutation.isPending && statusMutation.variables?.tableId === table.id}
-              />
-            ))}
-          </View>
-        ) : null}
+            {unzonedTables.length > 0 ? (
+              <View style={styles.zoneSection}>
+                <Text style={[styles.zoneTitle, { color: theme.textMuted }]}>{t('tables.unzoned')}</Text>
+                {unzonedTables.map((table) => (
+                  <TableRow
+                    key={table.id}
+                    table={table}
+                    expanded={expandedTableId === table.id}
+                    onToggle={() => setExpandedTableId((cur) => (cur === table.id ? null : table.id))}
+                    onChangeStatus={(status) => statusMutation.mutate({ tableId: table.id, status })}
+                    loading={statusMutation.isPending && statusMutation.variables?.tableId === table.id}
+                  />
+                ))}
+              </View>
+            ) : null}
+          </>
+        )}
       </ScrollView>
     </>
   );
@@ -166,6 +223,7 @@ function TableRow({
 
 const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing['4xl'] },
+  viewToggle: { padding: spacing.xs },
   zoneSection: { gap: spacing.sm },
   zoneTitle: { ...typeScale.label, textTransform: 'uppercase', letterSpacing: 0.4 },
   tableHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

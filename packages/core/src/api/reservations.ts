@@ -314,3 +314,31 @@ export async function updateReservationStatus(
   const { error } = await client.from('reservations').update(patch).eq('id', reservationId);
   if (error) throw error;
 }
+
+// ---------------------------------------------------------------------------
+// Phase 5 of the Live Availability upgrade: the reservation-tab sibling of
+// tables.ts's subscribeToRestaurantTables -- same restaurant_availability_
+// versions heartbeat (0025, and 0027 for direct table-status changes),
+// under its own channel name. Keeps both the existing day agenda list and
+// the new ReservationTimeline live: a booking, reschedule, cancellation or
+// status change from this staff member OR any other terminal.
+// ---------------------------------------------------------------------------
+export function subscribeToRestaurantReservations(client: SupabaseClient, restaurantId: string, onChange: () => void): () => void {
+  const channel = client
+    .channel(`restaurant-reservations-${restaurantId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'restaurant_availability_versions',
+        filter: `restaurant_id=eq.${restaurantId}`,
+      },
+      () => onChange(),
+    )
+    .subscribe();
+
+  return () => {
+    void client.removeChannel(channel);
+  };
+}
