@@ -344,6 +344,15 @@
     "restaurantSubtitle": "Bilgiler, iletişim, kapasite",
     "openingHoursNav": "Çalışma saatleri",
     "openingHoursNavSubtitle": "Haftalık program & istisnalar",
+    "liveFeatures": "Canlı Özellikler",
+    "liveFeaturesSubtitle": "Misafirleriniz için gerçek zamanlı özellikleri birer birer etkinleştirin.",
+    "liveFeaturesEmpty": "Henüz yapılandırılacak canlı özellik yok.",
+    "liveFeaturesFlags": {
+      "live_availability": {
+        "label": "Canlı masa müsaitliği",
+        "description": "Herkese açık rezervasyon sayfanızda misafirlere zaman dilimine göre canlı masa müsaitliğini gösterin."
+      }
+    },
     "staffSubtitle": "Ekibi davet et ve yönet",
     "notificationsSubtitle": "Gelen kutusu, tercihler, hatırlatma kuralları",
     "deposits": "Depozito politikaları",

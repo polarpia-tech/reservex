@@ -344,6 +344,15 @@
     "restaurantSubtitle": "Details, contact, capacity",
     "openingHoursNav": "Opening hours",
     "openingHoursNavSubtitle": "Weekly schedule & exceptions",
+    "liveFeatures": "Live Features",
+    "liveFeaturesSubtitle": "Turn on real-time capabilities for your guests, one at a time.",
+    "liveFeaturesEmpty": "No live features available to configure yet.",
+    "liveFeaturesFlags": {
+      "live_availability": {
+        "label": "Live table availability",
+        "description": "Show guests live per-time-slot table availability on your public booking page."
+      }
+    },
     "staffSubtitle": "Invite & manage your team",
     "notificationsSubtitle": "Inbox, preferences, reminder rules",
     "deposits": "Deposit policies",

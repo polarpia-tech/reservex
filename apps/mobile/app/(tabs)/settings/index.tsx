@@ -29,7 +29,7 @@ export default function SettingsHubScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const { membership } = useMyRestaurant();
+  const { membership, isOwnerOrManager } = useMyRestaurant();
 
   return (
     <>
@@ -67,6 +67,23 @@ export default function SettingsHubScreen() {
         subtitle={t('settings.openingHoursNavSubtitle')}
         onPress={() => router.push('/(tabs)/settings/opening-hours')}
       />
+
+      {isOwnerOrManager ? (
+        <>
+          <Text style={[styles.sectionTitle, { color: theme.textMuted, marginTop: spacing['3xl'] }]}>
+            {t('settings.liveFeatures')}
+          </Text>
+          {/* Phase 6 of the Live Availability upgrade: owner/manager only,
+              same gating as restaurants_update (0011) -- toggling a
+              customer-facing flag is a restaurant-level setting change,
+              not something every staff role should be able to do. */}
+          <NavRow
+            title={t('settings.liveFeatures')}
+            subtitle={t('settings.liveFeaturesSubtitle')}
+            onPress={() => router.push('/(tabs)/settings/live-features')}
+          />
+        </>
+      ) : null}
 
       <Text style={[styles.sectionTitle, { color: theme.textMuted, marginTop: spacing['3xl'] }]}>
         {t('settings.language')}

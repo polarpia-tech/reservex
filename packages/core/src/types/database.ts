@@ -466,6 +466,8 @@ export interface FeatureFlag {
   description: string | null;
   isEnabledDefault: boolean;
   rolloutPercentage: number;
+  /** Phase 6 of the Live Availability upgrade (migration 0028): true if a restaurant owner/manager may toggle this flag themselves for their own restaurant, via feature_flag_overrides_owner_write. False keeps it platform-admin-only. */
+  isOwnerConfigurable: boolean;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

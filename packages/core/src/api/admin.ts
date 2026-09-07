@@ -231,6 +231,7 @@ interface FeatureFlagRow {
   description: string | null;
   is_enabled_default: boolean;
   rollout_percentage: number;
+  is_owner_configurable: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -242,6 +243,7 @@ function mapFeatureFlagRow(row: FeatureFlagRow): FeatureFlag {
     description: row.description,
     isEnabledDefault: row.is_enabled_default,
     rolloutPercentage: row.rollout_percentage,
+    isOwnerConfigurable: row.is_owner_configurable,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

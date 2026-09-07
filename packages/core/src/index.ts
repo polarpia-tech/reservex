@@ -14,3 +14,4 @@ export * from './api/ai';
 export * from './api/payments';
 export * from './api/admin';
 export * from './api/ownerDashboard';
+export * from './api/featureFlags';
