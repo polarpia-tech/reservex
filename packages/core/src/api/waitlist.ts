@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { ISODate, ISODateTime, UUID, WaitlistEntry, WaitlistStatus } from '../types/database';
+import type { ISODate, ISODateTime, UUID, WaitlistEntry, WaitlistStatus, WebPushSubscriptionJSON } from '../types/database';
 import { bookReservation, type BookReservationInput } from './reservations';
 
 export interface WaitlistEntryRow {
@@ -20,6 +20,11 @@ export interface WaitlistEntryRow {
   notified_at: string | null;
   expires_at: string | null;
   converted_reservation_id: string | null;
+  // Added in migration 0030 -- see WaitlistEntry.pushSubscription/pushSentAt
+  // in types/database.ts. jsonb comes back over the wire already parsed
+  // into a plain object by PostgREST, not as a string.
+  push_subscription: WebPushSubscriptionJSON | null;
+  push_sent_at: string | null;
 }
 
 /**
@@ -106,6 +111,8 @@ export function mapWaitlistRow(row: WaitlistEntryRow): WaitlistEntry {
     notifiedAt: row.notified_at,
     expiresAt: row.expires_at,
     convertedReservationId: row.converted_reservation_id,
+    pushSubscription: row.push_subscription,
+    pushSentAt: row.push_sent_at,
   };
 }
 

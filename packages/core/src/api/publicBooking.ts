@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { mapRestaurantRow, type RestaurantRow } from './restaurants';
 import { mapWaitlistRow, type WaitlistEntryRow } from './waitlist';
-import type { ISODate, ISODateTime, Reservation, ReservationSource, ReservationStatus, Restaurant, WaitlistEntry } from '../types/database';
+import type { ISODate, ISODateTime, Reservation, ReservationSource, ReservationStatus, Restaurant, WaitlistEntry, WebPushSubscriptionJSON } from '../types/database';
 
 // ---------------------------------------------------------------------------
 // The anonymous/customer-facing side of Phase 08: browsing a restaurant's
@@ -376,6 +376,12 @@ export interface JoinPublicWaitlistInput {
   guestPhone?: string | null;
   guestEmail?: string | null;
   zonePreferenceId?: string | null;
+  // Added in migration 0030 (Part 2b, Web Push): the joining browser's own
+  // `PushSubscription.toJSON()` result, if it was granted notification
+  // permission -- omit or pass null to join without push (the entry still
+  // works, it just never becomes a candidate for the automatic
+  // notify-when-available flow; see WaitlistEntry.pushSubscription).
+  pushSubscription?: WebPushSubscriptionJSON | null;
 }
 
 /** The error codes join_public_waitlist() can raise (migration 0029). */
@@ -436,6 +442,7 @@ export async function joinPublicWaitlist(client: SupabaseClient, input: JoinPubl
     p_guest_phone: input.guestPhone ?? null,
     p_guest_email: input.guestEmail ?? null,
     p_zone_preference_id: input.zonePreferenceId ?? null,
+    p_push_subscription: input.pushSubscription ?? null,
   });
   // No .single() -- join_public_waitlist is declared `returns public.
   // waitlist_entries` (one row, not setof), so PostgREST already serves it

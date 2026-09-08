@@ -232,6 +232,19 @@ export interface TableCombination {
 
 export type WaitlistStatus = 'waiting' | 'notified' | 'booked' | 'expired' | 'cancelled';
 
+/**
+ * The standard shape every browser's Push API returns from
+ * `PushSubscription.toJSON()`. Added in migration 0030 -- see
+ * WaitlistEntry.pushSubscription below.
+ */
+export interface WebPushSubscriptionJSON {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}
+
 export interface WaitlistEntry {
   id: UUID;
   restaurantId: UUID;
@@ -255,6 +268,16 @@ export interface WaitlistEntry {
   notifiedAt: ISODateTime | null;
   expiresAt: ISODateTime | null;
   convertedReservationId: UUID | null;
+  // Added in migration 0030 (Part 2b, Web Push). null for a staff-created
+  // entry, or a public join where the guest declined/never granted browser
+  // notification permission -- in both cases this entry is never a
+  // candidate for the automatic notify-when-available flow (it still shows
+  // up on the staff waitlist screen exactly as before).
+  pushSubscription: WebPushSubscriptionJSON | null;
+  // Set once claim_waitlist_matches_for_restaurant (0030) claims this entry
+  // for notification -- see that function's comment for why this can be
+  // non-null even on rare occasions when the actual push send failed.
+  pushSentAt: ISODateTime | null;
 }
 
 // ---- Phase 09: notifications (queueing + in-app inbox, migration 0016) ----
