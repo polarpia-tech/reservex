@@ -46,3 +46,38 @@ grant usage on schema public, auth to authenticated, anon;
 grant select, insert, update, delete on all tables in schema public to authenticated, anon;
 grant usage, select on all sequences in schema public to authenticated, anon;
 alter default privileges in schema public grant select, insert, update, delete on tables to authenticated, anon;
+
+-- Supabase automatically creates and manages a "supabase_realtime"
+-- publication for every project (what Postgres Changes / Realtime
+-- subscriptions read from). Migration 0025 assumes it already exists --
+-- true on every real Supabase project, never true on a bare local/CI
+-- Postgres instance -- and does `alter publication supabase_realtime add
+-- table ...`, which errors with "publication ... does not exist" without
+-- this. An empty publication here is enough for that ALTER to succeed;
+-- nothing in this test harness needs it to actually stream changes.
+do $$
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+end
+$$;
+
+-- Supabase Vault (schema "vault", encrypted secret storage) is likewise a
+-- managed feature of every real Supabase project, never present on a bare
+-- local/CI Postgres instance. Migration 0032's trigger reads the
+-- 'waitlist_webhook_secret' from vault.decrypted_secrets and already
+-- handles a MISSING secret gracefully (logs a warning, does not raise --
+-- see that migration's own comment), but it still needs the relation
+-- itself to exist to even attempt the SELECT. An empty stub is enough --
+-- this test harness never needs a real decrypted value, only for the
+-- lookup to return zero rows instead of erroring "relation does not
+-- exist". NEVER put a real secret value in this file (see this project's
+-- standing rule that no real secret is ever committed to git).
+create schema if not exists vault;
+
+create table if not exists vault.decrypted_secrets (
+  id               uuid primary key default gen_random_uuid(),
+  name             text,
+  decrypted_secret text
+);
