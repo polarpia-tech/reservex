@@ -34,10 +34,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-
 let failures = 0;
 function check(label, cond, detail) {
   if (cond) {
@@ -47,12 +45,10 @@ function check(label, cond, detail) {
     failures++;
   }
 }
-
 function pythonJson(script) {
   const out = execFileSync('python3', ['-c', script], { encoding: 'utf8' });
   return JSON.parse(out);
 }
-
 // ---------------------------------------------------------------------------
 // 1. YAML syntax -- both workflow files.
 // ---------------------------------------------------------------------------
@@ -70,7 +66,6 @@ print(json.dumps({"ok": True, "jobKeys": list(data.get("jobs", {}).keys())}))
     check(`${rel} parses as valid YAML`, false, String(err.message || err).split('\n')[0]);
   }
 }
-
 // ---------------------------------------------------------------------------
 // 2. TOML syntax -- supabase/config.toml.
 // ---------------------------------------------------------------------------
@@ -87,7 +82,6 @@ print(json.dumps(data))
 } catch (err) {
   check('supabase/config.toml parses as valid TOML', false, String(err.message || err).split('\n')[0]);
 }
-
 // ---------------------------------------------------------------------------
 // 3+4. Every real function directory is declared, and verify_jwt is
 // correct for the two external-webhook functions specifically.
@@ -96,14 +90,21 @@ const functionsDir = path.join(root, 'supabase/functions');
 const realFunctionNames = readdirSync(functionsDir).filter(
   (name) => name !== '_shared' && statSync(path.join(functionsDir, name)).isDirectory(),
 );
-
 if (tomlData) {
   const declared = tomlData.functions ?? {};
   for (const name of realFunctionNames) {
     check(`supabase/config.toml declares [functions.${name}]`, Object.prototype.hasOwnProperty.call(declared, name));
   }
-
-  const expectNoJwt = new Set(['stripe-webhook', 'voice-webhook']);
+  // notify-waitlist (Phase 6, migrations 0030-0032) added here alongside
+  // stripe-webhook and voice-webhook: it too is called with no Supabase
+  // user session -- by the pg_net trigger in
+  // 0032_waitlist_availability_trigger.sql, from inside the database
+  // itself -- and authenticates the caller via its own custom
+  // x-webhook-secret header (checked in the function's own source)
+  // instead. verify_jwt = false is correct for it for exactly the same
+  // reason it's correct for the other two; this allowlist just predates
+  // that function and was never updated when it shipped.
+  const expectNoJwt = new Set(['stripe-webhook', 'voice-webhook', 'notify-waitlist']);
   for (const name of realFunctionNames) {
     const entry = declared[name] ?? {};
     const verifyJwt = entry.verify_jwt;
@@ -114,7 +115,6 @@ if (tomlData) {
     }
   }
 }
-
 // ---------------------------------------------------------------------------
 // 5. Every real env var read by source code is documented in .env.example.
 // ---------------------------------------------------------------------------
@@ -127,13 +127,11 @@ function walk(dir, exts, out = []) {
   }
   return out;
 }
-
 const sourceFiles = [
   ...walk(path.join(root, 'apps'), ['.ts', '.tsx']),
   ...walk(path.join(root, 'packages'), ['.ts', '.tsx']),
   ...walk(path.join(root, 'supabase/functions'), ['.ts']),
 ];
-
 const envVarPattern = /process\.env\.([A-Z][A-Z0-9_]*)|Deno\.env\.get\(\s*'([A-Z][A-Z0-9_]*)'\s*\)/g;
 const foundVars = new Set();
 for (const file of sourceFiles) {
@@ -142,7 +140,6 @@ for (const file of sourceFiles) {
     foundVars.add(m[1] || m[2]);
   }
 }
-
 // The root .env.example documents the unprefixed, server-side/Edge
 // Function canonical names (SUPABASE_URL, SUPABASE_ANON_KEY); each app's
 // OWN .env.example documents the EXPO_PUBLIC_/NEXT_PUBLIC_-prefixed client
@@ -164,13 +161,11 @@ for (const appName of readdirSync(appsDir)) {
 }
 const envExampleText = envExampleFiles.map((f) => readFileSync(f, 'utf8')).join('\n');
 const missing = [...foundVars].filter((v) => !envExampleText.includes(v)).sort();
-
 check(
   `every env var read by source code (${foundVars.size} found) is mentioned in root or an app's .env.example`,
   missing.length === 0,
   missing.length ? `undocumented: ${missing.join(', ')}` : undefined,
 );
-
 console.log('');
 if (failures === 0) {
   console.log('OK: deployment configuration (workflows, config.toml, .env.example) verified.');
