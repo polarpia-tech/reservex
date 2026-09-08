@@ -37,14 +37,17 @@ enabled = true
 port = 54323
 
 # -----------------------------------------------------------------------
-# Edge Functions. `verify_jwt = false` is required ONLY for the two
-# functions called by an external provider that has no Supabase session to
-# send an Authorization header with -- Stripe (stripe-webhook) and Twilio
-# (voice-webhook). Both verify authenticity their OWN way instead (Stripe's
+# Edge Functions. `verify_jwt = false` is required ONLY for the three
+# functions called by a caller that has no Supabase session to send an
+# Authorization header with -- Stripe (stripe-webhook), Twilio
+# (voice-webhook), and this project's own database (notify-waitlist, called
+# directly by a pg_net-based Postgres trigger, migration 0032, not by any
+# client app). All three verify authenticity their OWN way instead (Stripe's
 # signature header via STRIPE_WEBHOOK_SECRET, Twilio's X-Twilio-Signature
-# via TWILIO_AUTH_TOKEN -- see each function's own source). Getting this
+# via TWILIO_AUTH_TOKEN, notify-waitlist's x-webhook-secret header via
+# WAITLIST_WEBHOOK_SECRET -- see each function's own source). Getting this
 # backwards in either direction is a real, easy mistake: `verify_jwt = true`
-# on these two would make Supabase reject every real webhook delivery with
+# on these three would make Supabase reject every real webhook delivery with
 # 401 before the function's own signature check ever runs; `verify_jwt =
 # false` on any of the others would let an anonymous caller invoke a
 # privileged function without even a valid Supabase session, one layer
@@ -57,6 +60,9 @@ port = 54323
 verify_jwt = false
 
 [functions.voice-webhook]
+verify_jwt = false
+
+[functions.notify-waitlist]
 verify_jwt = false
 
 [functions.bootstrap-restaurant]
