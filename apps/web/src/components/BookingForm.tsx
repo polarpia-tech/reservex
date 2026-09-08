@@ -6,12 +6,16 @@ import {
   ensureMyCustomerProfile,
   fetchMyCustomerProfile,
   fetchPublicAvailabilitySummary,
+  joinPublicWaitlist,
+  parseJoinPublicWaitlistErrorCode,
   parsePublicReservationErrorCode,
   quoteDepositAmount,
   subscribeToAvailabilityChanges,
   type DepositQuote,
   type PublicAvailabilitySlot,
   type Reservation,
+  type WaitlistEntry,
+  type WebPushSubscriptionJSON,
 } from '@reservex/core';
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 
@@ -20,6 +24,7 @@ import { CalendarIcon, CheckCircleIcon, ClockIcon, PhoneIcon, UsersIcon } from '
 import { getDictionary, interpolate, t, type SupportedLocale } from '@/lib/dictionary';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 import { formatDateTimeInTimeZone, formatTimeInTimeZone, zonedTimeToUtc } from '@/lib/timezone';
+import { requestWebPushSubscription } from '@/lib/webPush';
 
 interface BookingRestaurant {
   id: string;
@@ -54,10 +59,16 @@ export function BookingForm({
   // existed", never a type error at every other call site every time a new
   // opt-in capability like this one is added.
   liveAvailabilityEnabled = false,
+  // Phase 6, Part 2c: same convention as liveAvailabilityEnabled above --
+  // optional, off by default, so every existing call site (including the
+  // widget page, which doesn't pass it either) keeps working unchanged.
+  // Gates the "Join waitlist" panel below; see showWaitlistPanel.
+  waitlistPublicEnabled = false,
 }: {
   locale: SupportedLocale;
   restaurant: BookingRestaurant;
   liveAvailabilityEnabled?: boolean;
+  waitlistPublicEnabled?: boolean;
 }) {
   const dict = getDictionary(locale);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -95,6 +106,33 @@ export function BookingForm({
   // every restaurant that hasn't opted in.
   const [availabilitySlots, setAvailabilitySlots] = useState<PublicAvailabilitySlot[] | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+
+  // Phase 6, Part 2c: the self-service waitlist panel's own state, entirely
+  // separate from the booking form's own submitting/errorMessage above --
+  // joining the waitlist is a distinct action from booking a table, and a
+  // guest can freely retry one without the other's state getting in the way.
+  //
+  // noAvailabilityFromSubmit and waitlistEntry are both reset whenever
+  // date/time/partySize change (see the effect below) -- a waitlist join
+  // (or a stale "no availability" flag) for a PREVIOUS date/time/party size
+  // selection must never linger and be shown against a new one.
+  const [noAvailabilityFromSubmit, setNoAvailabilityFromSubmit] = useState(false);
+  const [waitlistEntry, setWaitlistEntry] = useState<WaitlistEntry | null>(null);
+  const [waitlistNotifyEnabled, setWaitlistNotifyEnabled] = useState(false);
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
+  // Distinct from waitlistError: this is for the (non-fatal) "notifications
+  // are blocked/unsupported" case -- the guest is still successfully on the
+  // waitlist, just without push, so it's never shown as a failure.
+  const [waitlistNotice, setWaitlistNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNoAvailabilityFromSubmit(false);
+    setWaitlistEntry(null);
+    setWaitlistNotifyEnabled(false);
+    setWaitlistError(null);
+    setWaitlistNotice(null);
+  }, [date, time, partySize]);
 
   useEffect(() => {
     const client = getSupabaseBrowserClient();
@@ -208,6 +246,7 @@ export function BookingForm({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setErrorMessage(null);
+    setNoAvailabilityFromSubmit(false);
 
     if (!date || !time) return;
     const startsAt = zonedTimeToUtc(date, time, restaurant.timezone);
@@ -254,6 +293,11 @@ export function BookingForm({
       }
     } catch (error) {
       const code = parsePublicReservationErrorCode(error);
+      // Drives showWaitlistPanel below: a plain booking attempt that comes
+      // back NO_AVAILABILITY is exactly the moment to offer the waitlist,
+      // even for a restaurant that doesn't have liveAvailabilityEnabled (and
+      // therefore never rendered the LiveAvailabilityPanel chips at all).
+      setNoAvailabilityFromSubmit(code === 'NO_AVAILABILITY');
       if (code === 'PARTY_SIZE_OUT_OF_RANGE') {
         setErrorMessage(interpolate(t(dict, 'public.booking.errors.PARTY_SIZE_OUT_OF_RANGE'), { min: restaurant.minPartySize, max: restaurant.maxPartySize }));
       } else if (code) {
@@ -265,6 +309,88 @@ export function BookingForm({
       setSubmitting(false);
     }
   }
+
+  // Phase 6, Part 2c. `withPush` is what distinguishes the panel's two
+  // buttons ("Join waitlist" vs "Join & notify me") and the "joined, but no
+  // push yet" confirmation view's own "Enable notifications" button, which
+  // re-calls this with withPush=true -- join_public_waitlist (0029) is
+  // documented idempotent for the same identity/restaurant/date while the
+  // entry is still 'waiting', so re-submitting it with a freshly-obtained
+  // pushSubscription is the correct, safe way to add push to an
+  // already-joined entry, not a special case.
+  //
+  // A denied/unsupported/failed push opt-in never blocks the join itself --
+  // pushSubscription simply stays null and the guest still gets a normal,
+  // no-push waitlist entry; only the notice shown differs (see
+  // waitlistNotice below).
+  async function handleJoinWaitlist(withPush: boolean) {
+    if (!date || !time) return;
+
+    setWaitlistError(null);
+    setWaitlistNotice(null);
+    setWaitlistSubmitting(true);
+    try {
+      let pushSubscription: WebPushSubscriptionJSON | null = null;
+      if (withPush) {
+        const result = await requestWebPushSubscription();
+        if (result.status === 'subscribed') {
+          pushSubscription = result.subscription;
+        } else if (result.status === 'denied') {
+          setWaitlistNotice(t(dict, 'public.booking.waitlist.notifyDenied'));
+        } else if (result.status === 'unsupported') {
+          setWaitlistNotice(t(dict, 'public.booking.waitlist.notifyUnsupported'));
+        }
+        // 'error' (e.g. the browser's own subscribe() call rejected):
+        // proceed with a plain join below, same as 'denied'/'unsupported' --
+        // no notice needed beyond what the join itself might report.
+      }
+
+      const startsAt = zonedTimeToUtc(date, time, restaurant.timezone);
+      const client = getSupabaseBrowserClient();
+      const entry = await joinPublicWaitlist(client, {
+        restaurantSlug: restaurant.slug,
+        desiredStartsAt: startsAt.toISOString(),
+        partySize,
+        guestName: guestName || null,
+        guestPhone: guestPhone || null,
+        guestEmail: guestEmail || null,
+        pushSubscription,
+      });
+
+      // Same anonymous-read-back gap as bookPublicReservation's own
+      // confirmedReservation above (see joinPublicWaitlist's own comment):
+      // this response is rendered directly, never re-fetched.
+      setWaitlistEntry(entry);
+      setWaitlistNotifyEnabled(Boolean(pushSubscription));
+    } catch (error) {
+      const code = parseJoinPublicWaitlistErrorCode(error);
+      if (code === 'PARTY_SIZE_OUT_OF_RANGE') {
+        setWaitlistError(interpolate(t(dict, 'public.booking.waitlist.errors.PARTY_SIZE_OUT_OF_RANGE'), { min: restaurant.minPartySize, max: restaurant.maxPartySize }));
+      } else if (code) {
+        setWaitlistError(t(dict, `public.booking.waitlist.errors.${code}`));
+      } else {
+        setWaitlistError(t(dict, 'public.booking.waitlist.errors.generic'));
+      }
+    } finally {
+      setWaitlistSubmitting(false);
+    }
+  }
+
+  // Phase 6, Part 2c: when to actually show the "Join waitlist" panel.
+  // Either signal is sufficient on its own -- a restaurant with
+  // liveAvailabilityEnabled shows it the moment every chip in
+  // LiveAvailabilityPanel is unavailable (before the guest even tries to
+  // submit); a restaurant WITHOUT it (or one where availabilitySlots simply
+  // hasn't loaded yet) only finds out via a real submit attempt coming back
+  // NO_AVAILABILITY. Both require waitlistPublicEnabled (the flag) and a
+  // date+time actually picked -- join_public_waitlist needs a concrete
+  // desired slot, same as book_public_reservation does.
+  const allSlotsUnavailable =
+    liveAvailabilityEnabled &&
+    availabilitySlots !== null &&
+    availabilitySlots.length > 0 &&
+    availabilitySlots.every((slot) => slot.availableTableCount === 0 && !slot.hasCombinableOption);
+  const showWaitlistPanel = waitlistPublicEnabled && Boolean(date) && Boolean(time) && (allSlotsUnavailable || noAvailabilityFromSubmit);
 
   if (confirmedReservation) {
     return (
@@ -360,6 +486,20 @@ export function BookingForm({
             slots={availabilitySlots}
             selectedTime={time}
             onPickTime={setTime}
+          />
+        ) : null}
+
+        {showWaitlistPanel ? (
+          <WaitlistPanel
+            dict={dict}
+            joined={waitlistEntry}
+            notifyEnabled={waitlistNotifyEnabled}
+            submitting={waitlistSubmitting}
+            error={waitlistError}
+            notice={waitlistNotice}
+            onJoin={() => void handleJoinWaitlist(false)}
+            onJoinWithNotify={() => void handleJoinWaitlist(true)}
+            onEnableNotify={() => void handleJoinWaitlist(true)}
           />
         ) : null}
 
@@ -501,6 +641,112 @@ function LiveAvailabilityPanel({
           <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.hint')}</p>
         </>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Phase 6, Part 2c. Shown once BookingForm decides there's genuinely no
+ * availability for the guest's picked date/time (see showWaitlistPanel's
+ * own comment). Two states:
+ *
+ *  - `joined` is null: the guest hasn't joined yet -- two buttons, "Join
+ *    waitlist" (no push) and "Join & notify me" (requests notification
+ *    permission first, then joins with the resulting subscription). Both
+ *    are always offered -- push is an enhancement, never a requirement to
+ *    get on the list at all.
+ *  - `joined` is set: the confirmation view, rendered directly from
+ *    join_public_waitlist()'s own return value (see joinPublicWaitlist's
+ *    comment for why -- there is no way to read it back afterwards for an
+ *    anonymous guest). If `notifyEnabled` is false, a single "Enable
+ *    notifications" button lets the guest add push to their existing entry
+ *    without creating a duplicate (join_public_waitlist is idempotent for
+ *    the same identity/restaurant/date while 'waiting').
+ */
+function WaitlistPanel({
+  dict,
+  joined,
+  notifyEnabled,
+  submitting,
+  error,
+  notice,
+  onJoin,
+  onJoinWithNotify,
+  onEnableNotify,
+}: {
+  dict: ReturnType<typeof getDictionary>;
+  joined: WaitlistEntry | null;
+  notifyEnabled: boolean;
+  submitting: boolean;
+  error: string | null;
+  notice: string | null;
+  onJoin: () => void;
+  onJoinWithNotify: () => void;
+  onEnableNotify: () => void;
+}) {
+  const buttonStyle: CSSProperties = {
+    fontFamily: 'var(--font-family)',
+    fontSize: 13,
+    borderRadius: 'var(--radius-full)',
+    padding: '8px 14px',
+    cursor: submitting ? 'default' : 'pointer',
+    opacity: submitting ? 0.7 : 1,
+  };
+  const secondaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)' };
+  const primaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'var(--accent)', border: 'none', color: 'var(--surface)', fontWeight: 600 };
+
+  if (joined) {
+    return (
+      <div
+        style={{
+          border: '1px solid var(--accent)',
+          borderRadius: 'var(--radius-md)',
+          padding: '10px var(--space-md)',
+          background: 'var(--background)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+        }}
+      >
+        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{t(dict, 'public.booking.waitlist.joinedTitle')}</p>
+        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.waitlist.joinedBody')}</p>
+        {notice && <p style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>{notice}</p>}
+        <p style={{ margin: 0, fontSize: 12.5, color: notifyEnabled ? 'var(--success)' : 'var(--text-muted)' }}>
+          {notifyEnabled ? t(dict, 'public.booking.waitlist.notifyEnabledNotice') : t(dict, 'public.booking.waitlist.notifyNotEnabledNotice')}
+        </p>
+        {!notifyEnabled ? (
+          <button type="button" disabled={submitting} onClick={onEnableNotify} style={{ ...primaryButtonStyle, alignSelf: 'flex-start' }}>
+            {submitting ? t(dict, 'public.booking.waitlist.notifyRequesting') : t(dict, 'public.booking.waitlist.notifyEnableButton')}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+        padding: '10px var(--space-md)',
+        background: 'var(--background)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{t(dict, 'public.booking.waitlist.title')}</p>
+      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.waitlist.body')}</p>
+      {notice && <p style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>{notice}</p>}
+      {error && <p style={{ margin: 0, fontSize: 12, color: 'var(--danger)' }}>{error}</p>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <button type="button" disabled={submitting} onClick={onJoin} style={secondaryButtonStyle}>
+          {submitting ? t(dict, 'public.booking.waitlist.joining') : t(dict, 'public.booking.waitlist.joinButton')}
+        </button>
+        <button type="button" disabled={submitting} onClick={onJoinWithNotify} style={primaryButtonStyle}>
+          {submitting ? t(dict, 'public.booking.waitlist.notifyRequesting') : t(dict, 'public.booking.waitlist.notifyButton')}
+        </button>
+      </div>
     </div>
   );
 }

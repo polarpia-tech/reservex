@@ -459,6 +459,32 @@
         "paidBody": "Ihre Anzahlung wurde autorisiert. Ihr Tisch ist vollständig bestätigt.",
         "unpaidNotice": "Ihr Tisch ist reserviert, die Anzahlung wurde jedoch noch nicht geleistet — die Reservierung kann storniert werden, falls sie nicht rechtzeitig eingeht.",
         "genericError": "Die Anzahlung konnte nicht verarbeitet werden. Sie können es unten erneut versuchen."
+      },
+      "waitlist": {
+        "title": "Kein Tisch frei?",
+        "body": "Tragen Sie sich in die Warteliste ein — wir benachrichtigen Sie, sobald für dieses Datum und diese Uhrzeit ein Tisch frei wird.",
+        "joinButton": "Zur Warteliste",
+        "joining": "Wird eingetragen…",
+        "notifyButton": "Eintragen & benachrichtigen",
+        "notifyEnableButton": "Benachrichtigungen aktivieren",
+        "notifyRequesting": "Berechtigung wird angefragt…",
+        "joinedTitle": "Sie stehen auf der Warteliste",
+        "joinedBody": "Wir reservieren Ihren Platz für dieses Datum und diese Uhrzeit. Notieren Sie sich diese Angaben — ein Gasteintrag auf der Warteliste kann später nicht online nachgeschaut werden.",
+        "notifyEnabledNotice": "Benachrichtigungen sind aktiv — wir informieren Sie auf diesem Gerät, sobald ein Tisch frei wird.",
+        "notifyNotEnabledNotice": "Sie stehen auf der Liste, Benachrichtigungen sind auf diesem Gerät aber noch nicht aktiviert.",
+        "notifyDenied": "Benachrichtigungen sind in Ihrem Browser blockiert. Sie stehen weiterhin auf der Warteliste, müssen aber selbst nachsehen.",
+        "notifyUnsupported": "Dieser Browser unterstützt keine Benachrichtigungen, Sie stehen aber weiterhin auf der Warteliste.",
+        "errors": {
+          "FEATURE_DISABLED": "Die Warteliste ist für dieses Restaurant derzeit nicht verfügbar.",
+          "AVAILABILITY_EXISTS": "Es ist gerade ein Tisch frei geworden — bitte buchen Sie ihn oben.",
+          "PARTY_SIZE_OUT_OF_RANGE": "Dieses Restaurant nimmt Gruppen von {{min}}–{{max}} Personen an.",
+          "OUTSIDE_BOOKING_WINDOW": "Dieses Restaurant nimmt Wartelisten-Anfragen nur innerhalb seines zulässigen Buchungszeitraums an.",
+          "RESTAURANT_CLOSED": "Das Restaurant hat zu diesem Datum und dieser Uhrzeit geschlossen.",
+          "GUEST_DETAILS_REQUIRED": "Bitte geben Sie Ihren Namen sowie eine Telefonnummer oder eine E-Mail-Adresse an.",
+          "RATE_LIMITED": "Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
+          "RESTAURANT_NOT_FOUND": "Restaurant nicht gefunden.",
+          "generic": "Der Wartelisten-Eintrag konnte nicht erstellt werden. Bitte versuchen Sie es erneut."
+        }
       }
     },
     "account": {

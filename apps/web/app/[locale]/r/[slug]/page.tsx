@@ -39,7 +39,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
     );
   }
 
-  const [openingHours, specialHours, liveAvailabilityEnabled] = await Promise.all([
+  const [openingHours, specialHours, liveAvailabilityEnabled, waitlistPublicEnabled] = await Promise.all([
     fetchOpeningHours(supabase, restaurant.id),
     fetchSpecialHours(supabase, restaurant.id),
     // Phase 2 of the Live Availability upgrade (migration 0024): off for
@@ -48,6 +48,13 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
     // restaurants today. Never throws -- see fetchIsFeatureEnabledForRestaurant's
     // own comment -- so a flag-check hiccup can never take down this page.
     fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'live_availability'),
+    // Phase 6, Part 2c of the same upgrade: the self-service waitlist's
+    // public-facing "Join waitlist" affordance. `waitlist_public` isn't
+    // owner-configurable yet (is_owner_configurable is flipped on in a
+    // follow-up migration once this UI is verified end to end) -- until
+    // then this is off for every restaurant, same as live_availability was
+    // before its own owner toggle shipped.
+    fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'waitlist_public'),
   ]);
 
   return (
@@ -93,6 +100,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
             bookingWindowMaxDays: restaurant.bookingWindowMaxDays,
           }}
           liveAvailabilityEnabled={liveAvailabilityEnabled}
+          waitlistPublicEnabled={waitlistPublicEnabled}
         />
       </div>
     </div>

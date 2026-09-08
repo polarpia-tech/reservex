@@ -18,6 +18,15 @@
 //   3. A friendly offline screen (app/offline/page.tsx) instead of the
 //      browser's default "no internet" error, when a navigation request
 //      fails outright.
+//   4. Phase 6, Part 2c: actually displaying an incoming Web Push message
+//      (the 'push' listener below) and handling a tap on it (the
+//      'notificationclick' listener below). Everything upstream of this
+//      file -- the guest's opt-in in BookingForm.tsx, the subscription
+//      stored by join_public_waitlist (0029/0030), and the pg_net trigger
+//      + notify-waitlist Edge Function that actually sends the push
+//      (0030-0032) -- was already built and, for the send side, verified
+//      end to end in production; this file is what makes that push message
+//      actually show up as a real OS-level notification.
 //
 // Every HTML/data navigation is network-first: the cache is only a
 // fallback for when the network request fails completely, never
@@ -74,4 +83,55 @@ self.addEventListener('fetch', (event) => {
       fetch(request).catch(() => caches.open(CACHE_NAME).then((cache) => cache.match(OFFLINE_URL))),
     );
   }
+});
+
+// Phase 6, Part 2c: display an incoming waitlist push notification.
+//
+// The payload shape (JSON.stringify'd by notify-waitlist, see that Edge
+// Function's own source) is currently `{ title, body, slotStartsAt,
+// slotEndsAt }` -- no target URL, because notify-waitlist only has the
+// restaurant's id, not its public slug, on hand. HONEST GAP, not hidden: a
+// tap on the notification below therefore focuses/opens the app at its
+// root ('/'), not at the specific restaurant's page. Deep-linking to the
+// right restaurant would mean notify-waitlist joining restaurants for its
+// slug and including a `url` field -- a real improvement, but a change to
+// that already-deployed-and-verified function, deliberately left for a
+// separate follow-up rather than folded into this UI-only pass.
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    // Not JSON (or empty) -- nothing sensible to show; don't throw out of
+    // the event handler over a malformed push.
+    return;
+  }
+
+  const title = typeof payload.title === 'string' && payload.title ? payload.title : 'ReservX';
+  const options = {
+    body: typeof payload.body === 'string' ? payload.body : '',
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: '/' },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsList) => {
+      for (const client of clientsList) {
+        // Focus an already-open ReservX tab rather than piling up a new one.
+        if ('focus' in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+      return undefined;
+    }),
+  );
 });

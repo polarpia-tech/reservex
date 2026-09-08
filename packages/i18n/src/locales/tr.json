@@ -459,6 +459,32 @@
         "paidBody": "Depozitonuz onaylandı. Masanız tamamen kesinleşti.",
         "unpaidNotice": "Masanız rezerve edildi, ancak depozito henüz ödenmedi — zamanında ödenmezse rezervasyon iptal edilebilir.",
         "genericError": "Depozito ödemesi işlenemedi. Aşağıdan tekrar deneyebilirsiniz."
+      },
+      "waitlist": {
+        "title": "Uygun masa yok mu?",
+        "body": "Bekleme listesine katılın, bu tarih ve saat için bir masa boşaldığında size haber verelim.",
+        "joinButton": "Bekleme listesine katıl",
+        "joining": "Katılıyor…",
+        "notifyButton": "Katıl & bildirim gönder",
+        "notifyEnableButton": "Bildirimleri etkinleştir",
+        "notifyRequesting": "İzin isteniyor…",
+        "joinedTitle": "Bekleme listesindesiniz",
+        "joinedBody": "Bu tarih ve saat için yerinizi ayırıyoruz. Bu bilgileri kaydedin — misafir bekleme listesi kaydı daha sonra çevrimiçi olarak sorgulanamaz.",
+        "notifyEnabledNotice": "Bildirimler açık — bir masa boşaldığı anda bu cihazda sizi bilgilendireceğiz.",
+        "notifyNotEnabledNotice": "Listedesiniz, ancak bu cihazda bildirimler henüz etkin değil.",
+        "notifyDenied": "Tarayıcınızda bildirimler engellenmiş. Bekleme listesinde kalıyorsunuz, ancak kendiniz kontrol etmeniz gerekecek.",
+        "notifyUnsupported": "Bu tarayıcı bildirimleri desteklemiyor, ancak bekleme listesinde kalıyorsunuz.",
+        "errors": {
+          "FEATURE_DISABLED": "Bekleme listesi şu anda bu restoran için kullanılamıyor.",
+          "AVAILABILITY_EXISTS": "Az önce bir masa boşaldı — lütfen yukarıdan rezervasyon yapın.",
+          "PARTY_SIZE_OUT_OF_RANGE": "Bu restoran {{min}}–{{max}} kişilik grupları kabul ediyor.",
+          "OUTSIDE_BOOKING_WINDOW": "Bu restoran yalnızca izin verilen rezervasyon zaman aralığında bekleme listesi talebi kabul ediyor.",
+          "RESTAURANT_CLOSED": "Restoran bu tarih ve saatte kapalı.",
+          "GUEST_DETAILS_REQUIRED": "Lütfen adınızı ve telefon numaranız ya da e-posta adresinizden birini girin.",
+          "RATE_LIMITED": "Çok fazla deneme yapıldı. Lütfen birkaç dakika bekleyip tekrar deneyin.",
+          "RESTAURANT_NOT_FOUND": "Restoran bulunamadı.",
+          "generic": "Bekleme listesine katılınamadı. Lütfen tekrar deneyin."
+        }
       }
     },
     "account": {

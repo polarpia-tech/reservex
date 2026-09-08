@@ -459,6 +459,32 @@
         "paidBody": "Your deposit has been authorized. Your table is fully confirmed.",
         "unpaidNotice": "Your table is booked, but the deposit has not been paid yet — it may be cancelled if it isn't paid before the restaurant's deadline.",
         "genericError": "Could not process the deposit payment. You can try again below."
+      },
+      "waitlist": {
+        "title": "No tables available?",
+        "body": "Join the waitlist and we'll let you know the moment a table opens up for this date and time.",
+        "joinButton": "Join waitlist",
+        "joining": "Joining…",
+        "notifyButton": "Join & notify me",
+        "notifyEnableButton": "Enable notifications",
+        "notifyRequesting": "Requesting permission…",
+        "joinedTitle": "You're on the waitlist",
+        "joinedBody": "We'll hold your spot for this date and time. Save these details — a guest waitlist entry can't be looked up online afterwards.",
+        "notifyEnabledNotice": "Notifications are on — we'll alert you on this device the moment a table opens up.",
+        "notifyNotEnabledNotice": "You're on the list, but notifications aren't enabled on this device yet.",
+        "notifyDenied": "Notifications are blocked in your browser. You're still on the waitlist, but you'll need to check back yourself.",
+        "notifyUnsupported": "This browser doesn't support notifications, but you're still on the waitlist.",
+        "errors": {
+          "FEATURE_DISABLED": "The waitlist isn't available for this restaurant right now.",
+          "AVAILABILITY_EXISTS": "A table just became available — please book it above instead.",
+          "PARTY_SIZE_OUT_OF_RANGE": "This restaurant accepts parties of {{min}}–{{max}} guests.",
+          "OUTSIDE_BOOKING_WINDOW": "This restaurant only takes waitlist requests within its allowed booking window.",
+          "RESTAURANT_CLOSED": "The restaurant is closed at that date and time.",
+          "GUEST_DETAILS_REQUIRED": "Please enter your name and either a phone number or an email address.",
+          "RATE_LIMITED": "Too many attempts. Please wait a few minutes and try again.",
+          "RESTAURANT_NOT_FOUND": "Restaurant not found.",
+          "generic": "Could not join the waitlist. Please try again."
+        }
       }
     },
     "account": {
