@@ -1,0 +1,33 @@
+-- =============================================================================
+-- 0033_waitlist_public_owner_toggle.sql
+-- Purpose: Phase 6, Part 2c of "Live Availability, Smart Booking & Real-Time
+-- Restaurant Experience" is now fully built AND verified end to end in
+-- production with real data: a guest can join the self-service waitlist from
+-- the public restaurant page (0029 join_public_waitlist), opt in to Web Push
+-- (0030 push_subscription column, apps/web/src/lib/webPush.ts), and actually
+-- receive a real push notification on a real device when a table opens up
+-- (0030-0032 claim_waitlist_matches_for_restaurant + the pg_net trigger +
+-- the notify-waitlist Edge Function + apps/web/public/sw.js's 'push'
+-- listener) -- confirmed live on 2026-09-08 via a genuine reservation
+-- cancellation that produced a real Android notification ("A table just
+-- opened up! Pavlos Michailidis, a table for 5...").
+--
+-- This is the "follow-up migration" apps/web/app/[locale]/r/[slug]/page.tsx
+-- (Phase 6, Part 2c comment) and apps/mobile/app/(tabs)/settings/
+-- live-features.tsx (Phase 6, header comment) both already anticipated:
+-- 'waitlist_public' behaves exactly like 'live_availability' did before its
+-- own owner toggle shipped (0028) -- off for every restaurant, platform-
+-- admin-only, until this migration marks it owner-configurable. No app code
+-- changes needed anywhere: page.tsx already resolves 'waitlist_public' per
+-- restaurant via fetchIsFeatureEnabledForRestaurant, and the mobile owner
+-- settings screen already renders one row per is_owner_configurable flag it
+-- finds in the database -- flipping this one column is the entire change.
+--
+-- 'live_occupancy', 'last_minute_alerts' and 'popularity_indicator' (the
+-- other three Live-Availability-epic flags seeded alongside waitlist_public
+-- in 0023) are untouched here -- each still has no real feature behind it
+-- yet, and gets its own is_owner_configurable = true in its own future
+-- phase's migration once verified, per 0028's original plan.
+-- =============================================================================
+
+update public.feature_flags set is_owner_configurable = true where key = 'waitlist_public';
