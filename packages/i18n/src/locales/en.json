@@ -351,6 +351,10 @@
       "live_availability": {
         "label": "Live table availability",
         "description": "Show guests live per-time-slot table availability on your public booking page."
+      },
+      "waitlist_public": {
+        "label": "Self-service waitlist",
+        "description": "Let guests add themselves to your waitlist from the public booking page when you're fully booked."
       }
     },
     "staffSubtitle": "Invite & manage your team",

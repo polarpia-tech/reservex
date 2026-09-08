@@ -238,6 +238,10 @@ export interface WaitlistEntry {
   customerId: UUID | null;
   guestName: string | null;
   guestPhone: string | null;
+  // Added in migration 0029 for the public self-service join path
+  // (join_public_waitlist) -- null for every entry created by staff before
+  // that migration, which only ever collected a phone number.
+  guestEmail: string | null;
   partySize: number;
   requestedDate: ISODate;
   // The window the guest would accept, e.g. 19:00-21:00 -- stored as a

@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { mapRestaurantRow, type RestaurantRow } from './restaurants';
-import type { ISODate, ISODateTime, Reservation, ReservationSource, ReservationStatus, Restaurant } from '../types/database';
+import { mapWaitlistRow, type WaitlistEntryRow } from './waitlist';
+import type { ISODate, ISODateTime, Reservation, ReservationSource, ReservationStatus, Restaurant, WaitlistEntry } from '../types/database';
 
 // ---------------------------------------------------------------------------
 // The anonymous/customer-facing side of Phase 08: browsing a restaurant's
@@ -352,4 +353,93 @@ export function subscribeToAvailabilityChanges(client: SupabaseClient, restauran
   return () => {
     void client.removeChannel(channel);
   };
+}
+
+// ---------------------------------------------------------------------------
+// join_public_waitlist() wrapper -- Phase 6, Part 2a of the Live Availability
+// upgrade, migration 0029. The self-service half of the `waitlist_public`
+// flag: lets an anonymous visitor (or signed-in customer) add themselves to
+// a restaurant's EXISTING waitlist_entries table (the same one staff already
+// read/write, 0006/0011) once the public page's own availability check has
+// come back empty. See that migration's header comment for the full
+// validation order, and in particular why the server itself re-checks
+// availability and rejects the join (AVAILABILITY_EXISTS) if a table turns
+// out to actually be free -- the UI is expected to only show this affordance
+// when fetchPublicAvailabilitySummary()/subscribeToAvailabilityChanges()
+// already indicate nothing is free, but the server never trusts that alone.
+// ---------------------------------------------------------------------------
+export interface JoinPublicWaitlistInput {
+  restaurantSlug: string;
+  desiredStartsAt: ISODateTime;
+  partySize: number;
+  guestName?: string | null;
+  guestPhone?: string | null;
+  guestEmail?: string | null;
+  zonePreferenceId?: string | null;
+}
+
+/** The error codes join_public_waitlist() can raise (migration 0029). */
+export type JoinPublicWaitlistErrorCode =
+  | 'FEATURE_DISABLED'
+  | 'AVAILABILITY_EXISTS'
+  | 'PARTY_SIZE_OUT_OF_RANGE'
+  | 'OUTSIDE_BOOKING_WINDOW'
+  | 'RESTAURANT_CLOSED'
+  | 'GUEST_DETAILS_REQUIRED'
+  | 'RATE_LIMITED'
+  | 'RESTAURANT_NOT_FOUND';
+
+const PUBLIC_WAITLIST_ERROR_CODES: readonly JoinPublicWaitlistErrorCode[] = [
+  'FEATURE_DISABLED',
+  'AVAILABILITY_EXISTS',
+  'PARTY_SIZE_OUT_OF_RANGE',
+  'OUTSIDE_BOOKING_WINDOW',
+  'RESTAURANT_CLOSED',
+  'GUEST_DETAILS_REQUIRED',
+  'RATE_LIMITED',
+  'RESTAURANT_NOT_FOUND',
+];
+
+/** Same pattern as parsePublicReservationErrorCode() -- returns null for anything unrecognized. */
+export function parseJoinPublicWaitlistErrorCode(error: unknown): JoinPublicWaitlistErrorCode | null {
+  const message =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string'
+          ? (error as { message: string }).message
+          : '';
+  return PUBLIC_WAITLIST_ERROR_CODES.find((code) => message.includes(code)) ?? null;
+}
+
+/**
+ * Joins the restaurant's waitlist as an anonymous guest OR a signed-in
+ * customer (the RPC branches on auth.uid(), same as bookPublicReservation
+ * above). Idempotent re-tap: calling this again with the same identity for
+ * the same restaurant+date, while still 'waiting', returns the SAME entry
+ * rather than creating a duplicate (see 0029's header comment) -- so a
+ * "Join waitlist" button does not need its own debounce/disable-after-click
+ * logic to stay correct, only to stay pleasant to use.
+ *
+ * Same anonymous-read-back gap as bookPublicReservation: for a guest with no
+ * account, this response is the ONLY confirmation they ever get -- there is
+ * no RLS grant that lets them look the entry back up afterward (waitlist_
+ * select, 0011, only grants staff or the OWNING signed-in customer).
+ */
+export async function joinPublicWaitlist(client: SupabaseClient, input: JoinPublicWaitlistInput): Promise<WaitlistEntry> {
+  const { data, error } = await client.rpc('join_public_waitlist', {
+    p_restaurant_slug: input.restaurantSlug,
+    p_desired_starts_at: input.desiredStartsAt,
+    p_party_size: input.partySize,
+    p_guest_name: input.guestName ?? null,
+    p_guest_phone: input.guestPhone ?? null,
+    p_guest_email: input.guestEmail ?? null,
+    p_zone_preference_id: input.zonePreferenceId ?? null,
+  });
+  // No .single() -- join_public_waitlist is declared `returns public.
+  // waitlist_entries` (one row, not setof), so PostgREST already serves it
+  // as a single JSON object, same reasoning as bookPublicReservation above.
+  if (error) throw error;
+  return mapWaitlistRow(data as unknown as WaitlistEntryRow);
 }

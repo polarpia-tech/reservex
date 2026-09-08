@@ -351,6 +351,10 @@
       "live_availability": {
         "label": "Live-Tischverfügbarkeit",
         "description": "Zeige Gästen die Live-Tischverfügbarkeit pro Zeitfenster auf deiner öffentlichen Buchungsseite."
+      },
+      "waitlist_public": {
+        "label": "Selbstbedienungs-Warteliste",
+        "description": "Lass Gäste sich selbst auf deine Warteliste setzen, wenn auf der öffentlichen Buchungsseite gerade nichts frei ist."
       }
     },
     "staffSubtitle": "Team einladen & verwalten",

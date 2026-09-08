@@ -3,12 +3,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ISODate, ISODateTime, UUID, WaitlistEntry, WaitlistStatus } from '../types/database';
 import { bookReservation, type BookReservationInput } from './reservations';
 
-interface WaitlistEntryRow {
+export interface WaitlistEntryRow {
   id: string;
   restaurant_id: string;
   customer_id: string | null;
   guest_name: string | null;
   guest_phone: string | null;
+  // Added in migration 0029 -- see WaitlistEntry.guestEmail in types/database.ts.
+  guest_email: string | null;
   party_size: number;
   requested_date: string;
   requested_time_range: string; // raw Postgres tstzrange literal, e.g. ["2026-09-05 19:00:00+00","2026-09-05 21:00:00+00")
@@ -79,7 +81,13 @@ function toTstzRangeLiteral(from: ISODateTime, to: ISODateTime): string {
   return `[${from},${to})`;
 }
 
-function mapWaitlistRow(row: WaitlistEntryRow): WaitlistEntry {
+/**
+ * Exported so api/publicBooking.ts (join_public_waitlist, migration 0029)
+ * can map that RPC's response with the exact same logic, instead of a
+ * second, drifting copy of the tstzrange-parsing code above -- same "one
+ * implementation, reused" reasoning as the rest of this codebase.
+ */
+export function mapWaitlistRow(row: WaitlistEntryRow): WaitlistEntry {
   const { from, to } = parseTstzRange(row.requested_time_range);
   return {
     id: row.id,
@@ -87,6 +95,7 @@ function mapWaitlistRow(row: WaitlistEntryRow): WaitlistEntry {
     customerId: row.customer_id,
     guestName: row.guest_name,
     guestPhone: row.guest_phone,
+    guestEmail: row.guest_email,
     partySize: row.party_size,
     requestedDate: row.requested_date,
     requestedFrom: from,
