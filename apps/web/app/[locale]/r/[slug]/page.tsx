@@ -61,8 +61,30 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
     // BookingForm.tsx's own comment on popularityIndicatorEnabled.
     fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'popularity_indicator'),
   ]);
+  // TEMP DIAGNOSTIC (to be reverted): fetchIsFeatureEnabledForRestaurant
+  // swallows any RPC error into `false`, which is hiding a real discrepancy
+  // for 'popularity_indicator' specifically -- raw REST calls with the
+  // browser's own anon key return true, but this server call is producing
+  // false. Calling the RPC directly here, unswallowed, to see the actual
+  // {data, error} this server-side client gets back.
+  const popularityDebugRaw = await supabase.rpc('is_feature_enabled_for_restaurant', {
+    p_restaurant_slug: restaurant.slug,
+    p_flag_key: 'popularity_indicator',
+  });
+  const popularityDebugEnvUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'MISSING';
+  const popularityDebugEnvKeyTail = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'MISSING').slice(-12);
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(var(--space-xl), 6vw, 56px) var(--space-2xl) var(--space-4xl)' }}>
+      <div
+        id="popularity-debug"
+        style={{ display: 'none' }}
+        data-debug={JSON.stringify({
+          data: popularityDebugRaw.data,
+          error: popularityDebugRaw.error,
+          envUrl: popularityDebugEnvUrl,
+          envKeyTail: popularityDebugEnvKeyTail,
+        })}
+      />
       <div style={{ marginBottom: 'var(--space-3xl)' }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(26px, 4.5vw, 40px)', lineHeight: 1.1, margin: '0 0 var(--space-sm)' }}>
           {restaurant.name}
