@@ -485,6 +485,32 @@
           "RESTAURANT_NOT_FOUND": "Restaurant not found.",
           "generic": "Could not join the waitlist. Please try again."
         }
+      },
+      "lastMinuteAlert": {
+        "title": "Nothing available right now?",
+        "body": "Get notified the moment a table opens up today — no need to pick a time or wait around.",
+        "joinButton": "Add me to the list",
+        "joining": "Joining…",
+        "notifyButton": "🔔 Notify me today",
+        "notifyEnableButton": "Enable notifications",
+        "notifyRequesting": "Requesting permission…",
+        "joinedTitle": "We'll let you know",
+        "joinedBody": "We're watching for any table that opens up before closing today. Save these details — a guest alert can't be looked up online afterwards.",
+        "notifyEnabledNotice": "Notifications are on — we'll alert you on this device the instant a table opens up today.",
+        "notifyNotEnabledNotice": "You're on the list, but notifications aren't enabled on this device yet.",
+        "notifyDenied": "Notifications are blocked in your browser. You're still on the list, but you'll need to check back yourself.",
+        "notifyUnsupported": "This browser doesn't support notifications, but you're still on the list.",
+        "errors": {
+          "FEATURE_DISABLED": "Last-minute alerts aren't available for this restaurant right now.",
+          "RESTAURANT_CLOSED": "The restaurant is closed right now.",
+          "NO_TIME_REMAINING_TODAY": "There isn't enough time left before closing today for a new table.",
+          "AVAILABILITY_EXISTS": "A table is available right now — please book it above instead.",
+          "PARTY_SIZE_OUT_OF_RANGE": "This restaurant accepts parties of {{min}}–{{max}} guests.",
+          "GUEST_DETAILS_REQUIRED": "Please enter your name and either a phone number or an email address.",
+          "RATE_LIMITED": "Too many attempts. Please wait a few minutes and try again.",
+          "RESTAURANT_NOT_FOUND": "Restaurant not found.",
+          "generic": "Could not sign up for last-minute alerts. Please try again."
+        }
       }
     },
     "account": {

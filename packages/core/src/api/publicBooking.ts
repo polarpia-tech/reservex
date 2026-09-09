@@ -1,9 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-
 import { mapRestaurantRow, type RestaurantRow } from './restaurants';
 import { mapWaitlistRow, type WaitlistEntryRow } from './waitlist';
 import type { ISODate, ISODateTime, Reservation, ReservationSource, ReservationStatus, Restaurant, WaitlistEntry, WebPushSubscriptionJSON } from '../types/database';
-
 // ---------------------------------------------------------------------------
 // The anonymous/customer-facing side of Phase 08: browsing a restaurant's
 // public profile and booking a table, backed entirely by migration 0014
@@ -21,7 +19,6 @@ import type { ISODate, ISODateTime, Reservation, ReservationSource, ReservationS
 // screens never need that -- they already have the id), and the booking
 // call itself.
 // ---------------------------------------------------------------------------
-
 /**
  * Every restaurant visible under restaurants_public_select (0014) -- active,
  * non-deleted -- for the public directory/browse page. Ordered by name
@@ -34,7 +31,6 @@ export async function fetchPublicRestaurantDirectory(client: SupabaseClient): Pr
   if (error) throw error;
   return (data as RestaurantRow[]).map(mapRestaurantRow);
 }
-
 /**
  * A restaurant's public profile by slug, for the "/r/[slug]" page. Returns
  * null (not a thrown error) when the slug doesn't exist OR the restaurant
@@ -48,7 +44,6 @@ export async function fetchPublicRestaurant(client: SupabaseClient, slug: string
   if (!data) return null;
   return mapRestaurantRow(data as RestaurantRow);
 }
-
 // ---------------------------------------------------------------------------
 // book_public_reservation() wrapper. See migration 0014 for the full
 // validation order this function enforces server-side (party size ->
@@ -64,7 +59,6 @@ export interface BookPublicReservationInput {
   guestEmail?: string | null;
   specialRequests?: string | null;
 }
-
 /**
  * The additional error codes book_public_reservation() can raise, on top of
  * RESTAURANT_NOT_FOUND / NO_AVAILABILITY / DOUBLE_BOOKED / INVALID_PARTY_SIZE
@@ -78,7 +72,6 @@ export type BookPublicReservationErrorCode =
   | 'RESTAURANT_CLOSED'
   | 'GUEST_DETAILS_REQUIRED'
   | 'RATE_LIMITED';
-
 const PUBLIC_ERROR_CODES: readonly string[] = [
   'PARTY_SIZE_OUT_OF_RANGE',
   'OUTSIDE_BOOKING_WINDOW',
@@ -92,9 +85,7 @@ const PUBLIC_ERROR_CODES: readonly string[] = [
   'NO_AVAILABILITY',
   'DOUBLE_BOOKED',
 ];
-
 export type PublicReservationErrorCode = BookPublicReservationErrorCode | 'RESTAURANT_NOT_FOUND' | 'NO_AVAILABILITY' | 'DOUBLE_BOOKED';
-
 /**
  * Same pattern as parseBookReservationErrorCode() -- returns null for
  * anything unrecognized (e.g. a network error) so the caller can fall back
@@ -119,7 +110,6 @@ export function parsePublicReservationErrorCode(error: unknown): PublicReservati
   const match = PUBLIC_ERROR_CODES.find((code) => message.includes(code));
   return (match as PublicReservationErrorCode | undefined) ?? null;
 }
-
 interface ReservationRowLite {
   id: string;
   restaurant_id: string;
@@ -148,7 +138,6 @@ interface ReservationRowLite {
   created_at: string;
   updated_at: string;
 }
-
 function mapReservationRowLite(row: ReservationRowLite): Reservation {
   return {
     id: row.id,
@@ -179,7 +168,6 @@ function mapReservationRowLite(row: ReservationRowLite): Reservation {
     updatedAt: row.updated_at,
   };
 }
-
 /**
  * Books a table as an anonymous guest OR a signed-in customer (the RPC
  * itself branches on auth.uid() -- see 0014). IMPORTANT, per the Phase 08
@@ -207,7 +195,6 @@ export async function bookPublicReservation(client: SupabaseClient, input: BookP
   if (error) throw error;
   return mapReservationRowLite(data as unknown as ReservationRowLite);
 }
-
 // ---------------------------------------------------------------------------
 // get_public_availability_summary() wrapper -- Phase 1 ("DB/RPC foundation")
 // of the Live Availability upgrade, migration 0023. Anon-callable, returns
@@ -227,14 +214,12 @@ export interface PublicAvailabilitySlot {
   availableTableCount: number;
   hasCombinableOption: boolean;
 }
-
 interface PublicAvailabilitySlotRow {
   slot_starts_at: string;
   slot_ends_at: string;
   available_table_count: number;
   has_combinable_option: boolean;
 }
-
 function mapPublicAvailabilitySlotRow(row: PublicAvailabilitySlotRow): PublicAvailabilitySlot {
   return {
     slotStartsAt: row.slot_starts_at,
@@ -243,23 +228,19 @@ function mapPublicAvailabilitySlotRow(row: PublicAvailabilitySlotRow): PublicAva
     hasCombinableOption: row.has_combinable_option,
   };
 }
-
 export interface FetchPublicAvailabilitySummaryInput {
   restaurantSlug: string;
   date: ISODate;
   partySize?: number;
   intervalMinutes?: number;
 }
-
 /** The error codes get_public_availability_summary() can raise (see migration 0023). */
 export type PublicAvailabilitySummaryErrorCode = 'RESTAURANT_NOT_FOUND' | 'PARTY_SIZE_OUT_OF_RANGE' | 'INVALID_ARGUMENTS';
-
 const PUBLIC_AVAILABILITY_ERROR_CODES: readonly PublicAvailabilitySummaryErrorCode[] = [
   'RESTAURANT_NOT_FOUND',
   'PARTY_SIZE_OUT_OF_RANGE',
   'INVALID_ARGUMENTS',
 ];
-
 /** Same pattern as parsePublicReservationErrorCode() -- returns null for anything unrecognized. */
 export function parsePublicAvailabilitySummaryErrorCode(error: unknown): PublicAvailabilitySummaryErrorCode | null {
   const message =
@@ -272,7 +253,6 @@ export function parsePublicAvailabilitySummaryErrorCode(error: unknown): PublicA
           : '';
   return PUBLIC_AVAILABILITY_ERROR_CODES.find((code) => message.includes(code)) ?? null;
 }
-
 /**
  * Empty array means "closed that day" (no opening_hours/special_hours shift
  * covers it) -- not an error, and indistinguishable on purpose from a day
@@ -293,7 +273,6 @@ export async function fetchPublicAvailabilitySummary(
   if (error) throw error;
   return (data as unknown as PublicAvailabilitySlotRow[]).map(mapPublicAvailabilitySlotRow);
 }
-
 // ---------------------------------------------------------------------------
 // is_feature_enabled_for_restaurant() wrapper -- migration 0024. This is how
 // an anonymous (or signed-in) visitor's browser finds out whether a given
@@ -317,7 +296,6 @@ export async function fetchIsFeatureEnabledForRestaurant(client: SupabaseClient,
   if (error) return false;
   return Boolean(data);
 }
-
 // ---------------------------------------------------------------------------
 // Phase 3 of the Live Availability upgrade (migration 0025): subscribe to
 // restaurant_availability_versions via Supabase Realtime so the customer's
@@ -349,12 +327,10 @@ export function subscribeToAvailabilityChanges(client: SupabaseClient, restauran
       () => onChange(),
     )
     .subscribe();
-
   return () => {
     void client.removeChannel(channel);
   };
 }
-
 // ---------------------------------------------------------------------------
 // join_public_waitlist() wrapper -- Phase 6, Part 2a of the Live Availability
 // upgrade, migration 0029. The self-service half of the `waitlist_public`
@@ -383,7 +359,6 @@ export interface JoinPublicWaitlistInput {
   // notify-when-available flow; see WaitlistEntry.pushSubscription).
   pushSubscription?: WebPushSubscriptionJSON | null;
 }
-
 /** The error codes join_public_waitlist() can raise (migration 0029). */
 export type JoinPublicWaitlistErrorCode =
   | 'FEATURE_DISABLED'
@@ -394,7 +369,6 @@ export type JoinPublicWaitlistErrorCode =
   | 'GUEST_DETAILS_REQUIRED'
   | 'RATE_LIMITED'
   | 'RESTAURANT_NOT_FOUND';
-
 const PUBLIC_WAITLIST_ERROR_CODES: readonly JoinPublicWaitlistErrorCode[] = [
   'FEATURE_DISABLED',
   'AVAILABILITY_EXISTS',
@@ -405,7 +379,6 @@ const PUBLIC_WAITLIST_ERROR_CODES: readonly JoinPublicWaitlistErrorCode[] = [
   'RATE_LIMITED',
   'RESTAURANT_NOT_FOUND',
 ];
-
 /** Same pattern as parsePublicReservationErrorCode() -- returns null for anything unrecognized. */
 export function parseJoinPublicWaitlistErrorCode(error: unknown): JoinPublicWaitlistErrorCode | null {
   const message =
@@ -418,7 +391,6 @@ export function parseJoinPublicWaitlistErrorCode(error: unknown): JoinPublicWait
           : '';
   return PUBLIC_WAITLIST_ERROR_CODES.find((code) => message.includes(code)) ?? null;
 }
-
 /**
  * Joins the restaurant's waitlist as an anonymous guest OR a signed-in
  * customer (the RPC branches on auth.uid(), same as bookPublicReservation
@@ -447,6 +419,87 @@ export async function joinPublicWaitlist(client: SupabaseClient, input: JoinPubl
   // No .single() -- join_public_waitlist is declared `returns public.
   // waitlist_entries` (one row, not setof), so PostgREST already serves it
   // as a single JSON object, same reasoning as bookPublicReservation above.
+  if (error) throw error;
+  return mapWaitlistRow(data as unknown as WaitlistEntryRow);
+}
+// ---------------------------------------------------------------------------
+// join_last_minute_alert() wrapper -- Phase 6, sub-feature 3, migration
+// 0034. Reuses the exact same waitlist_entries table and the exact same
+// push-delivery pipeline as join_public_waitlist above (see 0034's header
+// comment): the difference is entirely in WHAT is being requested, not in
+// how it's delivered. Unlike join_public_waitlist, this takes no desired
+// date/time at all -- the server resolves "today, from right now until
+// closing" itself, since the whole point of a last-minute alert is that the
+// guest isn't picking a specific slot, they just want to know the instant
+// ANYTHING opens up before the restaurant closes today.
+// ---------------------------------------------------------------------------
+export interface JoinLastMinuteAlertInput {
+  restaurantSlug: string;
+  partySize: number;
+  guestName?: string | null;
+  guestPhone?: string | null;
+  guestEmail?: string | null;
+  zonePreferenceId?: string | null;
+  // Same convention as JoinPublicWaitlistInput.pushSubscription above --
+  // omit or pass null to join without push.
+  pushSubscription?: WebPushSubscriptionJSON | null;
+}
+/** The error codes join_last_minute_alert() can raise (migration 0034). */
+export type JoinLastMinuteAlertErrorCode =
+  | 'FEATURE_DISABLED'
+  | 'RESTAURANT_CLOSED'
+  | 'NO_TIME_REMAINING_TODAY'
+  | 'AVAILABILITY_EXISTS'
+  | 'PARTY_SIZE_OUT_OF_RANGE'
+  | 'GUEST_DETAILS_REQUIRED'
+  | 'RATE_LIMITED'
+  | 'RESTAURANT_NOT_FOUND';
+const LAST_MINUTE_ALERT_ERROR_CODES: readonly JoinLastMinuteAlertErrorCode[] = [
+  'FEATURE_DISABLED',
+  'RESTAURANT_CLOSED',
+  'NO_TIME_REMAINING_TODAY',
+  'AVAILABILITY_EXISTS',
+  'PARTY_SIZE_OUT_OF_RANGE',
+  'GUEST_DETAILS_REQUIRED',
+  'RATE_LIMITED',
+  'RESTAURANT_NOT_FOUND',
+];
+/** Same pattern as parsePublicReservationErrorCode() -- returns null for anything unrecognized. */
+export function parseJoinLastMinuteAlertErrorCode(error: unknown): JoinLastMinuteAlertErrorCode | null {
+  const message =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string'
+          ? (error as { message: string }).message
+          : '';
+  return LAST_MINUTE_ALERT_ERROR_CODES.find((code) => message.includes(code)) ?? null;
+}
+/**
+ * Joins the restaurant's last-minute alert list as an anonymous guest OR a
+ * signed-in customer (the RPC branches on auth.uid(), same as
+ * joinPublicWaitlist above). Idempotent re-tap, scoped to is_last_minute
+ * entries only (see 0034's header comment) -- calling this again with the
+ * same identity for the same restaurant+day, while still 'waiting', returns
+ * the SAME entry rather than creating a duplicate.
+ *
+ * Same anonymous-read-back gap as joinPublicWaitlist: for a guest with no
+ * account, this response is the ONLY confirmation they ever get.
+ */
+export async function joinLastMinuteAlert(client: SupabaseClient, input: JoinLastMinuteAlertInput): Promise<WaitlistEntry> {
+  const { data, error } = await client.rpc('join_last_minute_alert', {
+    p_restaurant_slug: input.restaurantSlug,
+    p_party_size: input.partySize,
+    p_guest_name: input.guestName ?? null,
+    p_guest_phone: input.guestPhone ?? null,
+    p_guest_email: input.guestEmail ?? null,
+    p_zone_preference_id: input.zonePreferenceId ?? null,
+    p_push_subscription: input.pushSubscription ?? null,
+  });
+  // No .single() -- join_last_minute_alert is declared `returns public.
+  // waitlist_entries` (one row, not setof), so PostgREST already serves it
+  // as a single JSON object, same reasoning as joinPublicWaitlist above.
   if (error) throw error;
   return mapWaitlistRow(data as unknown as WaitlistEntryRow);
 }

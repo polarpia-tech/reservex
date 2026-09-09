@@ -485,6 +485,32 @@
           "RESTAURANT_NOT_FOUND": "Restoran bulunamadı.",
           "generic": "Bekleme listesine katılınamadı. Lütfen tekrar deneyin."
         }
+      },
+      "lastMinuteAlert": {
+        "title": "Şu anda uygun masa yok mu?",
+        "body": "Bugün bir masa boşaldığı anda haberdar olun — saat seçmenize veya beklemenize gerek yok.",
+        "joinButton": "Beni listeye ekle",
+        "joining": "Katılıyor…",
+        "notifyButton": "🔔 Bugün bana haber ver",
+        "notifyEnableButton": "Bildirimleri etkinleştir",
+        "notifyRequesting": "İzin isteniyor…",
+        "joinedTitle": "Size haber vereceğiz",
+        "joinedBody": "Bugün kapanışa kadar boşalacak herhangi bir masayı takip ediyoruz. Bu bilgileri kaydedin — misafir bildirimi daha sonra çevrimiçi olarak sorgulanamaz.",
+        "notifyEnabledNotice": "Bildirimler açık — bugün bir masa boşaldığı anda bu cihazda sizi bilgilendireceğiz.",
+        "notifyNotEnabledNotice": "Listedesiniz, ancak bu cihazda bildirimler henüz etkin değil.",
+        "notifyDenied": "Tarayıcınızda bildirimler engellenmiş. Listede kalıyorsunuz, ancak kendiniz kontrol etmeniz gerekecek.",
+        "notifyUnsupported": "Bu tarayıcı bildirimleri desteklemiyor, ancak listede kalıyorsunuz.",
+        "errors": {
+          "FEATURE_DISABLED": "Son dakika bildirimleri şu anda bu restoran için kullanılamıyor.",
+          "RESTAURANT_CLOSED": "Restoran şu anda kapalı.",
+          "NO_TIME_REMAINING_TODAY": "Bugün kapanışa kadar yeni bir masa için yeterli zaman kalmadı.",
+          "AVAILABILITY_EXISTS": "Şu anda uygun bir masa var — lütfen yukarıdan rezervasyon yapın.",
+          "PARTY_SIZE_OUT_OF_RANGE": "Bu restoran {{min}}–{{max}} kişilik grupları kabul ediyor.",
+          "GUEST_DETAILS_REQUIRED": "Lütfen adınızı ve telefon numaranız ya da e-posta adresinizden birini girin.",
+          "RATE_LIMITED": "Çok fazla deneme yapıldı. Lütfen birkaç dakika bekleyip tekrar deneyin.",
+          "RESTAURANT_NOT_FOUND": "Restoran bulunamadı.",
+          "generic": "Son dakika bildirimlerine kaydolunamadı. Lütfen tekrar deneyin."
+        }
       }
     },
     "account": {

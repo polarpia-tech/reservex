@@ -485,6 +485,32 @@
           "RESTAURANT_NOT_FOUND": "Restaurant nicht gefunden.",
           "generic": "Der Wartelisten-Eintrag konnte nicht erstellt werden. Bitte versuchen Sie es erneut."
         }
+      },
+      "lastMinuteAlert": {
+        "title": "Gerade nichts frei?",
+        "body": "Werden Sie benachrichtigt, sobald heute ein Tisch frei wird — ohne eine Uhrzeit auszuwählen oder zu warten.",
+        "joinButton": "Zur Liste hinzufügen",
+        "joining": "Wird eingetragen…",
+        "notifyButton": "🔔 Heute benachrichtigen",
+        "notifyEnableButton": "Benachrichtigungen aktivieren",
+        "notifyRequesting": "Berechtigung wird angefragt…",
+        "joinedTitle": "Wir informieren Sie",
+        "joinedBody": "Wir beobachten, ob heute vor Geschäftsschluss ein Tisch frei wird. Notieren Sie sich diese Angaben — eine Gastbenachrichtigung kann später nicht online nachgeschaut werden.",
+        "notifyEnabledNotice": "Benachrichtigungen sind aktiv — wir informieren Sie auf diesem Gerät, sobald heute ein Tisch frei wird.",
+        "notifyNotEnabledNotice": "Sie stehen auf der Liste, Benachrichtigungen sind auf diesem Gerät aber noch nicht aktiviert.",
+        "notifyDenied": "Benachrichtigungen sind in Ihrem Browser blockiert. Sie stehen weiterhin auf der Liste, müssen aber selbst nachsehen.",
+        "notifyUnsupported": "Dieser Browser unterstützt keine Benachrichtigungen, Sie stehen aber weiterhin auf der Liste.",
+        "errors": {
+          "FEATURE_DISABLED": "Last-Minute-Benachrichtigungen sind für dieses Restaurant derzeit nicht verfügbar.",
+          "RESTAURANT_CLOSED": "Das Restaurant hat gerade geschlossen.",
+          "NO_TIME_REMAINING_TODAY": "Es bleibt nicht genug Zeit bis zur Schließung heute für einen neuen Tisch.",
+          "AVAILABILITY_EXISTS": "Gerade ist ein Tisch frei — bitte buchen Sie ihn oben.",
+          "PARTY_SIZE_OUT_OF_RANGE": "Dieses Restaurant nimmt Gruppen von {{min}}–{{max}} Personen an.",
+          "GUEST_DETAILS_REQUIRED": "Bitte geben Sie Ihren Namen sowie eine Telefonnummer oder eine E-Mail-Adresse an.",
+          "RATE_LIMITED": "Zu viele Versuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
+          "RESTAURANT_NOT_FOUND": "Restaurant nicht gefunden.",
+          "generic": "Die Anmeldung für Last-Minute-Benachrichtigungen ist fehlgeschlagen. Bitte versuchen Sie es erneut."
+        }
       }
     },
     "account": {

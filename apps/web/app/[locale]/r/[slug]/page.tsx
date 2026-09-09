@@ -1,11 +1,9 @@
 import { fetchIsFeatureEnabledForRestaurant, fetchOpeningHours, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
-
 import { BookingForm } from '@/components/BookingForm';
 import { MapPinIcon, PhoneIcon } from '@/components/icons';
 import { OpeningHoursList } from '@/components/OpeningHoursList';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
-
 // Same reasoning as app/[locale]/page.tsx's own force-dynamic: opening
 // hours, special-hours exceptions and live table availability all change
 // after a restaurant owner edits them in the mobile app, and this page
@@ -14,7 +12,6 @@ import { createSupabaseServerClient } from '@/lib/supabaseServer';
 // once (e.g. right after the restaurant is created, before any opening
 // hours exist) and keeps serving that same stale HTML indefinitely.
 export const dynamic = 'force-dynamic';
-
 /**
  * A restaurant's public profile + inline booking form. Server Component for
  * everything that's just a read (profile, opening hours, special hours --
@@ -26,10 +23,8 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
   if (!isSupportedLocale(params.locale)) return null;
   const locale: SupportedLocale = params.locale;
   const dict = getDictionary(locale);
-
   const supabase = createSupabaseServerClient();
   const restaurant = await fetchPublicRestaurant(supabase, params.slug);
-
   if (!restaurant) {
     return (
       <div style={{ maxWidth: 640, margin: '0 auto', padding: 'var(--space-2xl)', textAlign: 'center' }}>
@@ -38,8 +33,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
       </div>
     );
   }
-
-  const [openingHours, specialHours, liveAvailabilityEnabled, waitlistPublicEnabled] = await Promise.all([
+  const [openingHours, specialHours, liveAvailabilityEnabled, waitlistPublicEnabled, lastMinuteAlertsEnabled] = await Promise.all([
     fetchOpeningHours(supabase, restaurant.id),
     fetchSpecialHours(supabase, restaurant.id),
     // Phase 2 of the Live Availability upgrade (migration 0024): off for
@@ -55,8 +49,12 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
     // then this is off for every restaurant, same as live_availability was
     // before its own owner toggle shipped.
     fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'waitlist_public'),
+    // Phase 6, sub-feature 3 (migration 0034): the "notify me about
+    // anything today" affordance -- same off-by-default,
+    // not-owner-configurable-yet story as waitlist_public above, until this
+    // is verified live end to end.
+    fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'last_minute_alerts'),
   ]);
-
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(var(--space-xl), 6vw, 56px) var(--space-2xl) var(--space-4xl)' }}>
       <div style={{ marginBottom: 'var(--space-3xl)' }}>
@@ -77,7 +75,6 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
         )}
         {restaurant.description && <p style={{ marginTop: 'var(--space-md)', maxWidth: 640, lineHeight: 1.6 }}>{restaurant.description}</p>}
       </div>
-
       {/* Same auto-fit grid technique as the directory page: two columns
           when there's room for both at >= ~320px each, one column
           (opening hours above the booking form) on a narrow phone --
@@ -86,7 +83,6 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)' }}>
           <OpeningHoursList locale={locale} openingHours={openingHours} specialHours={specialHours} />
         </div>
-
         <BookingForm
           locale={locale}
           restaurant={{
@@ -101,6 +97,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
           }}
           liveAvailabilityEnabled={liveAvailabilityEnabled}
           waitlistPublicEnabled={waitlistPublicEnabled}
+          lastMinuteAlertsEnabled={lastMinuteAlertsEnabled}
         />
       </div>
     </div>
