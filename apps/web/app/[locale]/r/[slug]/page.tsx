@@ -33,93 +33,31 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
       </div>
     );
   }
-  const [openingHours, specialHours, liveAvailabilityEnabled, waitlistPublicEnabled, lastMinuteAlertsEnabled, popularityIndicatorEnabled] = await Promise.all([
-    fetchOpeningHours(supabase, restaurant.id),
-    fetchSpecialHours(supabase, restaurant.id),
-    // Phase 2 of the Live Availability upgrade (migration 0024): off for
-    // every restaurant until its owner (or a platform admin) explicitly
-    // turns it on, so this changes nothing for the overwhelming majority of
-    // restaurants today. Never throws -- see fetchIsFeatureEnabledForRestaurant's
-    // own comment -- so a flag-check hiccup can never take down this page.
-    fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'live_availability'),
-    // Phase 6, Part 2c of the same upgrade: the self-service waitlist's
-    // public-facing "Join waitlist" affordance. `waitlist_public` isn't
-    // owner-configurable yet (is_owner_configurable is flipped on in a
-    // follow-up migration once this UI is verified end to end) -- until
-    // then this is off for every restaurant, same as live_availability was
-    // before its own owner toggle shipped.
-    fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'waitlist_public'),
-    // Phase 6, sub-feature 3 (migration 0034): the "notify me about
-    // anything today" affordance -- same off-by-default,
-    // not-owner-configurable-yet story as waitlist_public above, until this
-    // is verified live end to end.
-    fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'last_minute_alerts'),
-    // Phase 6, sub-feature 4 (migration 0036/0037): the "🔥 Popular time"
-    // badge on top of the Live Availability chips. Same off-by-default,
-    // not-owner-configurable-yet story as the two flags above, until this
-    // is verified live end to end -- see 'popularity_indicator' in
-    // BookingForm.tsx's own comment on popularityIndicatorEnabled.
-    fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'popularity_indicator'),
-  ]);
-  // TEMP DIAGNOSTIC (to be reverted): fetchIsFeatureEnabledForRestaurant
-  // swallows any RPC error into `false`, which is hiding a real discrepancy
-  // for 'popularity_indicator' specifically -- raw REST calls with the
-  // browser's own anon key return true, but this server call is producing
-  // false. Calling the RPC directly here, unswallowed, to see the actual
-  // {data, error} this server-side client gets back.
-  const popularityDebugRaw = await supabase.rpc('is_feature_enabled_for_restaurant', {
-    p_restaurant_slug: restaurant.slug,
-    p_flag_key: 'popularity_indicator',
-  });
-  const popularityDebugEnvUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'MISSING';
-  const popularityDebugEnvKeyTail = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'MISSING').slice(-12);
-  // TEMP DIAGNOSTIC 2 (to be reverted): every row this depends on has been
-  // hand-verified in the SQL editor to line up exactly (restaurant.id,
-  // flag.id, override.flag_id+restaurant_id all match, override.is_enabled
-  // = true) -- so the function is provably deterministic-true for these
-  // exact arguments. Yet the supabase-js call above still comes back false
-  // with no error. Two more isolations to find where the discrepancy is
-  // actually introduced:
-  // (a) a completely raw, undecorated fetch() straight to PostgREST,
-  //     bypassing the supabase-js client entirely and explicitly disabling
-  //     any Next.js fetch caching/memoization -- mirrors the raw BROWSER
-  //     fetch test that already came back true, but run from the server.
-  // (b) the exact same supabase-js RPC call as above, but made in true
-  //     isolation -- NOT inside the earlier Promise.all -- in case
-  //     concurrent execution of the 4 flag checks is somehow involved.
-  const popularityRawFetchDebug = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}/rest/v1/rpc/is_feature_enabled_for_restaurant`,
-    {
-      method: 'POST',
-      cache: 'no-store',
-      headers: {
-        'content-type': 'application/json',
-        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
-        authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''}`,
-      },
-      body: JSON.stringify({ p_restaurant_slug: restaurant.slug, p_flag_key: 'popularity_indicator' }),
-    },
-  )
-    .then(async (r) => ({ status: r.status, body: await r.text() }))
-    .catch((e) => ({ status: -1, body: String(e) }));
-  const popularityIsolatedRpcDebug = await supabase
-    .rpc('is_feature_enabled_for_restaurant', { p_restaurant_slug: restaurant.slug, p_flag_key: 'popularity_indicator' })
-    .then((r) => ({ data: r.data, error: r.error }));
+  const [openingHours, specialHours] = await Promise.all([fetchOpeningHours(supabase, restaurant.id), fetchSpecialHours(supabase, restaurant.id)]);
+  // Root-caused live in production (see the two now-removed TEMP diagnostic
+  // deploys): calling multiple is_feature_enabled_for_restaurant RPCs --
+  // same URL, different p_flag_key body -- CONCURRENTLY inside one
+  // Promise.all silently corrupted the result for whichever call landed
+  // last (popularity_indicator): a raw, unswallowed capture of that exact
+  // call, still inside the Promise.all, came back {data:false,error:null};
+  // the SAME call made sequentially, outside any Promise.all, came back
+  // {data:true,error:null} -- and so did a completely raw fetch() bypassing
+  // supabase-js entirely. Every underlying row (restaurant, flag, override)
+  // was hand-verified in the SQL editor to make the true answer the only
+  // correct one. So: four *concurrent* POSTs to the identical RPC endpoint
+  // is the trigger (most likely Next.js's server-side fetch request
+  // memoization/dedup, or Vercel's Node fetch connection reuse under
+  // concurrency, mis-attributing one response) -- not a data or RLS bug.
+  // Fix: run these four flag checks *sequentially*, never inside the same
+  // Promise.all as each other. The two lookups above (opening/special
+  // hours) hit different RPCs entirely and are unaffected, so they keep
+  // their own Promise.all.
+  const liveAvailabilityEnabled = await fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'live_availability');
+  const waitlistPublicEnabled = await fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'waitlist_public');
+  const lastMinuteAlertsEnabled = await fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'last_minute_alerts');
+  const popularityIndicatorEnabled = await fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'popularity_indicator');
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(var(--space-xl), 6vw, 56px) var(--space-2xl) var(--space-4xl)' }}>
-      <div
-        id="popularity-debug"
-        style={{ display: 'none' }}
-        data-debug={JSON.stringify({
-          data: popularityDebugRaw.data,
-          error: popularityDebugRaw.error,
-          envUrl: popularityDebugEnvUrl,
-          envKeyTail: popularityDebugEnvKeyTail,
-          rawFetch: popularityRawFetchDebug,
-          isolatedRpc: popularityIsolatedRpcDebug,
-          restaurantSlug: restaurant.slug,
-        })}
-      />
       <div style={{ marginBottom: 'var(--space-3xl)' }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(26px, 4.5vw, 40px)', lineHeight: 1.1, margin: '0 0 var(--space-sm)' }}>
           {restaurant.name}
