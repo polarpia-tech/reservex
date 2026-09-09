@@ -5,6 +5,7 @@ import {
   ensureMyCustomerProfile,
   fetchMyCustomerProfile,
   fetchPublicAvailabilitySummary,
+  fetchPublicPopularityIndicators,
   joinLastMinuteAlert,
   joinPublicWaitlist,
   parseJoinLastMinuteAlertErrorCode,
@@ -66,12 +67,19 @@ export function BookingForm({
   // standalone LastMinuteAlertPanel below, which -- unlike WaitlistPanel --
   // is intentionally NOT tied to a picked date/time; see showLastMinuteAlertPanel.
   lastMinuteAlertsEnabled = false,
+  // Phase 6, sub-feature 4 (migration 0036/0037): same convention. Gates
+  // the "🔥 Popular time" badge rendered on top of LiveAvailabilityPanel's
+  // own chips below -- purely cosmetic, so it's harmless for this to stay
+  // false (no badges, chips render exactly as before this feature existed)
+  // for every restaurant that hasn't opted in yet.
+  popularityIndicatorEnabled = false,
 }: {
   locale: SupportedLocale;
   restaurant: BookingRestaurant;
   liveAvailabilityEnabled?: boolean;
   waitlistPublicEnabled?: boolean;
   lastMinuteAlertsEnabled?: boolean;
+  popularityIndicatorEnabled?: boolean;
 }) {
   const dict = getDictionary(locale);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -105,6 +113,15 @@ export function BookingForm({
   // every restaurant that hasn't opted in.
   const [availabilitySlots, setAvailabilitySlots] = useState<PublicAvailabilitySlot[] | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  // Phase 6, sub-feature 4 (migration 0036/0037). `null` means "haven't
+  // fetched yet" (or the flag is off, or no date is picked); `[]` means
+  // "fetched, and this restaurant/day genuinely has no popular-enough
+  // times yet" (get_public_popularity_indicators's own documented "not
+  // enough data" convention -- never a fake badge on thin history). Unlike
+  // availabilitySlots, this does NOT depend on partySize at all (the RPC
+  // itself doesn't take one -- historical popularity isn't about table
+  // capacity), so it's fetched in its own effect, keyed only on date.
+  const [popularTimes, setPopularTimes] = useState<string[] | null>(null);
   // Phase 6, Part 2c: the self-service waitlist panel's own state, entirely
   // separate from the booking form's own submitting/errorMessage above --
   // joining the waitlist is a distinct action from booking a table, and a
@@ -211,6 +228,28 @@ export function BookingForm({
       clearTimeout(timer);
     };
   }, [liveAvailabilityEnabled, restaurant.slug, date, partySize]);
+  // Phase 6, sub-feature 4 (migration 0036/0037): fetches the "historically
+  // popular" badge data for the picked date. Deliberately its own effect,
+  // not folded into the debounced availability fetch above -- it doesn't
+  // depend on partySize, so re-running it every time partySize changes
+  // (as the debounced fetch above correctly does) would just be wasted
+  // requests for data that hasn't changed. Also deliberately no realtime
+  // subscription counterpart: this is backward-looking aggregate history,
+  // not something a single new booking could ever change moment-to-moment.
+  useEffect(() => {
+    if (!popularityIndicatorEnabled || !date) {
+      setPopularTimes(null);
+      return;
+    }
+    let cancelled = false;
+    const client = getSupabaseBrowserClient();
+    void fetchPublicPopularityIndicators(client, { restaurantSlug: restaurant.slug, date }).then((times) => {
+      if (!cancelled) setPopularTimes(times);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [popularityIndicatorEnabled, restaurant.slug, date]);
   // Phase 3 of the Live Availability upgrade (migration 0025): a Realtime
   // subscription that quietly re-checks availability the instant someone
   // else's booking could have changed it, instead of only ever reflecting
@@ -545,6 +584,7 @@ export function BookingForm({
             slots={availabilitySlots}
             selectedTime={time}
             onPickTime={setTime}
+            popularTimes={popularityIndicatorEnabled ? popularTimes : null}
           />
         ) : null}
         {showWaitlistPanel ? (
@@ -626,6 +666,7 @@ function LiveAvailabilityPanel({
   slots,
   selectedTime,
   onPickTime,
+  popularTimes,
 }: {
   locale: SupportedLocale;
   dict: ReturnType<typeof getDictionary>;
@@ -634,6 +675,14 @@ function LiveAvailabilityPanel({
   slots: PublicAvailabilitySlot[] | null;
   selectedTime: string;
   onPickTime: (time: string) => void;
+  // Phase 6, sub-feature 4 (migration 0036/0037). A list of "HH:MM" 24h
+  // local-time strings, same format formatTimeInTimeZone below already
+  // produces (hourCycle: 'h23') -- so a chip's popularity is a plain string
+  // match, no separate parsing needed. `null`/`undefined` (flag off, or not
+  // fetched yet) and `[]` (fetched, nothing popular enough) both simply
+  // render no badges -- the chips look exactly as they did before this
+  // feature existed either way.
+  popularTimes?: string[] | null;
 }) {
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px var(--space-md)', background: 'var(--background)' }}>
@@ -651,43 +700,74 @@ function LiveAvailabilityPanel({
               const localTime = formatTimeInTimeZone(slot.slotStartsAt, timezone, locale);
               const isAvailable = slot.availableTableCount > 0 || slot.hasCombinableOption;
               const isSelected = selectedTime === localTime;
+              // Phase 6, sub-feature 4 (migration 0036/0037): a plain string
+              // match against the "HH:MM" 24h buckets get_public_popularity_
+              // indicators returned -- formatTimeInTimeZone above already
+              // formats localTime the same way (hourCycle: 'h23'), so no
+              // separate parsing is needed. Shown regardless of whether the
+              // slot is currently available: "historically popular" and
+              // "free right now" are deliberately independent signals (see
+              // fetchPublicPopularityIndicators's own comment) and can
+              // legitimately disagree.
+              const isPopular = Boolean(popularTimes?.includes(localTime));
               return (
-                <button
-                  type="button"
-                  key={slot.slotStartsAt}
-                  disabled={!isAvailable}
-                  onClick={() => onPickTime(localTime)}
-                  style={{
-                    fontFamily: 'var(--font-family)',
-                    textAlign: 'center',
-                    fontSize: 12.5,
-                    lineHeight: 1.3,
-                    padding: '6px 10px',
-                    borderRadius: 'var(--radius-md)',
-                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                    background: isSelected ? 'var(--accent)' : isAvailable ? 'var(--surface)' : 'var(--background)',
-                    color: isSelected ? 'var(--surface)' : isAvailable ? 'var(--text-primary)' : 'var(--text-muted)',
-                    cursor: isAvailable ? 'pointer' : 'default',
-                    opacity: isAvailable ? 1 : 0.55,
-                  }}
-                >
-                  <span style={{ display: 'block', fontWeight: 600 }}>{localTime}</span>
-                  <span style={{ display: 'block', fontSize: 10.5, opacity: 0.85 }}>
-                    {slot.availableTableCount > 0
-                      ? interpolate(
-                          t(
-                            dict,
-                            slot.availableTableCount === 1
-                              ? 'public.booking.liveAvailability.tableAvailableOne'
-                              : 'public.booking.liveAvailability.tablesAvailableOther',
-                          ),
-                          { count: slot.availableTableCount },
-                        )
-                      : slot.hasCombinableOption
-                        ? t(dict, 'public.booking.liveAvailability.availableCombinable')
-                        : t(dict, 'public.booking.liveAvailability.none')}
-                  </span>
-                </button>
+                <div key={slot.slotStartsAt} style={{ position: 'relative' }}>
+                  {isPopular ? (
+                    <span
+                      title={t(dict, 'public.booking.liveAvailability.popularBadge')}
+                      aria-label={t(dict, 'public.booking.liveAvailability.popularBadge')}
+                      style={{
+                        position: 'absolute',
+                        top: -7,
+                        right: -6,
+                        fontSize: 12,
+                        lineHeight: 1,
+                        background: 'var(--surface)',
+                        borderRadius: '50%',
+                        padding: 2,
+                        boxShadow: '0 0 0 1px var(--border)',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      🔥
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={!isAvailable}
+                    onClick={() => onPickTime(localTime)}
+                    style={{
+                      fontFamily: 'var(--font-family)',
+                      textAlign: 'center',
+                      fontSize: 12.5,
+                      lineHeight: 1.3,
+                      padding: '6px 10px',
+                      borderRadius: 'var(--radius-md)',
+                      border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                      background: isSelected ? 'var(--accent)' : isAvailable ? 'var(--surface)' : 'var(--background)',
+                      color: isSelected ? 'var(--surface)' : isAvailable ? 'var(--text-primary)' : 'var(--text-muted)',
+                      cursor: isAvailable ? 'pointer' : 'default',
+                      opacity: isAvailable ? 1 : 0.55,
+                    }}
+                  >
+                    <span style={{ display: 'block', fontWeight: 600 }}>{localTime}</span>
+                    <span style={{ display: 'block', fontSize: 10.5, opacity: 0.85 }}>
+                      {slot.availableTableCount > 0
+                        ? interpolate(
+                            t(
+                              dict,
+                              slot.availableTableCount === 1
+                                ? 'public.booking.liveAvailability.tableAvailableOne'
+                                : 'public.booking.liveAvailability.tablesAvailableOther',
+                            ),
+                            { count: slot.availableTableCount },
+                          )
+                        : slot.hasCombinableOption
+                          ? t(dict, 'public.booking.liveAvailability.availableCombinable')
+                          : t(dict, 'public.booking.liveAvailability.none')}
+                    </span>
+                  </button>
+                </div>
               );
             })}
           </div>

@@ -33,7 +33,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
       </div>
     );
   }
-  const [openingHours, specialHours, liveAvailabilityEnabled, waitlistPublicEnabled, lastMinuteAlertsEnabled] = await Promise.all([
+  const [openingHours, specialHours, liveAvailabilityEnabled, waitlistPublicEnabled, lastMinuteAlertsEnabled, popularityIndicatorEnabled] = await Promise.all([
     fetchOpeningHours(supabase, restaurant.id),
     fetchSpecialHours(supabase, restaurant.id),
     // Phase 2 of the Live Availability upgrade (migration 0024): off for
@@ -54,6 +54,12 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
     // not-owner-configurable-yet story as waitlist_public above, until this
     // is verified live end to end.
     fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'last_minute_alerts'),
+    // Phase 6, sub-feature 4 (migration 0036/0037): the "🔥 Popular time"
+    // badge on top of the Live Availability chips. Same off-by-default,
+    // not-owner-configurable-yet story as the two flags above, until this
+    // is verified live end to end -- see 'popularity_indicator' in
+    // BookingForm.tsx's own comment on popularityIndicatorEnabled.
+    fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'popularity_indicator'),
   ]);
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(var(--space-xl), 6vw, 56px) var(--space-2xl) var(--space-4xl)' }}>
@@ -98,6 +104,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
           liveAvailabilityEnabled={liveAvailabilityEnabled}
           waitlistPublicEnabled={waitlistPublicEnabled}
           lastMinuteAlertsEnabled={lastMinuteAlertsEnabled}
+          popularityIndicatorEnabled={popularityIndicatorEnabled}
         />
       </div>
     </div>
