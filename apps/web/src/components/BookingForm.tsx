@@ -1,12 +1,13 @@
 'use client';
-
 import {
   bookPublicReservation,
   createDepositPaymentIntent,
   ensureMyCustomerProfile,
   fetchMyCustomerProfile,
   fetchPublicAvailabilitySummary,
+  joinLastMinuteAlert,
   joinPublicWaitlist,
+  parseJoinLastMinuteAlertErrorCode,
   parseJoinPublicWaitlistErrorCode,
   parsePublicReservationErrorCode,
   quoteDepositAmount,
@@ -18,14 +19,12 @@ import {
   type WebPushSubscriptionJSON,
 } from '@reservex/core';
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
-
 import { DepositPaymentStep } from '@/components/DepositPaymentStep';
 import { CalendarIcon, CheckCircleIcon, ClockIcon, PhoneIcon, UsersIcon } from '@/components/icons';
 import { getDictionary, interpolate, t, type SupportedLocale } from '@/lib/dictionary';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 import { formatDateTimeInTimeZone, formatTimeInTimeZone, zonedTimeToUtc } from '@/lib/timezone';
 import { requestWebPushSubscription } from '@/lib/webPush';
-
 interface BookingRestaurant {
   id: string;
   slug: string;
@@ -36,7 +35,6 @@ interface BookingRestaurant {
   bookingWindowMinHours: number;
   bookingWindowMaxDays: number;
 }
-
 /**
  * The inline "book a table" form on a restaurant's public profile page.
  * Client Component: needs interactivity (form state) and, for a signed-in
@@ -64,16 +62,20 @@ export function BookingForm({
   // widget page, which doesn't pass it either) keeps working unchanged.
   // Gates the "Join waitlist" panel below; see showWaitlistPanel.
   waitlistPublicEnabled = false,
+  // Phase 6, sub-feature 3 (migration 0034): same convention. Gates the
+  // standalone LastMinuteAlertPanel below, which -- unlike WaitlistPanel --
+  // is intentionally NOT tied to a picked date/time; see showLastMinuteAlertPanel.
+  lastMinuteAlertsEnabled = false,
 }: {
   locale: SupportedLocale;
   restaurant: BookingRestaurant;
   liveAvailabilityEnabled?: boolean;
   waitlistPublicEnabled?: boolean;
+  lastMinuteAlertsEnabled?: boolean;
 }) {
   const dict = getDictionary(locale);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [profileName, setProfileName] = useState<string | null>(null);
-
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [partySize, setPartySize] = useState(restaurant.minPartySize);
@@ -81,11 +83,9 @@ export function BookingForm({
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
-
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmedReservation, setConfirmedReservation] = useState<Reservation | null>(null);
-
   // Phase 12: shown BEFORE the guest commits, so "this table needs a
   // deposit" is never a surprise after booking. isVip is always false here
   // -- VIP status comes from restaurant_customers, which doesn't exist yet
@@ -96,7 +96,6 @@ export function BookingForm({
   const [depositIntent, setDepositIntent] = useState<{ clientSecret: string; amountCents: number; currency: string } | null>(null);
   const [depositPaid, setDepositPaid] = useState(false);
   const [depositSkipped, setDepositSkipped] = useState(false);
-
   // Phase 2 of the Live Availability upgrade (migration 0023/0024). `null`
   // means "haven't fetched yet" (or the flag is off, or no date is picked)
   // -- distinct from `[]`, which means "fetched, and the restaurant is
@@ -106,7 +105,6 @@ export function BookingForm({
   // every restaurant that hasn't opted in.
   const [availabilitySlots, setAvailabilitySlots] = useState<PublicAvailabilitySlot[] | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
-
   // Phase 6, Part 2c: the self-service waitlist panel's own state, entirely
   // separate from the booking form's own submitting/errorMessage above --
   // joining the waitlist is a distinct action from booking a table, and a
@@ -125,7 +123,6 @@ export function BookingForm({
   // are blocked/unsupported" case -- the guest is still successfully on the
   // waitlist, just without push, so it's never shown as a failure.
   const [waitlistNotice, setWaitlistNotice] = useState<string | null>(null);
-
   useEffect(() => {
     setNoAvailabilityFromSubmit(false);
     setWaitlistEntry(null);
@@ -133,7 +130,27 @@ export function BookingForm({
     setWaitlistError(null);
     setWaitlistNotice(null);
   }, [date, time, partySize]);
-
+  // Phase 6, sub-feature 3 (migration 0034): the last-minute alert panel's
+  // own state, mirroring the waitlist panel's state above but kept
+  // completely separate -- joining a last-minute alert is a distinct
+  // action from both booking and the regular waitlist join, and (unlike
+  // the waitlist panel) is never tied to the date/time inputs at all, only
+  // to partySize (join_last_minute_alert resolves "today, right now" on
+  // the server itself -- see that function's own header comment). Reset
+  // only when partySize changes, since a stale "joined" confirmation for a
+  // different party size must never linger, but changing date/time must
+  // NOT reset this panel -- it has nothing to do with either.
+  const [lastMinuteEntry, setLastMinuteEntry] = useState<WaitlistEntry | null>(null);
+  const [lastMinuteNotifyEnabled, setLastMinuteNotifyEnabled] = useState(false);
+  const [lastMinuteSubmitting, setLastMinuteSubmitting] = useState(false);
+  const [lastMinuteError, setLastMinuteError] = useState<string | null>(null);
+  const [lastMinuteNotice, setLastMinuteNotice] = useState<string | null>(null);
+  useEffect(() => {
+    setLastMinuteEntry(null);
+    setLastMinuteNotifyEnabled(false);
+    setLastMinuteError(null);
+    setLastMinuteNotice(null);
+  }, [partySize]);
   useEffect(() => {
     const client = getSupabaseBrowserClient();
     void client.auth.getUser().then(async ({ data }) => {
@@ -148,7 +165,6 @@ export function BookingForm({
       }
     });
   }, []);
-
   useEffect(() => {
     if (!restaurant.id || partySize <= 0) return;
     const client = getSupabaseBrowserClient();
@@ -160,7 +176,6 @@ export function BookingForm({
       cancelled = true;
     };
   }, [restaurant.id, partySize]);
-
   // Debounced (350ms) so typing a two-digit party size or dragging the date
   // picker doesn't fire a request per keystroke -- same "don't hammer the
   // backend on every render" spirit as the Phase 42 spec's performance
@@ -196,7 +211,6 @@ export function BookingForm({
       clearTimeout(timer);
     };
   }, [liveAvailabilityEnabled, restaurant.slug, date, partySize]);
-
   // Phase 3 of the Live Availability upgrade (migration 0025): a Realtime
   // subscription that quietly re-checks availability the instant someone
   // else's booking could have changed it, instead of only ever reflecting
@@ -215,7 +229,6 @@ export function BookingForm({
     let cancelled = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const client = getSupabaseBrowserClient();
-
     const refetchQuietly = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       // Same 350ms coalescing idea as the debounced fetch above -- a burst
@@ -233,24 +246,19 @@ export function BookingForm({
           });
       }, 350);
     };
-
     const unsubscribe = subscribeToAvailabilityChanges(client, restaurant.id, refetchQuietly);
-
     return () => {
       cancelled = true;
       if (debounceTimer) clearTimeout(debounceTimer);
       unsubscribe();
     };
   }, [liveAvailabilityEnabled, restaurant.id, restaurant.slug, date, partySize]);
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setErrorMessage(null);
     setNoAvailabilityFromSubmit(false);
-
     if (!date || !time) return;
     const startsAt = zonedTimeToUtc(date, time, restaurant.timezone);
-
     setSubmitting(true);
     try {
       const client = getSupabaseBrowserClient();
@@ -263,7 +271,6 @@ export function BookingForm({
         guestEmail: guestEmail || null,
         specialRequests: specialRequests || null,
       });
-
       // A signed-in customer's first booking lazily creates their
       // customers row server-side (see 0014's book_public_reservation) --
       // ensureMyCustomerProfile() here just makes sure any name/phone/email
@@ -277,9 +284,7 @@ export function BookingForm({
           email: guestEmail || undefined,
         }).catch(() => undefined); // best-effort -- the booking itself already succeeded.
       }
-
       setConfirmedReservation(reservation);
-
       // Deposit collection MUST happen right here, in the same round-trip
       // as booking -- see create-deposit-payment-intent's own header
       // comment: a guest reservation has no way to authenticate later, this
@@ -309,7 +314,6 @@ export function BookingForm({
       setSubmitting(false);
     }
   }
-
   // Phase 6, Part 2c. `withPush` is what distinguishes the panel's two
   // buttons ("Join waitlist" vs "Join & notify me") and the "joined, but no
   // push yet" confirmation view's own "Enable notifications" button, which
@@ -325,7 +329,6 @@ export function BookingForm({
   // waitlistNotice below).
   async function handleJoinWaitlist(withPush: boolean) {
     if (!date || !time) return;
-
     setWaitlistError(null);
     setWaitlistNotice(null);
     setWaitlistSubmitting(true);
@@ -344,7 +347,6 @@ export function BookingForm({
         // proceed with a plain join below, same as 'denied'/'unsupported' --
         // no notice needed beyond what the join itself might report.
       }
-
       const startsAt = zonedTimeToUtc(date, time, restaurant.timezone);
       const client = getSupabaseBrowserClient();
       const entry = await joinPublicWaitlist(client, {
@@ -356,7 +358,6 @@ export function BookingForm({
         guestEmail: guestEmail || null,
         pushSubscription,
       });
-
       // Same anonymous-read-back gap as bookPublicReservation's own
       // confirmedReservation above (see joinPublicWaitlist's own comment):
       // this response is rendered directly, never re-fetched.
@@ -375,7 +376,52 @@ export function BookingForm({
       setWaitlistSubmitting(false);
     }
   }
-
+  // Phase 6, sub-feature 3 (migration 0034). Same withPush/idempotent-retap
+  // shape as handleJoinWaitlist above, but calls join_last_minute_alert
+  // instead -- no date/time involved at all, only partySize and the guest's
+  // own details, since the server resolves "today, right now" itself.
+  async function handleJoinLastMinuteAlert(withPush: boolean) {
+    setLastMinuteError(null);
+    setLastMinuteNotice(null);
+    setLastMinuteSubmitting(true);
+    try {
+      let pushSubscription: WebPushSubscriptionJSON | null = null;
+      if (withPush) {
+        const result = await requestWebPushSubscription();
+        if (result.status === 'subscribed') {
+          pushSubscription = result.subscription;
+        } else if (result.status === 'denied') {
+          setLastMinuteNotice(t(dict, 'public.booking.lastMinuteAlert.notifyDenied'));
+        } else if (result.status === 'unsupported') {
+          setLastMinuteNotice(t(dict, 'public.booking.lastMinuteAlert.notifyUnsupported'));
+        }
+      }
+      const client = getSupabaseBrowserClient();
+      const entry = await joinLastMinuteAlert(client, {
+        restaurantSlug: restaurant.slug,
+        partySize,
+        guestName: guestName || null,
+        guestPhone: guestPhone || null,
+        guestEmail: guestEmail || null,
+        pushSubscription,
+      });
+      // Same anonymous-read-back gap as joinPublicWaitlist above -- this
+      // response is rendered directly, never re-fetched.
+      setLastMinuteEntry(entry);
+      setLastMinuteNotifyEnabled(Boolean(pushSubscription));
+    } catch (error) {
+      const code = parseJoinLastMinuteAlertErrorCode(error);
+      if (code === 'PARTY_SIZE_OUT_OF_RANGE') {
+        setLastMinuteError(interpolate(t(dict, 'public.booking.lastMinuteAlert.errors.PARTY_SIZE_OUT_OF_RANGE'), { min: restaurant.minPartySize, max: restaurant.maxPartySize }));
+      } else if (code) {
+        setLastMinuteError(t(dict, `public.booking.lastMinuteAlert.errors.${code}`));
+      } else {
+        setLastMinuteError(t(dict, 'public.booking.lastMinuteAlert.errors.generic'));
+      }
+    } finally {
+      setLastMinuteSubmitting(false);
+    }
+  }
   // Phase 6, Part 2c: when to actually show the "Join waitlist" panel.
   // Either signal is sufficient on its own -- a restaurant with
   // liveAvailabilityEnabled shows it the moment every chip in
@@ -391,7 +437,12 @@ export function BookingForm({
     availabilitySlots.length > 0 &&
     availabilitySlots.every((slot) => slot.availableTableCount === 0 && !slot.hasCombinableOption);
   const showWaitlistPanel = waitlistPublicEnabled && Boolean(date) && Boolean(time) && (allSlotsUnavailable || noAvailabilityFromSubmit);
-
+  // Phase 6, sub-feature 3: unlike showWaitlistPanel above, this does NOT
+  // depend on date/time at all -- last-minute alerts are for "right now,
+  // today", so the panel is offered any time the flag is on, independent
+  // of whatever the guest may or may not have picked in the date/time
+  // fields above (which remain there for a normal advance booking).
+  const showLastMinuteAlertPanel = lastMinuteAlertsEnabled;
   if (confirmedReservation) {
     return (
       <section style={{ border: '1px solid var(--success)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', background: 'var(--surface)' }}>
@@ -410,7 +461,6 @@ export function BookingForm({
           <dt style={{ color: 'var(--text-muted)' }}>{t(dict, 'public.booking.confirmedReference')}</dt>
           <dd style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: 12 }}>{confirmedReservation.id}</dd>
         </dl>
-
         {depositIntent && !depositPaid && !depositSkipped ? (
           <DepositPaymentStep
             locale={locale}
@@ -432,7 +482,6 @@ export function BookingForm({
         {depositSkipped ? (
           <p style={{ color: 'var(--warning)', marginTop: 'var(--space-lg)', fontSize: 14 }}>{t(dict, 'public.booking.deposit.unpaidNotice')}</p>
         ) : null}
-
         <button
           type="button"
           onClick={() => {
@@ -448,14 +497,12 @@ export function BookingForm({
       </section>
     );
   }
-
   return (
     <section style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', background: 'var(--surface)' }}>
       <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginTop: 0 }}>{t(dict, 'public.booking.title')}</h2>
       <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: '-8px' }}>
         {isSignedIn ? interpolate(t(dict, 'public.booking.signedInNotice'), { name: profileName ?? guestEmail ?? '' }) : t(dict, 'public.booking.guestNotice')}
       </p>
-
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 'var(--space-md)' }}>
           <Field label={t(dict, 'public.booking.date')} icon={<CalendarIcon size={13} />}>
@@ -476,7 +523,19 @@ export function BookingForm({
             />
           </Field>
         </div>
-
+        {showLastMinuteAlertPanel ? (
+          <LastMinuteAlertPanel
+            dict={dict}
+            joined={lastMinuteEntry}
+            notifyEnabled={lastMinuteNotifyEnabled}
+            submitting={lastMinuteSubmitting}
+            error={lastMinuteError}
+            notice={lastMinuteNotice}
+            onJoin={() => void handleJoinLastMinuteAlert(false)}
+            onJoinWithNotify={() => void handleJoinLastMinuteAlert(true)}
+            onEnableNotify={() => void handleJoinLastMinuteAlert(true)}
+          />
+        ) : null}
         {liveAvailabilityEnabled && date ? (
           <LiveAvailabilityPanel
             locale={locale}
@@ -488,7 +547,6 @@ export function BookingForm({
             onPickTime={setTime}
           />
         ) : null}
-
         {showWaitlistPanel ? (
           <WaitlistPanel
             dict={dict}
@@ -502,13 +560,11 @@ export function BookingForm({
             onEnableNotify={() => void handleJoinWaitlist(true)}
           />
         ) : null}
-
         {depositQuote ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
             {t(dict, 'public.booking.deposit.noticePrefix')} {(depositQuote.amountCents / 100).toFixed(2)}
           </p>
         ) : null}
-
         <Field label={t(dict, 'public.booking.guestName')}>
           <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} required style={inputStyle} />
         </Field>
@@ -529,9 +585,7 @@ export function BookingForm({
             style={{ ...inputStyle, resize: 'vertical' as const }}
           />
         </Field>
-
         {errorMessage && <p style={{ color: 'var(--danger)', fontSize: 14, margin: 0 }}>{errorMessage}</p>}
-
         <button
           type="submit"
           disabled={submitting}
@@ -552,7 +606,6 @@ export function BookingForm({
     </section>
   );
 }
-
 /**
  * Phase 2 of the Live Availability upgrade. Shows one chip per bookable
  * time slot on the picked date, each labelled with the REAL count of
@@ -644,7 +697,6 @@ function LiveAvailabilityPanel({
     </div>
   );
 }
-
 /**
  * Phase 6, Part 2c. Shown once BookingForm decides there's genuinely no
  * availability for the guest's picked date/time (see showWaitlistPanel's
@@ -694,7 +746,6 @@ function WaitlistPanel({
   };
   const secondaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)' };
   const primaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'var(--accent)', border: 'none', color: 'var(--surface)', fontWeight: 600 };
-
   if (joined) {
     return (
       <div
@@ -722,7 +773,6 @@ function WaitlistPanel({
       </div>
     );
   }
-
   return (
     <div
       style={{
@@ -750,7 +800,99 @@ function WaitlistPanel({
     </div>
   );
 }
-
+/**
+ * Phase 6, sub-feature 3 (migration 0034). Same shape as WaitlistPanel
+ * above (deliberately -- see this file's own convention of reusing a
+ * proven pattern rather than inventing a new one), but for the "notify me
+ * about anything today" entry point: no date/time context in the copy,
+ * and shown independent of whatever the date/time inputs above currently
+ * hold (see showLastMinuteAlertPanel).
+ */
+function LastMinuteAlertPanel({
+  dict,
+  joined,
+  notifyEnabled,
+  submitting,
+  error,
+  notice,
+  onJoin,
+  onJoinWithNotify,
+  onEnableNotify,
+}: {
+  dict: ReturnType<typeof getDictionary>;
+  joined: WaitlistEntry | null;
+  notifyEnabled: boolean;
+  submitting: boolean;
+  error: string | null;
+  notice: string | null;
+  onJoin: () => void;
+  onJoinWithNotify: () => void;
+  onEnableNotify: () => void;
+}) {
+  const buttonStyle: CSSProperties = {
+    fontFamily: 'var(--font-family)',
+    fontSize: 13,
+    borderRadius: 'var(--radius-full)',
+    padding: '8px 14px',
+    cursor: submitting ? 'default' : 'pointer',
+    opacity: submitting ? 0.7 : 1,
+  };
+  const secondaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)' };
+  const primaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'var(--accent)', border: 'none', color: 'var(--surface)', fontWeight: 600 };
+  if (joined) {
+    return (
+      <div
+        style={{
+          border: '1px solid var(--accent)',
+          borderRadius: 'var(--radius-md)',
+          padding: '10px var(--space-md)',
+          background: 'var(--background)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+        }}
+      >
+        <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{t(dict, 'public.booking.lastMinuteAlert.joinedTitle')}</p>
+        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.lastMinuteAlert.joinedBody')}</p>
+        {notice && <p style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>{notice}</p>}
+        <p style={{ margin: 0, fontSize: 12.5, color: notifyEnabled ? 'var(--success)' : 'var(--text-muted)' }}>
+          {notifyEnabled ? t(dict, 'public.booking.lastMinuteAlert.notifyEnabledNotice') : t(dict, 'public.booking.lastMinuteAlert.notifyNotEnabledNotice')}
+        </p>
+        {!notifyEnabled ? (
+          <button type="button" disabled={submitting} onClick={onEnableNotify} style={{ ...primaryButtonStyle, alignSelf: 'flex-start' }}>
+            {submitting ? t(dict, 'public.booking.lastMinuteAlert.notifyRequesting') : t(dict, 'public.booking.lastMinuteAlert.notifyEnableButton')}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+        padding: '10px var(--space-md)',
+        background: 'var(--background)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      <p style={{ margin: 0, fontSize: 13.5, fontWeight: 600 }}>{t(dict, 'public.booking.lastMinuteAlert.title')}</p>
+      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.lastMinuteAlert.body')}</p>
+      {notice && <p style={{ margin: 0, fontSize: 12, color: 'var(--warning)' }}>{notice}</p>}
+      {error && <p style={{ margin: 0, fontSize: 12, color: 'var(--danger)' }}>{error}</p>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <button type="button" disabled={submitting} onClick={onJoin} style={secondaryButtonStyle}>
+          {submitting ? t(dict, 'public.booking.lastMinuteAlert.joining') : t(dict, 'public.booking.lastMinuteAlert.joinButton')}
+        </button>
+        <button type="button" disabled={submitting} onClick={onJoinWithNotify} style={primaryButtonStyle}>
+          {submitting ? t(dict, 'public.booking.lastMinuteAlert.notifyRequesting') : t(dict, 'public.booking.lastMinuteAlert.notifyButton')}
+        </button>
+      </div>
+    </div>
+  );
+}
 // minWidth: 0 overrides the browser default of `min-width: auto` on grid/flex
 // items -- without it, a native <input type="date"/"time"> or similar's own
 // intrinsic content width becomes a hard floor on this cell's size, which
@@ -767,7 +909,6 @@ function Field({ label, icon, children }: { label: string; icon?: ReactNode; chi
     </label>
   );
 }
-
 const inputStyle: CSSProperties = {
   fontFamily: 'var(--font-family)',
   fontSize: 14,
