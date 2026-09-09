@@ -437,7 +437,8 @@
         "tableAvailableOne": "{{count}} table available",
         "tablesAvailableOther": "{{count}} tables available",
         "availableCombinable": "Available (combined tables)",
-        "none": "No availability"
+        "none": "No availability",
+        "popularBadge": "🔥 Popular time"
       },
       "errors": {
         "PARTY_SIZE_OUT_OF_RANGE": "This restaurant accepts parties of {{min}}–{{max}} guests.",

@@ -503,3 +503,28 @@ export async function joinLastMinuteAlert(client: SupabaseClient, input: JoinLas
   if (error) throw error;
   return mapWaitlistRow(data as unknown as WaitlistEntryRow);
 }
+// ---------------------------------------------------------------------------
+// Phase 6, sub-feature 4 (migration 0036/0037): get_public_popularity_
+// indicators() wrapper -- the "historically busiest times" badge on top of
+// the Live Availability chips (see LiveAvailabilityPanel in BookingForm.tsx).
+// Deliberately a SEPARATE call from fetchPublicAvailabilitySummary above,
+// not merged into it: this is backward-looking aggregate history (doesn't
+// depend on partySize at all -- see the RPC's own signature), while
+// availability is live "free tables right now" -- they answer different
+// questions and can legitimately disagree (a historically popular slot can
+// still show plenty of free tables tonight).
+//
+// Never throws, same spirit as fetchIsFeatureEnabledForRestaurant: an
+// unknown/inactive restaurant slug (RESTAURANT_NOT_FOUND) or any transport
+// error just resolves to an empty list, since this is a purely cosmetic
+// badge layered on top of the plain time-slot chips -- it must never be
+// able to break the chips themselves.
+// ---------------------------------------------------------------------------
+export async function fetchPublicPopularityIndicators(client: SupabaseClient, input: { restaurantSlug: string; date: ISODate }): Promise<string[]> {
+  const { data, error } = await client.rpc('get_public_popularity_indicators', {
+    p_restaurant_slug: input.restaurantSlug,
+    p_date: input.date,
+  });
+  if (error) return [];
+  return (data as unknown as { popular_local_time: string }[]).map((row) => row.popular_local_time);
+}

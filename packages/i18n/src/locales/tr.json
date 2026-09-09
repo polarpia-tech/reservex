@@ -437,7 +437,8 @@
         "tableAvailableOne": "{{count}} masa uygun",
         "tablesAvailableOther": "{{count}} masa uygun",
         "availableCombinable": "Uygun (birleştirilmiş masalar)",
-        "none": "Uygunluk yok"
+        "none": "Uygunluk yok",
+        "popularBadge": "🔥 Popüler saat"
       },
       "errors": {
         "PARTY_SIZE_OUT_OF_RANGE": "Bu restoran {{min}}–{{max}} kişilik grupları kabul ediyor.",

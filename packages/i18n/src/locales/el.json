@@ -437,7 +437,8 @@
         "tableAvailableOne": "{{count}} τραπέζι διαθέσιμο",
         "tablesAvailableOther": "{{count}} τραπέζια διαθέσιμα",
         "availableCombinable": "Διαθέσιμο (συνδυασμός τραπεζιών)",
-        "none": "Δεν υπάρχει διαθεσιμότητα"
+        "none": "Δεν υπάρχει διαθεσιμότητα",
+        "popularBadge": "🔥 Δημοφιλής ώρα"
       },
       "errors": {
         "PARTY_SIZE_OUT_OF_RANGE": "Αυτό το εστιατόριο δέχεται παρέες {{min}}–{{max}} ατόμων.",
