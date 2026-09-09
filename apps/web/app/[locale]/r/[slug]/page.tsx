@@ -73,6 +73,38 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
   });
   const popularityDebugEnvUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'MISSING';
   const popularityDebugEnvKeyTail = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'MISSING').slice(-12);
+  // TEMP DIAGNOSTIC 2 (to be reverted): every row this depends on has been
+  // hand-verified in the SQL editor to line up exactly (restaurant.id,
+  // flag.id, override.flag_id+restaurant_id all match, override.is_enabled
+  // = true) -- so the function is provably deterministic-true for these
+  // exact arguments. Yet the supabase-js call above still comes back false
+  // with no error. Two more isolations to find where the discrepancy is
+  // actually introduced:
+  // (a) a completely raw, undecorated fetch() straight to PostgREST,
+  //     bypassing the supabase-js client entirely and explicitly disabling
+  //     any Next.js fetch caching/memoization -- mirrors the raw BROWSER
+  //     fetch test that already came back true, but run from the server.
+  // (b) the exact same supabase-js RPC call as above, but made in true
+  //     isolation -- NOT inside the earlier Promise.all -- in case
+  //     concurrent execution of the 4 flag checks is somehow involved.
+  const popularityRawFetchDebug = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}/rest/v1/rpc/is_feature_enabled_for_restaurant`,
+    {
+      method: 'POST',
+      cache: 'no-store',
+      headers: {
+        'content-type': 'application/json',
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+        authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''}`,
+      },
+      body: JSON.stringify({ p_restaurant_slug: restaurant.slug, p_flag_key: 'popularity_indicator' }),
+    },
+  )
+    .then(async (r) => ({ status: r.status, body: await r.text() }))
+    .catch((e) => ({ status: -1, body: String(e) }));
+  const popularityIsolatedRpcDebug = await supabase
+    .rpc('is_feature_enabled_for_restaurant', { p_restaurant_slug: restaurant.slug, p_flag_key: 'popularity_indicator' })
+    .then((r) => ({ data: r.data, error: r.error }));
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(var(--space-xl), 6vw, 56px) var(--space-2xl) var(--space-4xl)' }}>
       <div
@@ -83,6 +115,9 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
           error: popularityDebugRaw.error,
           envUrl: popularityDebugEnvUrl,
           envKeyTail: popularityDebugEnvKeyTail,
+          rawFetch: popularityRawFetchDebug,
+          isolatedRpc: popularityIsolatedRpcDebug,
+          restaurantSlug: restaurant.slug,
         })}
       />
       <div style={{ marginBottom: 'var(--space-3xl)' }}>
