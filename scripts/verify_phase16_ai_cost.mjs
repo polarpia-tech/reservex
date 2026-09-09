@@ -64,8 +64,8 @@ const providerJs = ts
   .transpileModule(providerSrc, {
     compilerOptions: { module: ts.ModuleKind.ES2020, target: ts.ScriptTarget.ES2020 },
   })
-  .outputText.replace("from '../provider'", "from './provider.mjs'")
-  .replace("from '../types'", "from './types.mjs'"); // types.ts has no runtime exports, stub it below
+  .outputText.replace("from '../provider.ts'", "from './provider.mjs'")
+  .replace("from '../types.ts'", "from './types.mjs'"); // types.ts has no runtime exports, stub it below
 writeFileSync(path.join(tmpDir, 'anthropic.mjs'), providerJs);
 writeFileSync(path.join(tmpDir, 'types.mjs'), '// type-only, no runtime exports\n');
 
