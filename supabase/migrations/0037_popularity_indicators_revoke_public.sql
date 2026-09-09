@@ -1,0 +1,42 @@
+-- =============================================================================
+-- 0037_popularity_indicators_revoke_public.sql
+-- Purpose: housekeeping follow-up to migration 0036. A production grants
+-- check right after 0036 shipped (select grantee, privilege_type from
+-- information_schema.role_routine_grants where routine_name =
+-- 'get_public_popularity_indicators') showed the PUBLIC pseudo-role still
+-- had EXECUTE -- PostgreSQL grants EXECUTE on every newly-created function
+-- to PUBLIC by default, and 0036's own `grant execute ... to anon,
+-- authenticated;` never revoked it first.
+--
+-- This is the same class of gap migration 0021 (Section A, "security
+-- hardening") already established the fix for across the rest of the
+-- schema: an explicit `revoke all ... from public` immediately before the
+-- real `grant execute ... to <role>`, even on functions where anon/
+-- authenticated already had their own explicit grant and PUBLIC alongside
+-- it was "just redundant, never a gap by itself" (0021's own section A2
+-- comment) -- done anyway, purely so a future audit of this schema finds
+-- zero PUBLIC-executable functions, not "zero minus this one".
+--
+-- Per migration 0031's own finding: on this project, `revoke ... from
+-- public` only ever removes the PUBLIC pseudo-role's own grant -- it does
+-- nothing to anon/authenticated's grants, which are made directly by name
+-- (via this project's platform-level ALTER DEFAULT PRIVILEGES) and are
+-- independent of PUBLIC. So this migration is a pure tightening: anon and
+-- authenticated keep exactly the access get_public_popularity_indicators
+-- was always meant to have (it's the anon-callable function behind the
+-- public restaurant page's popularity badge); only the redundant, never-
+-- intended PUBLIC grant is removed. Re-verified via the same
+-- information_schema.role_routine_grants query after this migration
+-- deploys -- see the PR/deployment notes for the confirmed result.
+--
+-- Not a retroactive fix for every other function shipped since 0023 with
+-- the same gap (get_public_availability_summary, book_public_reservation's
+-- siblings added after 0021, join_last_minute_alert, etc.) -- tracked
+-- separately as the same dedicated follow-up audit migration 0031 already
+-- flagged, to keep this migration scoped to the function this window's
+-- own production check actually caught.
+-- =============================================================================
+
+revoke all on function public.get_public_popularity_indicators(text, date) from public;
+
+grant execute on function public.get_public_popularity_indicators(text, date) to anon, authenticated;
