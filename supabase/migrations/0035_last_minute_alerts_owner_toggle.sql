@@ -1,0 +1,38 @@
+-- =============================================================================
+-- 0035_last_minute_alerts_owner_toggle.sql
+-- Purpose: Phase 6, sub-feature 3 of "Live Availability, Smart Booking &
+-- Real-Time Restaurant Experience" is now fully built AND verified end to
+-- end in production with real data: a guest can tap "Notify me today" on
+-- the public restaurant page (0034 join_last_minute_alert), opt in to Web
+-- Push (the same apps/web/src/lib/webPush.ts flow the self-service waitlist
+-- already uses), and actually receive a real push notification on a real
+-- device the instant a table opens up before closing today (0034's
+-- claim_waitlist_matches_for_restaurant is_last_minute branch + the same
+-- pg_net trigger + notify-waitlist Edge Function + apps/web/public/sw.js
+-- 'push' listener migration 0032 already wired for the regular waitlist) --
+-- confirmed live on 2026-09-09 via a manually-simulated "table opens up"
+-- (temporary special_hours override + tables.is_active toggle on a
+-- dedicated test restaurant, never real guest data) that produced a real
+-- Chrome desktop notification ("A table just opened up! Pavlos Michailidis,
+-- a table for 1 is now available for your requested time.").
+--
+-- This is the "follow-up migration" apps/web/app/[locale]/r/[slug]/page.tsx
+-- (Phase 6, sub-feature 3 comment) already anticipated: 'last_minute_alerts'
+-- behaves exactly like 'waitlist_public' did before its own owner toggle
+-- shipped (0033) -- off for every restaurant, platform-admin-only (or via a
+-- manual feature_flag_overrides row, as used for this migration's own live
+-- test), until this migration marks it owner-configurable. No app code
+-- changes needed anywhere: page.tsx already resolves 'last_minute_alerts'
+-- per restaurant via fetchIsFeatureEnabledForRestaurant, and the mobile
+-- owner settings screen already renders one row per is_owner_configurable
+-- flag it finds in the database -- flipping this one column is the entire
+-- change.
+--
+-- 'live_occupancy' and 'popularity_indicator' (the remaining two Live-
+-- Availability-epic flags seeded alongside this one in 0023) are untouched
+-- here -- each still has no real feature behind it yet, and gets its own
+-- is_owner_configurable = true in its own future phase's migration once
+-- verified, per 0028's original plan.
+-- =============================================================================
+
+update public.feature_flags set is_owner_configurable = true where key = 'last_minute_alerts';
