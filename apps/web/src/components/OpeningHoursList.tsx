@@ -38,20 +38,31 @@ export function OpeningHoursList({
           gap: 'var(--space-sm)',
           fontFamily: 'var(--font-display)',
           fontWeight: 600,
-          fontSize: 18,
-          margin: '0 0 var(--space-md)',
+          fontSize: 19,
+          letterSpacing: '-0.01em',
+          margin: '0 0 var(--space-lg)',
         }}
       >
         <ClockIcon size={18} style={{ color: 'var(--accent)' }} />
         {t(dict, 'public.restaurant.openingHoursTitle')}
       </h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
         {[0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => {
           const shifts = (hoursByDay.get(dayOfWeek) ?? []).filter((s) => !s.isClosed);
           return (
-            <div key={dayOfWeek} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+            <div
+              key={dayOfWeek}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 'var(--space-md)',
+                fontSize: 14.5,
+                padding: '9px 0',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
               <span style={{ color: 'var(--text-muted)' }}>{t(dict, `openingHours.days.${dayOfWeek}`)}</span>
-              <span>
+              <span style={{ textAlign: 'right' }}>
                 {shifts.length === 0
                   ? t(dict, 'public.restaurant.closedAllDay')
                   : shifts.map((s) => `${truncateToHm(s.opensAt)}–${truncateToHm(s.closesAt)}`).join(', ')}
@@ -61,14 +72,16 @@ export function OpeningHoursList({
         })}
       </div>
       {upcomingSpecialHours.length > 0 && (
-        <div style={{ marginTop: 'var(--space-md)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ marginTop: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {upcomingSpecialHours.map((s) => (
-            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--warning)' }}>
+            <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 'var(--space-md)', fontSize: 13.5, color: 'var(--accent)' }}>
               <span>
                 {s.date}
                 {s.reason ? ` — ${s.reason}` : ''}
               </span>
-              <span>{s.isClosed ? t(dict, 'public.restaurant.closedAllDay') : s.opensAt && s.closesAt ? `${truncateToHm(s.opensAt)}–${truncateToHm(s.closesAt)}` : ''}</span>
+              <span style={{ textAlign: 'right' }}>
+                {s.isClosed ? t(dict, 'public.restaurant.closedAllDay') : s.opensAt && s.closesAt ? `${truncateToHm(s.opensAt)}–${truncateToHm(s.closesAt)}` : ''}
+              </span>
             </div>
           ))}
         </div>

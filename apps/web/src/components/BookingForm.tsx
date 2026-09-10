@@ -514,7 +514,15 @@ export function BookingForm({
   const showLastMinuteAlertPanel = lastMinuteAlertsEnabled;
   if (confirmedReservation) {
     return (
-      <section style={{ border: '1px solid var(--success)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', background: 'var(--surface)' }}>
+      <section
+        style={{
+          border: '1px solid var(--border)',
+          borderLeft: '3px solid var(--success)',
+          borderRadius: 'var(--radius-lg)',
+          padding: 'clamp(24px, 4vw, 40px)',
+          background: 'var(--surface)',
+        }}
+      >
         <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--success)', margin: 0 }}>
           <CheckCircleIcon />
           {t(dict, 'public.booking.confirmedTitle')}
@@ -567,13 +575,24 @@ export function BookingForm({
     );
   }
   return (
-    <section style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', background: 'var(--surface)' }}>
-      <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginTop: 0 }}>{t(dict, 'public.booking.title')}</h2>
-      <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: '-8px' }}>
+    <section style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'clamp(24px, 4vw, 40px)', background: 'var(--surface)' }}>
+      <h2
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 600,
+          fontSize: 22,
+          letterSpacing: '-0.01em',
+          marginTop: 0,
+          marginBottom: 'var(--space-xs)',
+        }}
+      >
+        {t(dict, 'public.booking.title')}
+      </h2>
+      <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginTop: 0, marginBottom: 'var(--space-lg)' }}>
         {isSignedIn ? interpolate(t(dict, 'public.booking.signedInNotice'), { name: profileName ?? guestEmail ?? '' }) : t(dict, 'public.booking.guestNotice')}
       </p>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 'var(--space-md)' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 'var(--space-md)' }}>
           <Field label={t(dict, 'public.booking.date')} icon={<CalendarIcon size={13} />}>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={inputStyle} />
           </Field>
@@ -665,11 +684,14 @@ export function BookingForm({
           disabled={submitting}
           style={{
             background: 'var(--accent)',
-            color: 'var(--surface)',
+            color: 'var(--accent-contrast)',
             border: 'none',
             borderRadius: 'var(--radius-full)',
-            padding: '12px 20px',
+            padding: '14px 24px',
+            fontSize: 15,
             fontWeight: 600,
+            letterSpacing: '0.01em',
+            width: '100%',
             cursor: submitting ? 'default' : 'pointer',
             opacity: submitting ? 0.7 : 1,
           }}
@@ -908,7 +930,7 @@ function LiveAvailabilityPanel({
                       opacity: isAvailable ? 1 : 0.55,
                     }}
                   >
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 600, color: isSelected ? 'var(--surface)' : 'var(--text-primary)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 600, color: isSelected ? 'var(--accent-contrast)' : 'var(--text-primary)' }}>
                       {localTime}
                     </span>
                     <span
@@ -917,7 +939,7 @@ function LiveAvailabilityPanel({
                         alignItems: 'center',
                         gap: 6,
                         fontSize: 11.5,
-                        color: isSelected ? 'var(--surface)' : 'var(--text-muted)',
+                        color: isSelected ? 'var(--accent-contrast)' : 'var(--text-muted)',
                         opacity: 0.9,
                       }}
                     >
@@ -927,7 +949,7 @@ function LiveAvailabilityPanel({
                           height: 6,
                           borderRadius: '50%',
                           flexShrink: 0,
-                          background: isSelected ? 'var(--surface)' : isAvailable ? 'var(--success)' : 'var(--danger)',
+                          background: isSelected ? 'var(--accent-contrast)' : isAvailable ? 'var(--success)' : 'var(--danger)',
                         }}
                       />
                       {availabilityLabel}
@@ -998,7 +1020,7 @@ function WaitlistPanel({
     opacity: submitting ? 0.7 : 1,
   };
   const secondaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)' };
-  const primaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'var(--accent)', border: 'none', color: 'var(--surface)', fontWeight: 600 };
+  const primaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'var(--accent)', border: 'none', color: 'var(--accent-contrast)', fontWeight: 600 };
   if (joined) {
     return (
       <div
@@ -1091,7 +1113,7 @@ function LastMinuteAlertPanel({
     opacity: submitting ? 0.7 : 1,
   };
   const secondaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'none', border: '1px solid var(--border)', color: 'var(--text-primary)' };
-  const primaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'var(--accent)', border: 'none', color: 'var(--surface)', fontWeight: 600 };
+  const primaryButtonStyle: CSSProperties = { ...buttonStyle, background: 'var(--accent)', border: 'none', color: 'var(--accent-contrast)', fontWeight: 600 };
   if (joined) {
     return (
       <div
@@ -1153,8 +1175,8 @@ function LastMinuteAlertPanel({
 // than the viewport on narrow phone screens instead of actually wrapping.
 function Field({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
   return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--text-muted)', minWidth: 0 }}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--text-muted)', minWidth: 0 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 5, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}>
         {icon}
         {label}
       </span>
@@ -1164,11 +1186,12 @@ function Field({ label, icon, children }: { label: string; icon?: ReactNode; chi
 }
 const inputStyle: CSSProperties = {
   fontFamily: 'var(--font-family)',
-  fontSize: 14,
+  fontSize: 14.5,
   color: 'var(--text-primary)',
   background: 'var(--background)',
   border: '1px solid var(--border)',
   borderRadius: 'var(--radius-md)',
-  padding: '8px 10px',
+  padding: '11px 12px',
   width: '100%',
+  transition: 'border-color 0.15s ease',
 };

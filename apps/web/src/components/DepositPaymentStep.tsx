@@ -100,7 +100,7 @@ function DepositForm({ locale, onPaid, onSkip }: { locale: SupportedLocale; onPa
           disabled={!stripe || submitting}
           style={{
             background: 'var(--accent)',
-            color: 'var(--surface)',
+            color: 'var(--accent-contrast)',
             border: 'none',
             borderRadius: 'var(--radius-full)',
             padding: '12px 20px',

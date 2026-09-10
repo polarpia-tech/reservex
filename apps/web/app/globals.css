@@ -21,3 +21,19 @@ a {
 ::selection {
   background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
+
+/* 2026-09 redesign: a consistent, visible keyboard-focus ring across every
+   interactive element -- plain inline `style={{...}}` objects (this repo's
+   only styling mechanism, see BookingForm.tsx's own header comment) can't
+   express a :focus-visible pseudo-class, so this one small global rule
+   covers all of them instead of hand-adding an onFocus/onBlur handler to
+   every input/button in the app. Doesn't touch mouse/touch interaction --
+   :focus-visible only fires for keyboard/programmatic focus. */
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
