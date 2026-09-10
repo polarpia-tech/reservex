@@ -52,35 +52,6 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
     // is fewer round trips regardless of the underlying bug.
     fetchPublicFeatureFlagsForRestaurant(supabase, restaurant.slug, ['live_availability', 'waitlist_public', 'last_minute_alerts', 'popularity_indicator']),
   ]);
-
-  // TEMP DIAGNOSTIC -- to be reverted once the special_hours staleness bug
-  // is root-caused. Compares the supabase-js result for special_hours
-  // (used above) against a completely independent raw REST fetch to the
-  // same table/row, done fresh right here, so we can see in the rendered
-  // HTML whether the two ever disagree within the same server invocation.
-  let debugRawSpecialHours: unknown = null;
-  try {
-    const rawUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/special_hours?restaurant_id=eq.${restaurant.id}&select=*`;
-    const rawRes = await fetch(rawUrl, {
-      cache: 'no-store',
-      headers: {
-        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''}`,
-      },
-    });
-    debugRawSpecialHours = { status: rawRes.status, body: await rawRes.json() };
-  } catch (e) {
-    debugRawSpecialHours = { error: e instanceof Error ? e.message : String(e) };
-  }
-  console.error(
-    '[TEMP-DIAG special_hours]',
-    JSON.stringify({
-      restaurantId: restaurant.id,
-      serverTime: new Date().toISOString(),
-      supabaseJsResult: specialHours,
-      rawFetchResult: debugRawSpecialHours,
-    }),
-  );
   const liveAvailabilityEnabled = flags.live_availability;
   const waitlistPublicEnabled = flags.waitlist_public;
   const lastMinuteAlertsEnabled = flags.last_minute_alerts;
@@ -112,10 +83,6 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-2xl)', alignItems: 'start' }}>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)' }}>
           <OpeningHoursList locale={locale} openingHours={openingHours} specialHours={specialHours} />
-          {/* TEMP DIAGNOSTIC -- to be reverted, see comment above near the fetch */}
-          <div data-debug="special-hours-diag" style={{ display: 'none' }}>
-            {JSON.stringify({ supabaseJsResult: specialHours, rawFetchResult: debugRawSpecialHours })}
-          </div>
         </div>
         <BookingForm
           locale={locale}
