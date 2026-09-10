@@ -10,6 +10,7 @@ import { AdminSessionContext } from '@/hooks/useAdminSession';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 
 const NAV_LINKS = [
+  { href: '/', label: 'Dashboard' },
   { href: '/organizations', label: 'Organizations' },
   { href: '/feature-flags', label: 'Feature flags' },
   { href: '/admins', label: 'Admins' },
@@ -173,7 +174,9 @@ export default function AdminGate({ children }: { children: ReactNode }) {
         >
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 'var(--space-lg)', color: 'var(--accent)' }}>ReservX Admin</div>
           {NAV_LINKS.map((link) => {
-            const active = pathname?.startsWith(link.href);
+            // '/' (Dashboard) would match startsWith() on every route --
+            // needs an exact match instead, unlike every other link here.
+            const active = link.href === '/' ? pathname === '/' : pathname?.startsWith(link.href);
             return (
               <Link
                 key={link.href}

@@ -2688,3 +2688,88 @@ path) πάνω στο οποίο θα χτιστούν όλα τα υπόλοι�
   build/τρέχει σε πραγματικό browser -- κανένα `npm install`/`next dev`
   εκτελέστηκε, μόνο χειροκίνητο code review (ίδιος περιορισμός με τη
   Φάση 13).
+
+## Φάση 19: Admin Dashboard (platform overview)
+
+Δεύτερο PR του ίδιου γύρου (βλ. Φάση 18): το `apps/admin/app/page.tsx` ήταν
+μέχρι τώρα ένα άδειο redirect προς `/organizations` -- καμία δική του
+οθόνη υποδοχής. Ο χρήστης ζήτησε ρητά, στην αρχική 30-σημείων
+προδιαγραφή, ένα "professional Admin Dashboard... όχι ένα γενικό CRUD
+dashboard". Η Φάση 19 χτίζει αυτή την πρώτη πραγματική αρχική οθόνη.
+
+### Τι χτίστηκε
+
+- **`apps/admin/app/page.tsx`** (πλήρης επανεγγραφή, το redirect
+  αφαιρέθηκε): πραγματικό "Platform overview" με: τέσσερις κάρτες
+  στατιστικών στην κορυφή (Organizations/Restaurants + πόσα ανασταλμένα/
+  Active admins/Feature flags + πόσα ενεργά by default), μια κάρτα
+  breakdown συνδρομών ανά status (χρωματιστές κουκκίδες, ίδια λογική
+  χρώματος με το `StatusBadge` της σελίδας Organizations), δύο κάρτες
+  δίπλα-δίπλα (ανασταλμένα εστιατόρια με σύνδεσμο προς το organization
+  τους / τελευταία 8 εγγραφές δραστηριότητας από το audit log με
+  σύνδεσμο "View full log" προς `/audit-log`), και μια κάρτα με το ρόστερ
+  admin ανά ρόλο. Κάθε αριθμός/λίστα προκύπτει ΑΠΟΚΛΕΙΣΤΙΚΑ από RPCs/
+  reads που υπήρχαν ήδη πριν από αυτή τη φάση
+  (`admin_list_organizations`, `admin_list_restaurants`,
+  `admin_list_platform_admins`, `feature_flags_select`,
+  `admin_list_audit_logs` από τη Φάση 18) -- **κανένα νέο migration,
+  καμία νέα προνομιούχα επιφάνεια**. Κάθε στατιστικό υπολογίζεται
+  client-side από αυτές τις τέσσερις/πέντε ήδη-fetched λίστες.
+- **`apps/admin/src/components/AdminGate.tsx`**: προστέθηκε "Dashboard"
+  ως πρώτο nav item (`href: '/'`). Το προϋπάρχον active-link matching
+  (`pathname?.startsWith(link.href)`) θα ταίριαζε λανθασμένα ΣΕ ΚΑΘΕ
+  σελίδα για το `/` -- διορθώθηκε με ρητό exact-match μόνο γι' αυτό το
+  ένα link (`pathname === '/'`), τα υπόλοιπα nav items παραμένουν
+  αμετάβλητα (`startsWith`).
+
+### Σημαντικές αρχιτεκτονικές αποφάσεις
+
+- **Καμία νέα `admin_get_dashboard_summary()` RPC -- σκόπιμα.** Στο
+  τρέχον μέγεθος της πλατφόρμας (2-3 pilot organizations) το να φέρει
+  κανείς τις ήδη υπάρχουσες πλήρεις λίστες και να μετρήσει client-side
+  είναι απλούστερο, μηδενικού πρόσθετου ρίσκου (καμία νέα SECURITY
+  DEFINER function, κανένα νέο migration σε αυτή τη φάση), και μένει
+  αυτόματα συνεπές με τις σελίδες Organizations/Restaurants/Admins/
+  Feature flags, που ήδη φέρνουν ακριβώς τα ίδια δεδομένα. Ρητά
+  τεκμηριωμένο στο header comment του αρχείου ως κάτι που θα χρειαστεί
+  επανεξέταση αν το ρόστερ μεγαλώσει σημαντικά.
+- **View-only, καθολικό σε κάθε ενεργό admin ρόλο, συμπεριλαμβανομένου
+  του `read_only_admin`.** Ίδιο μοτίβο με το audit log viewer της Φάσης
+  18 -- η αρχική οθόνη δεν κρύβει τίποτα ανάλογα με το ρόλο, μόνο οι
+  ενέργειες αλλαγής κατάστασης (suspend, subscription override, grant/
+  revoke) παραμένουν περιορισμένες, ήδη από τις Φάσεις 13/18.
+
+### Τι ΔΕΝ χτίστηκε (σκόπιμα -- εκτός εύρους αυτού του PR)
+
+Παραμένει σκόπιμα εκτός εύρους: real-time ενημέρωση (η σελίδα φορτώνει
+μία φορά, κανένα polling/websocket), error/uptime monitoring, γραφήματα/
+τάσεις με την πάροδο του χρόνου (μόνο τρέχουσες μετρήσεις), και
+οτιδήποτε άλλο από την αρχική 30-σημείων προδιαγραφή που ήδη
+αναφέρθηκε ως εκτός εύρους στο τέλος της Φάσης 18 (global search,
+Support Mode, mobile-first redesign, AI/notification administration,
+κ.λπ.).
+
+### Τι επαληθεύτηκε πραγματικά εδώ (και τι όχι)
+
+✅ Επαληθεύτηκε:
+- Και τα δύο αλλαγμένα αρχεία (`app/page.tsx`, `AdminGate.tsx`) περνούν
+  πραγματικό TypeScript syntax check (`tsc --noEmit`, relaxed
+  moduleResolution ώστε να μην απαιτούνται εγκατεστημένα node_modules) σε
+  αυτό το sandbox -- μηδέν σφάλματα parser (TS1xxx). Τα μόνα errors που
+  εμφανίστηκαν είναι τα αναμενόμενα "cannot find module"/"implicit any"
+  από την απουσία εγκατεστημένων type declarations των εξωτερικών
+  πακέτων (`react`, `next`, `@reservex/core`, `@supabase/supabase-js`),
+  όχι πραγματικά λάθη κώδικα.
+- Ισορροπημένα `{}`/`()`/`[]` (προγραμματιστικός έλεγχος πριν το
+  transfer στη συσκευή του χρήστη).
+
+⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**:
+- Ότι η σελίδα πραγματικά κάνει render σε πραγματικό browser έναντι
+  ζωντανής βάσης -- κανένα `npm install`/`next dev` εκτελέστηκε, μόνο
+  syntax check + χειροκίνητο code review (ίδιος περιορισμός με τις
+  Φάσεις 13/18). Θα επαληθευτεί από το `Lint & typecheck` CI job
+  (`scripts/verify_ts_syntax.mjs`, πάνω στο πραγματικό project με
+  εγκατεστημένα node_modules) στο PR αυτής της φάσης.
+- Καμία νέα SQL/migration σε αυτή τη φάση, άρα το `Database migrations,
+  RLS, and regression suite` CI job δεν έχει τίποτα νέο να ελέγξει --
+  αναμενόμενο πέρασμα χωρίς αλλαγή συμπεριφοράς.
