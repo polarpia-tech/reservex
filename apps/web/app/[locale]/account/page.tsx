@@ -287,9 +287,9 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
 // every one of them maps to something here, not just the two the design
 // mockup happened to show a screenshot of (pending, confirmed).
 const STATUS_TONE: Record<string, { fg: string; bg: string }> = {
-  pending: { fg: 'var(--warning)', bg: 'rgba(232, 163, 61, 0.15)' },
-  confirmed: { fg: 'var(--success)', bg: 'rgba(78, 156, 147, 0.15)' },
-  seated: { fg: 'var(--success)', bg: 'rgba(78, 156, 147, 0.15)' },
+  pending: { fg: 'var(--warning)', bg: 'rgba(217, 119, 6, 0.15)' },
+  confirmed: { fg: 'var(--success)', bg: 'rgba(20, 184, 166, 0.15)' },
+  seated: { fg: 'var(--success)', bg: 'rgba(20, 184, 166, 0.15)' },
   completed: { fg: 'var(--text-muted)', bg: 'var(--surface-elevated)' },
   cancelled: { fg: 'var(--text-muted)', bg: 'var(--surface-elevated)' },
   no_show: { fg: 'var(--danger)', bg: 'rgba(224, 102, 90, 0.15)' },
@@ -370,7 +370,7 @@ const inputStyle: CSSProperties = {
 
 const primaryButtonStyle: CSSProperties = {
   background: 'var(--accent)',
-  color: 'var(--surface)',
+  color: 'var(--accent-contrast)',
   border: 'none',
   borderRadius: 'var(--radius-full)',
   padding: '10px 18px',

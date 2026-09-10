@@ -29,7 +29,7 @@ export function LogoMark({ size = 22, style }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" style={{ ...base(size), ...style }} aria-hidden="true">
       <rect x="1.5" y="1.5" width="21" height="21" rx="6" fill="var(--accent)" />
-      <path d="M7 12.5L10.2 15.5L17 8.5" stroke="var(--surface)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 12.5L10.2 15.5L17 8.5" stroke="var(--accent-contrast)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

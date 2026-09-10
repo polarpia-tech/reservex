@@ -116,7 +116,7 @@ export default async function RestaurantDirectoryPage({ params }: { params: { lo
                   gap: 6,
                   fontSize: 14,
                   fontWeight: 600,
-                  color: 'var(--surface)',
+                  color: 'var(--accent-contrast)',
                   background: 'var(--accent)',
                   borderRadius: 'var(--radius-full)',
                   padding: '11px 16px',

@@ -57,31 +57,60 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
   const lastMinuteAlertsEnabled = flags.last_minute_alerts;
   const popularityIndicatorEnabled = flags.popularity_indicator;
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(var(--space-xl), 6vw, 56px) var(--space-2xl) var(--space-4xl)' }}>
-      <div style={{ marginBottom: 'var(--space-3xl)' }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(26px, 4.5vw, 40px)', lineHeight: 1.1, margin: '0 0 var(--space-sm)' }}>
+    // Full-bleed layout (2026-09 redesign): no hard maxWidth container --
+    // the page fills the viewport width, with fluid side padding (clamp)
+    // instead of a centered fixed-width column, so the page feels like an
+    // immersive booking portal rather than a boxed document on very wide
+    // screens.
+    <div style={{ width: '100%', padding: '0 clamp(20px, 5vw, 64px) clamp(56px, 9vw, 104px)' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-sm)',
+          padding: 'clamp(40px, 8vw, 88px) 0 clamp(32px, 5vw, 56px)',
+          borderBottom: '1px solid var(--border)',
+          marginBottom: 'clamp(32px, 5vw, 56px)',
+        }}
+      >
+        <h1
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            fontSize: 'clamp(32px, 5vw, 52px)',
+            lineHeight: 1.08,
+            letterSpacing: '-0.01em',
+            margin: 0,
+          }}
+        >
           {restaurant.name}
         </h1>
-        {(restaurant.addressLine || restaurant.city) && (
-          <p style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 14.5, margin: '0 0 6px' }}>
-            <MapPinIcon size={15} />
-            {[restaurant.addressLine, restaurant.city].filter(Boolean).join(', ')}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-xs) var(--space-xl)', color: 'var(--text-muted)', fontSize: 15 }}>
+          {(restaurant.addressLine || restaurant.city) && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MapPinIcon size={16} />
+              {[restaurant.addressLine, restaurant.city].filter(Boolean).join(', ')}
+            </span>
+          )}
+          {restaurant.phone && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <PhoneIcon size={16} />
+              {restaurant.phone}
+            </span>
+          )}
+        </div>
+        {restaurant.description && (
+          <p style={{ marginTop: 'var(--space-sm)', maxWidth: 680, lineHeight: 1.65, color: 'var(--text-primary)', fontSize: 15.5 }}>
+            {restaurant.description}
           </p>
         )}
-        {restaurant.phone && (
-          <p style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 14.5, margin: 0 }}>
-            <PhoneIcon size={15} />
-            {restaurant.phone}
-          </p>
-        )}
-        {restaurant.description && <p style={{ marginTop: 'var(--space-md)', maxWidth: 640, lineHeight: 1.6 }}>{restaurant.description}</p>}
       </div>
       {/* Same auto-fit grid technique as the directory page: two columns
-          when there's room for both at >= ~320px each, one column
+          when there's room for both at >= ~340px each, one column
           (opening hours above the booking form) on a narrow phone --
           no separate mobile markup needed. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-2xl)', alignItems: 'start' }}>
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'start' }}>
+        <div style={{ paddingTop: 2 }}>
           <OpeningHoursList locale={locale} openingHours={openingHours} specialHours={specialHours} />
         </div>
         <BookingForm

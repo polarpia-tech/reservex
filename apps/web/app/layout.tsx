@@ -31,7 +31,10 @@ export const metadata: Metadata = {
 // theme-editorial.css's header comment), so there is no light variant to
 // track.
 export const viewport: Viewport = {
-  themeColor: '#E8A33D',
+  // Matches theme-editorial.css's --accent -- keep these in lockstep; this
+  // one can't reference the CSS variable since it's read by the browser
+  // chrome (status bar / task-switcher tint) before any CSS loads.
+  themeColor: '#3E7BFA',
 };
 
 // Locale-aware routing (app/[locale]/...) was built in Phase 08 alongside
