@@ -448,6 +448,18 @@
         "none": "No availability",
         "popularBadge": "🔥 Popular time"
       },
+      "demandTicker": {
+        "title": "Demand today",
+        "hint": "How busy each hour looks"
+      },
+      "vibe": {
+        "busy": "Very lively right now",
+        "moderate": "Steady pace tonight",
+        "quiet": "Quiet right now"
+      },
+      "liveActivity": {
+        "updated": "Availability was just updated"
+      },
       "errors": {
         "PARTY_SIZE_OUT_OF_RANGE": "This restaurant accepts parties of {{min}}–{{max}} guests.",
         "OUTSIDE_BOOKING_WINDOW": "This restaurant only takes online bookings within its allowed booking window.",

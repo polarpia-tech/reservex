@@ -448,6 +448,18 @@
         "none": "Uygunluk yok",
         "popularBadge": "🔥 Popüler saat"
       },
+      "demandTicker": {
+        "title": "Bugünkü talep",
+        "hint": "Her saatin ne kadar dolu göründüğü"
+      },
+      "vibe": {
+        "busy": "Şu anda çok hareketli",
+        "moderate": "Bu akşam istikrarlı bir tempo",
+        "quiet": "Şu anda sakin"
+      },
+      "liveActivity": {
+        "updated": "Uygunluk az önce güncellendi"
+      },
       "errors": {
         "PARTY_SIZE_OUT_OF_RANGE": "Bu restoran {{min}}–{{max}} kişilik grupları kabul ediyor.",
         "OUTSIDE_BOOKING_WINDOW": "Bu restoran yalnızca izin verilen rezervasyon zaman aralığında online rezervasyon kabul ediyor.",

@@ -113,6 +113,23 @@ export function BookingForm({
   // every restaurant that hasn't opted in.
   const [availabilitySlots, setAvailabilitySlots] = useState<PublicAvailabilitySlot[] | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  // ΚΡΑΤΩ-inspired redesign (2026-09): a small "something just changed" toast
+  // fired off the SAME realtime subscription as the quiet refetch below --
+  // deliberately generic copy ("availability was just updated"), not
+  // "someone just booked around HH:MM": subscribeToAvailabilityChanges()
+  // fires on every row event on restaurant_availability_versions WITHOUT
+  // inspecting the payload (see that function's own comment -- "no date, no
+  // table, no count" in the row), so there is no hour and no confirmed cause
+  // (could be a cancellation or a staff edit, not only a new booking) to
+  // honestly report. Only set after refetchQuietly's OWN fetch actually
+  // succeeds, so this is never shown for a change that turned out to be a
+  // no-op or a failed background refresh.
+  const [liveActivityNotice, setLiveActivityNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!liveActivityNotice) return;
+    const dismissTimer = setTimeout(() => setLiveActivityNotice(null), 4000);
+    return () => clearTimeout(dismissTimer);
+  }, [liveActivityNotice]);
   // Phase 6, sub-feature 4 (migration 0036/0037). `null` means "haven't
   // fetched yet" (or the flag is off, or no date is picked); `[]` means
   // "fetched, and this restaurant/day genuinely has no popular-enough
@@ -277,11 +294,15 @@ export function BookingForm({
       debounceTimer = setTimeout(() => {
         void fetchPublicAvailabilitySummary(client, { restaurantSlug: restaurant.slug, date, partySize })
           .then((slots) => {
-            if (!cancelled) setAvailabilitySlots(slots);
+            if (!cancelled) {
+              setAvailabilitySlots(slots);
+              setLiveActivityNotice(t(dict, 'public.booking.liveActivity.updated'));
+            }
           })
           .catch(() => {
             // Keep showing the last known-good slots rather than clearing
-            // the panel over a transient background-refresh failure.
+            // the panel over a transient background-refresh failure. No
+            // toast either -- nothing was confirmed to have changed.
           });
       }, 350);
     };
@@ -470,6 +491,15 @@ export function BookingForm({
   // NO_AVAILABILITY. Both require waitlistPublicEnabled (the flag) and a
   // date+time actually picked -- join_public_waitlist needs a concrete
   // desired slot, same as book_public_reservation does.
+  // Client-side-only, derived purely from availabilitySlots (already public
+  // today via LiveAvailabilityPanel's chips -- see get_public_availability_
+  // summary's own "no fake scarcity" comment). Deliberately a coarse 3-level
+  // bucket, never a percentage: the underlying RPC doesn't expose total
+  // table capacity at all (by design, so a percentage can't even be
+  // reconstructed from it), and even if it did, an exact occupancy number is
+  // owner-facing business data, not something to surface to the public. See
+  // computeVibeLevel below.
+  const vibeLevel = computeVibeLevel(availabilitySlots);
   const allSlotsUnavailable =
     liveAvailabilityEnabled &&
     availabilitySlots !== null &&
@@ -576,16 +606,20 @@ export function BookingForm({
           />
         ) : null}
         {liveAvailabilityEnabled && date ? (
-          <LiveAvailabilityPanel
-            locale={locale}
-            dict={dict}
-            timezone={restaurant.timezone}
-            loading={availabilityLoading}
-            slots={availabilitySlots}
-            selectedTime={time}
-            onPickTime={setTime}
-            popularTimes={popularityIndicatorEnabled ? popularTimes : null}
-          />
+          <>
+            {vibeLevel ? <VibeBadge dict={dict} level={vibeLevel} /> : null}
+            <DemandTicker locale={locale} dict={dict} timezone={restaurant.timezone} slots={availabilitySlots} />
+            <LiveAvailabilityPanel
+              locale={locale}
+              dict={dict}
+              timezone={restaurant.timezone}
+              loading={availabilityLoading}
+              slots={availabilitySlots}
+              selectedTime={time}
+              onPickTime={setTime}
+              popularTimes={popularityIndicatorEnabled ? popularTimes : null}
+            />
+          </>
         ) : null}
         {showWaitlistPanel ? (
           <WaitlistPanel
@@ -643,7 +677,122 @@ export function BookingForm({
           {submitting ? t(dict, 'public.booking.submitting') : t(dict, 'public.booking.submitButton')}
         </button>
       </form>
+      {liveActivityNotice ? (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            bottom: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'var(--surface-elevated)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-primary)',
+            padding: '9px 16px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: 12.5,
+            boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+            zIndex: 40,
+            maxWidth: 'calc(100vw - 32px)',
+            textAlign: 'center',
+          }}
+        >
+          {liveActivityNotice}
+        </div>
+      ) : null}
     </section>
+  );
+}
+/**
+ * Guest-facing "vibe" indicator (ΚΡΑΤΩ-inspired redesign, 2026-09). Buckets
+ * the picked date's already-fetched availabilitySlots into one of three
+ * qualitative levels, based on the SHARE of slots that are fully booked
+ * (no standalone tables AND no combinable option). Deliberately a coarse
+ * bucket, not a computed percentage -- see the "no fake scarcity" /
+ * no-exact-occupancy-to-the-public reasoning on vibeLevel's own call site.
+ * Returns null when there's nothing to show yet (no slots fetched, or the
+ * restaurant is closed that day -- an empty array).
+ */
+function computeVibeLevel(slots: PublicAvailabilitySlot[] | null): 'busy' | 'moderate' | 'quiet' | null {
+  if (!slots || slots.length === 0) return null;
+  const fullCount = slots.filter((s) => s.availableTableCount === 0 && !s.hasCombinableOption).length;
+  const ratio = fullCount / slots.length;
+  if (ratio >= 0.6) return 'busy';
+  if (ratio >= 0.25) return 'moderate';
+  return 'quiet';
+}
+function VibeBadge({ dict, level }: { dict: ReturnType<typeof getDictionary>; level: 'busy' | 'moderate' | 'quiet' }) {
+  const color = level === 'busy' ? 'var(--danger)' : level === 'moderate' ? 'var(--warning)' : 'var(--success)';
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        fontSize: 12,
+        fontWeight: 600,
+        color,
+        background: 'var(--background)',
+        border: `1px solid ${color}`,
+        borderRadius: 'var(--radius-full)',
+        padding: '5px 11px',
+        alignSelf: 'flex-start',
+      }}
+    >
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+      {t(dict, `public.booking.vibe.${level}`)}
+    </div>
+  );
+}
+/**
+ * Guest-facing bar-chart "demand ticker" (ΚΡΑΤΩ-inspired redesign, 2026-09).
+ * Purely a re-visualization of the exact same availabilitySlots data
+ * LiveAvailabilityPanel's chips already render below it -- no new fetch, no
+ * new backend call, no data point here that isn't already public via that
+ * panel. Bar height is a fixed 3-tier read of each slot (full /
+ * limited-or-combinable-only / open), never a computed fill percentage --
+ * get_public_availability_summary() doesn't expose total table capacity at
+ * all, so an honest percentage literally can't be derived from what this
+ * page has; a 3-tier read is the most precise thing that's actually true.
+ */
+function DemandTicker({
+  locale,
+  dict,
+  timezone,
+  slots,
+}: {
+  locale: SupportedLocale;
+  dict: ReturnType<typeof getDictionary>;
+  timezone: string;
+  slots: PublicAvailabilitySlot[] | null;
+}) {
+  if (!slots || slots.length === 0) return null;
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px var(--space-md) 8px', background: 'var(--background)' }}>
+      <p style={{ margin: '0 0 10px', fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+        {t(dict, 'public.booking.demandTicker.title')}
+      </p>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 60, overflowX: 'auto', paddingBottom: 2 }}>
+        {slots.map((slot) => {
+          const localTime = formatTimeInTimeZone(slot.slotStartsAt, timezone, locale);
+          const isFull = slot.availableTableCount === 0 && !slot.hasCombinableOption;
+          const isLimited = !isFull && (slot.availableTableCount <= 1 || slot.hasCombinableOption);
+          const heightPct = isFull ? 100 : isLimited ? 55 : 24;
+          const color = isFull ? 'var(--danger)' : isLimited ? 'var(--warning)' : 'var(--success)';
+          return (
+            <div
+              key={slot.slotStartsAt}
+              title={localTime}
+              style={{ flex: '0 0 28px', width: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', gap: 4 }}
+            >
+              <div style={{ width: '100%', height: `${heightPct}%`, minHeight: 3, borderRadius: 3, background: color, transition: 'height 0.5s ease' }} />
+              <span style={{ fontSize: 8.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>{localTime}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ margin: '6px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.demandTicker.hint')}</p>
+    </div>
   );
 }
 /**
@@ -695,7 +844,12 @@ function LiveAvailabilityPanel({
         <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.closed')}</p>
       ) : slots && slots.length > 0 ? (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {/* ΚΡΑΤΩ-inspired "board" restyle (2026-09): same rows, same data,
+              same click/disabled/selected logic as before -- only the
+              container changed, from a flex-wrap chip grid to a vertical
+              list of full-width rows (grid-template-columns), so it reads
+              like a schedule board instead of a tag cloud. */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             {slots.map((slot) => {
               const localTime = formatTimeInTimeZone(slot.slotStartsAt, timezone, locale);
               const isAvailable = slot.availableTableCount > 0 || slot.hasCombinableOption;
@@ -710,68 +864,87 @@ function LiveAvailabilityPanel({
               // fetchPublicPopularityIndicators's own comment) and can
               // legitimately disagree.
               const isPopular = Boolean(popularTimes?.includes(localTime));
+              const availabilityLabel =
+                slot.availableTableCount > 0
+                  ? interpolate(
+                      t(
+                        dict,
+                        slot.availableTableCount === 1
+                          ? 'public.booking.liveAvailability.tableAvailableOne'
+                          : 'public.booking.liveAvailability.tablesAvailableOther',
+                      ),
+                      { count: slot.availableTableCount },
+                    )
+                  : slot.hasCombinableOption
+                    ? t(dict, 'public.booking.liveAvailability.availableCombinable')
+                    : t(dict, 'public.booking.liveAvailability.none');
               return (
-                <div key={slot.slotStartsAt} style={{ position: 'relative' }}>
-                  {isPopular ? (
-                    <span
-                      title={t(dict, 'public.booking.liveAvailability.popularBadge')}
-                      aria-label={t(dict, 'public.booking.liveAvailability.popularBadge')}
-                      style={{
-                        position: 'absolute',
-                        top: -7,
-                        right: -6,
-                        fontSize: 12,
-                        lineHeight: 1,
-                        background: 'var(--surface)',
-                        borderRadius: '50%',
-                        padding: 2,
-                        boxShadow: '0 0 0 1px var(--border)',
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      🔥
-                    </span>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={!isAvailable}
-                    onClick={() => onPickTime(localTime)}
+                <button
+                  key={slot.slotStartsAt}
+                  type="button"
+                  disabled={!isAvailable}
+                  onClick={() => onPickTime(localTime)}
+                  style={{
+                    fontFamily: 'var(--font-family)',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    width: '100%',
+                    textAlign: 'left',
+                    cursor: isAvailable ? 'pointer' : 'default',
+                  }}
+                >
+                  <div
                     style={{
-                      fontFamily: 'var(--font-family)',
-                      textAlign: 'center',
-                      fontSize: 12.5,
-                      lineHeight: 1.3,
-                      padding: '6px 10px',
+                      display: 'grid',
+                      gridTemplateColumns: '52px 1fr auto',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 10px',
+                      marginBottom: 6,
                       borderRadius: 'var(--radius-md)',
                       border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
                       background: isSelected ? 'var(--accent)' : isAvailable ? 'var(--surface)' : 'var(--background)',
-                      color: isSelected ? 'var(--surface)' : isAvailable ? 'var(--text-primary)' : 'var(--text-muted)',
-                      cursor: isAvailable ? 'pointer' : 'default',
                       opacity: isAvailable ? 1 : 0.55,
                     }}
                   >
-                    <span style={{ display: 'block', fontWeight: 600 }}>{localTime}</span>
-                    <span style={{ display: 'block', fontSize: 10.5, opacity: 0.85 }}>
-                      {slot.availableTableCount > 0
-                        ? interpolate(
-                            t(
-                              dict,
-                              slot.availableTableCount === 1
-                                ? 'public.booking.liveAvailability.tableAvailableOne'
-                                : 'public.booking.liveAvailability.tablesAvailableOther',
-                            ),
-                            { count: slot.availableTableCount },
-                          )
-                        : slot.hasCombinableOption
-                          ? t(dict, 'public.booking.liveAvailability.availableCombinable')
-                          : t(dict, 'public.booking.liveAvailability.none')}
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 600, color: isSelected ? 'var(--surface)' : 'var(--text-primary)' }}>
+                      {localTime}
                     </span>
-                  </button>
-                </div>
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        fontSize: 11.5,
+                        color: isSelected ? 'var(--surface)' : 'var(--text-muted)',
+                        opacity: 0.9,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: '50%',
+                          flexShrink: 0,
+                          background: isSelected ? 'var(--surface)' : isAvailable ? 'var(--success)' : 'var(--danger)',
+                        }}
+                      />
+                      {availabilityLabel}
+                    </span>
+                    {isPopular ? (
+                      <span title={t(dict, 'public.booking.liveAvailability.popularBadge')} aria-label={t(dict, 'public.booking.liveAvailability.popularBadge')} style={{ fontSize: 13, lineHeight: 1 }}>
+                        🔥
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                  </div>
+                </button>
               );
             })}
           </div>
-          <p style={{ margin: '8px 0 0', fontSize: 11.5, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.hint')}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11.5, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.hint')}</p>
         </>
       ) : null}
     </div>
