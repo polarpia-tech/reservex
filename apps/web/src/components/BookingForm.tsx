@@ -626,7 +626,14 @@ export function BookingForm({
         ) : null}
         {liveAvailabilityEnabled && date ? (
           <>
-            {vibeLevel ? <VibeBadge dict={dict} level={vibeLevel} /> : null}
+            {vibeLevel ? (
+              <LiveStatsTiles
+                dict={dict}
+                vibeLevel={vibeLevel}
+                availableCount={(availabilitySlots ?? []).filter((s) => s.availableTableCount > 0 || s.hasCombinableOption).length}
+                popularTime={popularityIndicatorEnabled && popularTimes && popularTimes.length > 0 ? popularTimes[0] : null}
+              />
+            ) : null}
             <DemandTicker locale={locale} dict={dict} timezone={restaurant.timezone} slots={availabilitySlots} />
             <LiveAvailabilityPanel
               locale={locale}
@@ -743,26 +750,82 @@ function computeVibeLevel(slots: PublicAvailabilitySlot[] | null): 'busy' | 'mod
   if (ratio >= 0.25) return 'moderate';
   return 'quiet';
 }
-function VibeBadge({ dict, level }: { dict: ReturnType<typeof getDictionary>; level: 'busy' | 'moderate' | 'quiet' }) {
-  const color = level === 'busy' ? 'var(--danger)' : level === 'moderate' ? 'var(--warning)' : 'var(--success)';
+/**
+ * Guest-facing "live stats" tile row (ΚΡΑΤΩ mockup-aligned redesign, 2026-09
+ * round 2). Three small tiles -- current vibe, how many of today's picked-
+ * date time slots are still open, and (when the flag is on) the historically
+ * popular time -- replacing the old standalone VibeBadge pill. Every value
+ * here is derived from data the guest already has access to elsewhere on
+ * this page (vibeLevel/availabilitySlots feed DemandTicker and
+ * LiveAvailabilityPanel too, popularTime feeds the 🔥 badge on those same
+ * chips) -- this is a re-presentation, not a new data source, so it can't
+ * leak anything the rest of the page doesn't already show.
+ */
+function LiveStatsTiles({
+  dict,
+  vibeLevel,
+  availableCount,
+  popularTime,
+}: {
+  dict: ReturnType<typeof getDictionary>;
+  vibeLevel: 'busy' | 'moderate' | 'quiet';
+  availableCount: number;
+  popularTime: string | null;
+}) {
+  const tiles: Array<{ icon: string; value: string; label: string }> = [
+    {
+      icon: '📈',
+      value: t(dict, `public.booking.stats.vibeShort.${vibeLevel}`),
+      label: t(dict, 'public.booking.stats.vibeCaption'),
+    },
+    {
+      icon: '✅',
+      value: interpolate(
+        t(dict, availableCount === 1 ? 'public.booking.stats.availableCountOne' : 'public.booking.stats.availableCountOther'),
+        { count: availableCount },
+      ),
+      label: t(dict, 'public.booking.stats.availableCaption'),
+    },
+  ];
+  if (popularTime) {
+    tiles.push({ icon: '🔥', value: popularTime, label: t(dict, 'public.booking.stats.popularCaption') });
+  }
   return (
-    <div
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        fontSize: 12,
-        fontWeight: 600,
-        color,
-        background: 'var(--background)',
-        border: `1px solid ${color}`,
-        borderRadius: 'var(--radius-full)',
-        padding: '5px 11px',
-        alignSelf: 'flex-start',
-      }}
-    >
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
-      {t(dict, `public.booking.vibe.${level}`)}
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+      {tiles.map((tile) => (
+        <div
+          key={tile.label}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-md)',
+            padding: '9px 11px',
+            background: 'var(--background)',
+          }}
+        >
+          <span
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 13,
+              background: 'color-mix(in srgb, var(--accent) 18%, transparent)',
+            }}
+          >
+            {tile.icon}
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tile.value}</span>
+            <span style={{ display: 'block', fontSize: 10.5, color: 'var(--text-muted)' }}>{tile.label}</span>
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -900,6 +963,14 @@ function LiveAvailabilityPanel({
                   : slot.hasCombinableOption
                     ? t(dict, 'public.booking.liveAvailability.availableCombinable')
                     : t(dict, 'public.booking.liveAvailability.none');
+              // Same 3-tier bucket DemandTicker's bars use -- "full" (no
+              // standalone table AND no combinable option), "limited" (down
+              // to the last table, or combinable-only), "open" -- never a
+              // real occupancy percentage (see DemandTicker's own comment).
+              const isFullTier = !isAvailable;
+              const isLimitedTier = isAvailable && (slot.availableTableCount <= 1 || slot.hasCombinableOption);
+              const tierPct = isFullTier ? 100 : isLimitedTier ? 55 : 24;
+              const tierColor = isFullTier ? 'var(--danger)' : isLimitedTier ? 'var(--warning)' : 'var(--success)';
               return (
                 <button
                   key={slot.slotStartsAt}
@@ -918,10 +989,9 @@ function LiveAvailabilityPanel({
                 >
                   <div
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: '52px 1fr auto',
-                      alignItems: 'center',
-                      gap: 10,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
                       padding: '8px 10px',
                       marginBottom: 6,
                       borderRadius: 'var(--radius-md)',
@@ -930,37 +1000,42 @@ function LiveAvailabilityPanel({
                       opacity: isAvailable ? 1 : 0.55,
                     }}
                   >
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 600, color: isSelected ? 'var(--accent-contrast)' : 'var(--text-primary)' }}>
-                      {localTime}
-                    </span>
-                    <span
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        fontSize: 11.5,
-                        color: isSelected ? 'var(--accent-contrast)' : 'var(--text-muted)',
-                        opacity: 0.9,
-                      }}
-                    >
+                    <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr auto', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 600, color: isSelected ? 'var(--accent-contrast)' : 'var(--text-primary)' }}>
+                        {localTime}
+                      </span>
                       <span
                         style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: '50%',
-                          flexShrink: 0,
-                          background: isSelected ? 'var(--accent-contrast)' : isAvailable ? 'var(--success)' : 'var(--danger)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontSize: 11.5,
+                          color: isSelected ? 'var(--accent-contrast)' : 'var(--text-muted)',
+                          opacity: 0.9,
                         }}
-                      />
-                      {availabilityLabel}
-                    </span>
-                    {isPopular ? (
-                      <span title={t(dict, 'public.booking.liveAvailability.popularBadge')} aria-label={t(dict, 'public.booking.liveAvailability.popularBadge')} style={{ fontSize: 13, lineHeight: 1 }}>
-                        🔥
+                      >
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            background: isSelected ? 'var(--accent-contrast)' : isAvailable ? 'var(--success)' : 'var(--danger)',
+                          }}
+                        />
+                        {availabilityLabel}
                       </span>
-                    ) : (
-                      <span />
-                    )}
+                      {isPopular ? (
+                        <span title={t(dict, 'public.booking.liveAvailability.popularBadge')} aria-label={t(dict, 'public.booking.liveAvailability.popularBadge')} style={{ fontSize: 13, lineHeight: 1 }}>
+                          🔥
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+                    <div style={{ height: 4, borderRadius: 4, background: isSelected ? 'color-mix(in srgb, var(--accent-contrast) 30%, transparent)' : 'var(--surface-elevated)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${tierPct}%`, borderRadius: 4, background: isSelected ? 'var(--accent-contrast)' : tierColor }} />
+                    </div>
                   </div>
                 </button>
               );

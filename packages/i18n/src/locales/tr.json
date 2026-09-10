@@ -457,6 +457,18 @@
         "moderate": "Bu akşam istikrarlı bir tempo",
         "quiet": "Şu anda sakin"
       },
+      "stats": {
+        "vibeShort": {
+          "busy": "Yoğun",
+          "moderate": "Orta yoğunluk",
+          "quiet": "Sakin"
+        },
+        "vibeCaption": "şu anki talep",
+        "availableCountOne": "{{count}} saat uygun",
+        "availableCountOther": "{{count}} saat uygun",
+        "availableCaption": "bugün uygun",
+        "popularCaption": "popüler saat"
+      },
       "liveActivity": {
         "updated": "Uygunluk az önce güncellendi"
       },

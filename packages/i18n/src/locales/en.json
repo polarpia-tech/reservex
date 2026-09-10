@@ -457,6 +457,18 @@
         "moderate": "Steady pace tonight",
         "quiet": "Quiet right now"
       },
+      "stats": {
+        "vibeShort": {
+          "busy": "Busy",
+          "moderate": "Moderate",
+          "quiet": "Quiet"
+        },
+        "vibeCaption": "demand right now",
+        "availableCountOne": "{{count}} slot open",
+        "availableCountOther": "{{count}} slots open",
+        "availableCaption": "available today",
+        "popularCaption": "popular time"
+      },
       "liveActivity": {
         "updated": "Availability was just updated"
       },
