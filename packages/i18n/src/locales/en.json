@@ -355,6 +355,14 @@
       "waitlist_public": {
         "label": "Self-service waitlist",
         "description": "Let guests add themselves to your waitlist from the public booking page when you're fully booked."
+      },
+      "last_minute_alerts": {
+        "label": "Last-minute alerts",
+        "description": "Let guests opt in to be notified the instant a table opens up today."
+      },
+      "popularity_indicator": {
+        "label": "Popular time badge",
+        "description": "Show guests a 🔥 badge on your busiest historical time slots."
       }
     },
     "staffSubtitle": "Invite & manage your team",
