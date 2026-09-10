@@ -448,6 +448,18 @@
         "none": "Keine Verfügbarkeit",
         "popularBadge": "🔥 Beliebte Uhrzeit"
       },
+      "demandTicker": {
+        "title": "Nachfrage heute",
+        "hint": "Wie ausgelastet jede Stunde aussieht"
+      },
+      "vibe": {
+        "busy": "Gerade sehr lebhaft",
+        "moderate": "Gleichmäßiger Andrang heute Abend",
+        "quiet": "Gerade ruhig"
+      },
+      "liveActivity": {
+        "updated": "Die Verfügbarkeit wurde gerade aktualisiert"
+      },
       "errors": {
         "PARTY_SIZE_OUT_OF_RANGE": "Dieses Restaurant nimmt Gruppen von {{min}}–{{max}} Personen an.",
         "OUTSIDE_BOOKING_WINDOW": "Dieses Restaurant nimmt Online-Buchungen nur innerhalb seines zulässigen Buchungszeitraums an.",
