@@ -30,10 +30,10 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     // Matches app/theme-editorial.css's --background/--accent -- the site
     // is dark-only now, so the PWA install splash screen should be too.
-    // Keep these in lockstep with theme-editorial.css's 2026-09 palette
-    // replacement; they can't reference the CSS variables directly.
-    background_color: '#0D1117',
-    theme_color: '#3E7BFA',
+    // Keep these in lockstep with theme-editorial.css's palette; they
+    // can't reference the CSS variables directly.
+    background_color: '#12181F',
+    theme_color: '#E8A33D',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

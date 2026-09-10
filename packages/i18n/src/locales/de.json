@@ -457,6 +457,18 @@
         "moderate": "Gleichmäßiger Andrang heute Abend",
         "quiet": "Gerade ruhig"
       },
+      "stats": {
+        "vibeShort": {
+          "busy": "Voll",
+          "moderate": "Mäßig",
+          "quiet": "Ruhig"
+        },
+        "vibeCaption": "Nachfrage gerade",
+        "availableCountOne": "{{count}} Zeit frei",
+        "availableCountOther": "{{count}} Zeiten frei",
+        "availableCaption": "heute verfügbar",
+        "popularCaption": "beliebte Uhrzeit"
+      },
       "liveActivity": {
         "updated": "Die Verfügbarkeit wurde gerade aktualisiert"
       },

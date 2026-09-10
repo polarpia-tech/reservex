@@ -457,6 +457,18 @@
         "moderate": "Σταθερή κίνηση απόψε",
         "quiet": "Ήσυχα αυτή τη στιγμή"
       },
+      "stats": {
+        "vibeShort": {
+          "busy": "Γεμάτο",
+          "moderate": "Μέτρια ζήτηση",
+          "quiet": "Ήσυχα"
+        },
+        "vibeCaption": "ζήτηση τώρα",
+        "availableCountOne": "{{count}} ώρα ελεύθερη",
+        "availableCountOther": "{{count}} ώρες ελεύθερες",
+        "availableCaption": "διαθέσιμες σήμερα",
+        "popularCaption": "δημοφιλής ώρα"
+      },
       "liveActivity": {
         "updated": "Η διαθεσιμότητα μόλις ενημερώθηκε"
       },

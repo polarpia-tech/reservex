@@ -1,12 +1,14 @@
 /*
- * Hand-authored, web-only "professional editorial" theme -- approved
- * 2026-09 as a full palette replacement of the original amber/teal "dark
- * editorial" mockup theme. The brand accent moved from amber to a royal
- * blue, and the neutrals moved to a deeper, more consistently desaturated
- * charcoal/slate ramp -- chosen for a cleaner, higher-end "commercial
- * dashboard" feel on the guest-facing booking page. This intentionally
- * overrides ./theme-tokens.css's variables rather than editing
- * packages/ui/src/tokens.ts:
+ * Hand-authored, web-only "dark editorial" theme -- approved 2026-09 from
+ * the ReservX Design (ΚΡΑΤΩ) mockup: amber accent, teal secondary, Fraunces
+ * display type on a dark ink surface. This went through two rounds this
+ * same week -- round 1 swapped the whole palette to a royal-blue accent on
+ * deeper charcoal neutrals; after seeing it live, the call was to go back
+ * to the original ΚΡΑΤΩ amber/teal look (this is that reversion), while
+ * KEEPING round 1's --accent-contrast token and the KRATO-style tile/board
+ * layout additions in BookingForm.tsx/OpeningHoursList.tsx/page.tsx, which
+ * were never the part anyone objected to. This intentionally overrides
+ * ./theme-tokens.css's variables rather than editing packages/ui/src/tokens.ts:
  *
  *   - tokens.ts is SHARED with the mobile app, so changing it here would
  *     also (probably unintentionally) reskin the mobile app.
@@ -16,34 +18,34 @@
  * Loaded LAST in globals.css, as a plain ungated `:root` block -- that
  * makes it win over both theme-tokens.css's light-mode defaults AND its
  * `@media (prefers-color-scheme: dark)` block, regardless of the visitor's
- * OS setting. The site is dark-only by explicit user decision (the
- * original mockup only ever showed a dark theme, and the user chose "Μόνο
- * dark, πάντα" over building a second light variant, reaffirmed when this
- * palette was replaced) -- so this file deliberately has NO
- * prefers-color-scheme guard. Do not add one; that would bring back the
+ * OS setting. The site is dark-only by explicit user decision (the mockup
+ * only ever showed a dark theme, and the user chose "Μόνο dark, πάντα"
+ * over building a second light variant) -- so this file deliberately has
+ * NO prefers-color-scheme guard. Do not add one; that would bring back the
  * light theme for some visitors.
  *
- * --accent-contrast is new with this palette: the old amber accent was
- * light enough that dark text (var(--surface)) read clearly on top of it.
- * The new royal-blue accent is a medium-dark, saturated color, so text
- * drawn on top of an --accent-filled surface (buttons, the selected time
- * slot, the logo mark's checkmark) needs a light color instead -- use
- * --accent-contrast for that, never --surface.
+ * --accent-contrast: the amber accent is light enough that dark text reads
+ * clearly on top of it, so this resolves to var(--surface) here -- but any
+ * component that draws text on an --accent-filled surface (buttons, the
+ * selected time slot, the logo mark's checkmark) should keep reading
+ * --accent-contrast rather than hardcoding --surface, so a future palette
+ * change (like round 1's blue, which needed a light accent-contrast
+ * instead) is a one-line change here, not a hunt through every component.
  */
 :root {
-  --background: #0D1117;
-  --surface: #161B22;
-  --surface-elevated: #1C232C;
-  --border: #2A313C;
-  --border-strong: #38414E;
-  --text-primary: #F0F3F5;
-  --text-muted: #8B96A3;
-  --text-faint: #55606C;
-  --accent: #3E7BFA;
-  --accent-contrast: #FFFFFF;
-  --ai: #14B8A6;
-  --success: #14B8A6;
-  --warning: #D97706;
+  --background: #12181F;
+  --surface: #1B232D;
+  --surface-elevated: #202932;
+  --border: #232D38;
+  --border-strong: #2A3441;
+  --text-primary: #F1EDE3;
+  --text-muted: #8A93A0;
+  --text-faint: #4A5563;
+  --accent: #E8A33D;
+  --accent-contrast: var(--surface);
+  --ai: #4E9C93;
+  --success: #4E9C93;
+  --warning: #E8A33D;
   --danger: #E0665A;
   --font-family: 'Inter', system-ui, sans-serif;
   --font-display: 'Fraunces', Georgia, serif;
