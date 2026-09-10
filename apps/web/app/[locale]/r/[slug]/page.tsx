@@ -52,12 +52,29 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
   // Promise.all as each other. The two lookups above (opening/special
   // hours) hit different RPCs entirely and are unaffected, so they keep
   // their own Promise.all.
+  // TEMP DIAGNOSTIC 3 (to be reverted): the sequential fix above did NOT
+  // resolve it -- popularity_indicator still comes back false even with
+  // zero concurrency, called one at a time. New working theory: it isn't
+  // about *this flag* or *concurrency* at all -- it's positional. In the
+  // old buggy version this was the 6th cumulative outbound request to the
+  // Supabase origin in this one server invocation (openingHours,
+  // specialHours, then 4 flag checks); in the "fixed" sequential version
+  // above it is STILL the 6th cumulative request (2 + 4, same order).
+  // Reordering here to call popularity_indicator FIRST among the flags --
+  // now the 3rd cumulative request -- to see whether the failure follows
+  // the FLAG (stays broken) or the POSITION (moves to whichever check is
+  // now last/6th, i.e. last_minute_alerts).
+  const popularityIndicatorEnabled = await fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'popularity_indicator');
   const liveAvailabilityEnabled = await fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'live_availability');
   const waitlistPublicEnabled = await fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'waitlist_public');
   const lastMinuteAlertsEnabled = await fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'last_minute_alerts');
-  const popularityIndicatorEnabled = await fetchIsFeatureEnabledForRestaurant(supabase, restaurant.slug, 'popularity_indicator');
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 'clamp(var(--space-xl), 6vw, 56px) var(--space-2xl) var(--space-4xl)' }}>
+      <div
+        id="popularity-debug"
+        style={{ display: 'none' }}
+        data-debug={JSON.stringify({ popularityIndicatorEnabled, liveAvailabilityEnabled, waitlistPublicEnabled, lastMinuteAlertsEnabled })}
+      />
       <div style={{ marginBottom: 'var(--space-3xl)' }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(26px, 4.5vw, 40px)', lineHeight: 1.1, margin: '0 0 var(--space-sm)' }}>
           {restaurant.name}
