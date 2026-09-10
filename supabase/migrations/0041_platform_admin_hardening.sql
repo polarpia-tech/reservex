@@ -1,3 +1,13 @@
+﻿DO $$ 
+BEGIN
+    ALTER TYPE public.platform_admin_role ADD VALUE IF NOT EXISTS 'platform_admin';
+    ALTER TYPE public.platform_admin_role ADD VALUE IF NOT EXISTS 'technical_admin';
+    ALTER TYPE public.platform_admin_role ADD VALUE IF NOT EXISTS 'super_admin';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+
 -- =============================================================================
 -- 0041_platform_admin_hardening.sql
 -- Phase 18, part 1 (Super Admin / Platform Admin command center -- see the
@@ -51,11 +61,6 @@
 -- ---------------------------------------------------------------------------
 -- 1. Role hierarchy.
 -- ---------------------------------------------------------------------------
-alter type public.platform_admin_role rename value 'support' to 'support_admin';
-alter type public.platform_admin_role add value 'platform_admin';
-alter type public.platform_admin_role add value 'finance_admin';
-alter type public.platform_admin_role add value 'technical_admin';
-alter type public.platform_admin_role add value 'read_only_admin';
 
 comment on type public.platform_admin_role is
   'ReservX''s own internal team roles (platform_admins.role), not restaurant staff_role. Six roles: super_admin (everything, incl. granting/revoking other admins -- see is_platform_super_admin()), platform_admin (everything else), support_admin (restaurants/customers/reservations support, incl. suspend/unsuspend -- NOT billing or feature flags), finance_admin (subscriptions/billing), technical_admin (feature flags), read_only_admin (view-only everywhere; has no write capability in any admin_* function or platform-admin RLS write policy). Fine-grained enforcement lives in has_platform_admin_role() below and in the TypeScript capability map in packages/core/src/api/admin.ts (ADMIN_CAPABILITIES) -- deliberately a small hardcoded map, not a configurable permissions table/UI, since this is a small internal team with a fixed, product-defined set of roles, not a customer-facing RBAC feature.';
