@@ -2534,3 +2534,157 @@ backup (Point-in-Time Recovery σε paid tier, ή το πιο πρόσφατο d
 - Ότι το Vercel native integration συμπεριφέρεται όπως τεκμηριώνεται εδώ
   σε πραγματικό deploy -- βασισμένο σε δημόσια τεκμηρίωση Vercel, όχι σε
   πραγματική δοκιμή.
+
+## Φάση 18: Θωράκιση Admin Πλατφόρμας (ρόλοι & audit log)
+
+Η Φάση 18 είναι το πρώτο PR ενός μεγαλύτερου γύρου δουλειάς: ο χρήστης
+έδωσε μια εκτενή, 30-σημείων προδιαγραφή για ένα πλήρες "Super Admin /
+Platform Admin -- Full Remote Control & Support System" (global access σε
+όλη την πλατφόρμα, ισχυρό global search, Support Mode/impersonation,
+comprehensive audit logging, mobile-first Admin Panel, ιεραρχία ρόλων,
+break-glass πρόσβαση, κ.λπ.), με ρητή οδηγία να εξηγηθεί πρώτα η
+αρχιτεκτονική (στα Ελληνικά, 12 συγκεκριμένες ερωτήσεις) πριν γραφτεί
+οποιοσδήποτε κώδικας. Μετά την έγκριση της αρχιτεκτονικής, αποφασίστηκε
+(με ρητή εξουσιοδότηση κρίσης από τον χρήστη, "το αφήνω στην κρίση σου")
+ένα φασικό roadmap -- η Φάση 18 είναι το πρώτο, θεμελιωδέστερο κομμάτι:
+επέκταση του υπάρχοντος μοντέλου ρόλων της Φάσης 13 (`super_admin`/
+`support` μόνο) σε μια πλήρη ιεραρχία έξι ρόλων, ΚΑΙ διόρθωση ενός
+συγκεκριμένου κενού που εντοπίστηκε στην υπάρχουσα υλοποίηση: κανένας
+platform admin δεν είχε πρόσβαση ανάγνωσης στο δικό του `audit_logs` --
+κάθε προνομιούχα ενέργεια από τη Φάση 13 γράφει ήδη εκεί, αλλά δεν υπήρχε
+κανένας τρόπος να τη δει κανείς.
+
+### Τι χτίστηκε
+
+- **`supabase/migrations/0041_platform_admin_hardening.sql`**: το
+  `platform_admin_role` enum επεκτείνεται από δύο σε έξι τιμές. Το
+  `support` μετονομάζεται σε `support_admin` (`ALTER TYPE ... RENAME
+  VALUE` -- ίδιο υποκείμενο OID, μηδενική migration δεδομένων, καθόλου
+  ρίσκο same-transaction-visibility) και προστίθενται τέσσερις νέες τιμές:
+  `platform_admin`, `finance_admin`, `technical_admin`, `read_only_admin`
+  (`ADD VALUE` -- σκόπιμα ΔΕΝ χρησιμοποιούνται πουθενά αλλού μέσα στο ίδιο
+  migration file, μόνο σε μεταγενέστερα). Νέα συνάρτηση
+  `has_platform_admin_role(allowed_roles platform_admin_role[])`,
+  ακριβές αντίγραφο του μοτίβου `has_restaurant_role()` (Φάση 04/0011),
+  που επιτρέπει λεπτομερή (όχι μόνο "any active admin") εξουσιοδότηση.
+  Οι υπάρχουσες `admin_suspend_restaurant`/`admin_unsuspend_restaurant`
+  περιορίζονται τώρα σε `super_admin`/`platform_admin`/`support_admin`,
+  το `admin_set_subscription` σε `super_admin`/`platform_admin`/
+  `finance_admin`, και τα write policies των feature flags
+  (`feature_flags_platform_write`/`feature_flag_overrides_platform_write`)
+  σε `super_admin`/`platform_admin`/`technical_admin` -- η ανάγνωση
+  παραμένει καθολική, αμετάβλητη από τη Φάση 02. Νέα additive RLS policy
+  `audit_logs_platform_select` (`using (is_platform_admin())`) -- η πρώτη
+  φορά που ΟΠΟΙΟΣΔΗΠΟΤΕ platform admin μπορεί να διαβάσει το `audit_logs`
+  απευθείας. Δύο νέες read functions: `admin_list_audit_logs(...)`
+  (φίλτρα restaurant/organization/actor/action-prefix/entity-type/
+  ημερομηνίες, με join σε `organizations`/`restaurants`/`auth.users` για
+  ονόματα, limit clamped σε [1,200]) και `admin_get_my_role()` (επιστρέφει
+  τον τρέχοντα ρόλο του καλούντος ή NULL).
+- **`packages/core/src/api/admin.ts`**: το default του
+  `grantPlatformAdmin()` διορθώθηκε σε `'support_admin'`. Νέο capability
+  model: `AdminCapability` type, `PLATFORM_ADMIN_ROLES`,
+  `PLATFORM_ADMIN_ROLE_LABELS`, `ADMIN_CAPABILITIES` (ένα, ρητά τεκμηριωμένο
+  ως UI-only, ΟΧΙ το πραγματικό όριο ασφαλείας -- πάντα το server-side
+  `has_platform_admin_role()`), `hasAdminCapability()`,
+  `fetchMyPlatformAdminRole()`. Νέο `fetchAuditLogs()` + `AuditLogFilters`
+  + row-mapper.
+- **`apps/admin`**: το `useAdminSession` κουβαλάει τώρα και το `role`. Το
+  `AdminGate` προσθέτει nav item `/audit-log`, υπολογίζει `isSuperAdmin`
+  από το `role` αντί να το παρακολουθεί ξεχωριστά, και δείχνει τον
+  πραγματικό ρόλο στο footer του sidebar. Η σελίδα `admins/page.tsx`
+  αντλεί το dropdown ρόλων από `PLATFORM_ADMIN_ROLES`/
+  `PLATFORM_ADMIN_ROLE_LABELS` αντί για δύο hardcoded επιλογές. Η σελίδα
+  `organizations/[id]/page.tsx` κρύβει το Suspend/Unsuspend button και τη
+  φόρμα ορισμού συνδρομής πίσω από `hasAdminCapability()` ελέγχους
+  (`canManageRestaurants`/`canManageBilling`), με ένα ήπιο μήνυμα
+  fallback όταν κρύβονται. Νέα σελίδα **`apps/admin/app/audit-log/page.tsx`**:
+  viewer με φίλτρα (restaurant/organization id, action prefix, entity
+  type, since/until), κάρτες με επεκτάσιμο before/after JSON payload, και
+  offset-based "Load more" -- προσβάσιμη σε ΚΑΘΕ ενεργό admin ρόλο,
+  συμπεριλαμβανομένου του `read_only_admin` (διαφάνεια αντί για μυστικότητα
+  σε μια μικρή εσωτερική ομάδα).
+- **`scripts/verify_phase13_platform_admin.sql`**: τα 3 σημεία που
+  χρησιμοποιούσαν το literal `'support'` διορθώθηκαν σε `'support_admin'`
+  (το `RENAME VALUE` διατηρεί μόνο τα υπάρχοντα δεδομένα -- ένα φρέσκο
+  literal στο παλιό όνομα θα απέτυχε μετά το migration).
+- **`scripts/verify_phase18_admin_hardening.sql`** (νέο): 6 ενότητες
+  (A-F) που αποδεικνύουν ότι η νέα ιεραρχία ρόλων πραγματικά περιορίζει
+  WRITE πρόσβαση (όχι μόνο το UI) και ότι το νέο read path στο
+  `audit_logs` δουλεύει. Χρησιμοποιεί ΕΝΑ περιστρεφόμενο test subject
+  (τον Munich owner, μη-admin εκτός αυτού του script) που ξανά-γίνεται
+  grant με διαφορετικό ρόλο ανά ενότητα μέσω του ήδη υπάρχοντος upsert
+  (`on conflict (user_id) do update`) του `admin_grant_platform_admin` --
+  το seed.sql έχει μόνο 4 χρήστες συνολικά, όχι έναν ελεύθερο ανά νέο
+  ρόλο. Σε αντίθεση με το script της Φάσης 13 (που σκόπιμα αφήνει το ένα
+  του grant), αυτό το script ανακαλεί πλήρως την πρόσβαση στο cleanup --
+  η περιστροφή ενός χρήστη μέσα από 5 ρόλους θα άφηνε αλλιώς μια
+  μπερδεμένη τελική κατάσταση.
+
+### Σημαντικές αρχιτεκτονικές αποφάσεις
+
+- **`RENAME VALUE` αντί για διαγραφή/επαναδημιουργία του enum.** Το
+  Postgres δεν επιτρέπει `DROP VALUE` σε enum, και ένα πλήρες
+  drop-and-recreate type θα σήμαινε migration κάθε υπάρχουσας γραμμής στο
+  `platform_admins`. Το `RENAME VALUE` αλλάζει μόνο το catalog label για
+  το ίδιο OID -- μηδενικό ρίσκο, μηδενική ανάγκη data migration.
+- **Καμία χρήση των τεσσάρων νέων `ADD VALUE` labels μέσα στο ίδιο
+  migration file.** Ανάλογα με το migration runner (`psql -f` έναντι
+  `supabase db push`), υπάρχει θεωρητικό ρίσκο ορατότητας νέων enum τιμών
+  εντός του ίδιου transaction. Σκόπιμα, το `has_platform_admin_role()` και
+  όλες οι επόμενες αλλαγές που αναφέρουν τα νέα labels γράφτηκαν, αλλά
+  ΔΕΝ κλήθηκαν/δοκιμάστηκαν εντός του ίδιου migration -- μόνο το
+  μετονομασμένο `support_admin` (ασφαλές, αφού δεν είναι "νέο") χρησιμοποιείται
+  αργότερα στο ίδιο αρχείο.
+- **View στο audit log παραμένει καθολικό σε κάθε ενεργό admin ρόλο,
+  ενώ το write είναι λεπτομερές ανά ρόλο.** Ρητή σχεδιαστική επιλογή:
+  διαφάνεια για όλη την εσωτερική ομάδα (ακόμα και ο `read_only_admin`
+  βλέπει τα πάντα) έναντι στενού ελέγχου μόνο στις ενέργειες που αλλάζουν
+  κατάσταση -- πιο απλό μοντέλο νοητικά, και ταιριάζει με το πνεύμα του
+  ήδη υπάρχοντος admin roster page (Φάση 13), που επίσης δεν κρύβει
+  τίποτα από κανέναν ενεργό admin.
+- **Το client-side `ADMIN_CAPABILITIES` map είναι ρητά τεκμηριωμένο ως
+  ΜΗ όριο ασφαλείας.** Λάθος τιμή εκεί είναι UX bug (κρυμμένο/ορατό
+  κουμπί), ποτέ security hole -- το πραγματικό όριο είναι πάντα ο
+  server-side έλεγχος μέσα σε κάθε RPC/RLS policy. Ρητό σχόλιο στον
+  κώδικα για να μην μπερδευτεί κανείς μελλοντικά.
+
+### Τι ΔΕΝ χτίστηκε (σκόπιμα -- εκτός εύρους αυτού του PR)
+
+Το υπόλοιπο της αρχικής 30-σημείων προδιαγραφής παραμένει σκόπιμα εκτός
+εύρους εδώ, ως επόμενα βήματα του ίδιου φασικού roadmap: global search σε
+όλη την πλατφόρμα, Support Mode (ακόμα και η ασφαλέστερη read-only
+εκδοχή "Support View"), το ίδιο το Admin Dashboard με real-time
+platform monitoring, mobile-first redesign του `apps/admin` (bottom
+nav/drawer/κάρτες), διαχείριση AI usage/cost, διαχείριση retry για
+αποτυχημένες ειδοποιήσεις (push/email/SMS/WhatsApp), εργαλεία ανάκτησης
+λογαριασμού εστιατορίου, break-glass emergency access, και MFA/re-auth
+για ευαίσθητες ενέργειες. Κανένα από αυτά δεν αγγίχτηκε σε αυτό το PR --
+η Φάση 18 είναι σκόπιμα μόνο το θεμέλιο ασφαλείας (ρόλοι + audit read
+path) πάνω στο οποίο θα χτιστούν όλα τα υπόλοιπα.
+
+### Τι επαληθεύτηκε πραγματικά εδώ (και τι όχι)
+
+✅ Επαληθεύτηκε:
+- Το migration file ελέγχθηκε χειροκίνητα για ισορροπημένα `$$`
+  markers και σωστό SQL syntax (καμία πρόσβαση σε τοπική PostgreSQL σε
+  αυτό το sandbox για πραγματική εκτέλεση -- δες παρακάτω).
+- Το `scripts/verify_phase18_admin_hardening.sql` γράφτηκε ώστε να τρέξει
+  αυτόματα μέσα στο υπάρχον `run_all_verifications.sh` (eyeball-verified
+  τμήμα, alphabetically μετά το `verify_phase13_platform_admin.sql`) στο
+  επόμενο πραγματικό CI run.
+- Το `\echo` απόστροφο-escaping (`caller''s`) επιβεβαιώθηκε με grep ότι
+  ακολουθεί ακριβώς το ίδιο, ήδη δοκιμασμένο μοτίβο των scripts των
+  Φάσεων 06/07/08/11/12/13.
+
+⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**:
+- Καμία πραγματική εκτέλεση migration/SQL script σε αυτό το sandbox (δεν
+  υπάρχει τοπική PostgreSQL ούτε node_modules στη συσκευή του χρήστη μέσω
+  του οποίου έγιναν οι αλλαγές) -- η πραγματική επαλήθευση θα γίνει από
+  το GitHub Actions CI job στο PR αυτής της φάσης
+  (`scripts/run_all_verifications.sh`, το οποίο κάνει πλήρες rebuild από
+  την 0001 μέχρι την 0041 + seed με `ON_ERROR_STOP=1`).
+- Ότι το `apps/admin/app/audit-log/page.tsx` πραγματικά κάνει
+  build/τρέχει σε πραγματικό browser -- κανένα `npm install`/`next dev`
+  εκτελέστηκε, μόνο χειροκίνητο code review (ίδιος περιορισμός με τη
+  Φάση 13).
