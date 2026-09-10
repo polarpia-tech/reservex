@@ -297,6 +297,34 @@ export async function fetchIsFeatureEnabledForRestaurant(client: SupabaseClient,
   return Boolean(data);
 }
 // ---------------------------------------------------------------------------
+// Migration 0038: batched sibling of fetchIsFeatureEnabledForRestaurant
+// above -- resolves MULTIPLE flags for one restaurant in a single RPC call
+// instead of one call per flag. Added specifically to fix a confirmed
+// production bug (see 0038's own header comment): a page checking 4+ flags
+// via 4+ separate fetchIsFeatureEnabledForRestaurant calls hit a
+// request-count-dependent bug where whichever call was the 6th+ outbound
+// Supabase request in that one server render came back with a wrong
+// answer. Any caller that needs more than one flag for the same restaurant
+// should use this instead of multiple fetchIsFeatureEnabledForRestaurant
+// calls -- both to sidestep that bug and because it's strictly fewer round
+// trips regardless.
+//
+// Same never-throws contract as the single-flag version: an unknown
+// restaurant slug resolves every requested key to false (the underlying
+// function's own guarantee), and any transport error resolves ALL requested
+// keys to false too, never a partial result mixed with thrown errors.
+// ---------------------------------------------------------------------------
+export async function fetchPublicFeatureFlagsForRestaurant(client: SupabaseClient, restaurantSlug: string, flagKeys: string[]): Promise<Record<string, boolean>> {
+  const allFalse = Object.fromEntries(flagKeys.map((key) => [key, false]));
+  const { data, error } = await client.rpc('get_public_feature_flags_for_restaurant', {
+    p_restaurant_slug: restaurantSlug,
+    p_flag_keys: flagKeys,
+  });
+  if (error) return allFalse;
+  const resolved = data as unknown as Record<string, boolean>;
+  return Object.fromEntries(flagKeys.map((key) => [key, Boolean(resolved?.[key])]));
+}
+// ---------------------------------------------------------------------------
 // Phase 3 of the Live Availability upgrade (migration 0025): subscribe to
 // restaurant_availability_versions via Supabase Realtime so the customer's
 // browser learns the instant someone else's booking could have changed the
