@@ -355,6 +355,14 @@
       "waitlist_public": {
         "label": "Selbstbedienungs-Warteliste",
         "description": "Lass Gäste sich selbst auf deine Warteliste setzen, wenn auf der öffentlichen Buchungsseite gerade nichts frei ist."
+      },
+      "last_minute_alerts": {
+        "label": "Last-Minute-Benachrichtigungen",
+        "description": "Lass Gäste sich benachrichtigen lassen, sobald heute ein Tisch frei wird."
+      },
+      "popularity_indicator": {
+        "label": "Beliebte-Uhrzeit-Abzeichen",
+        "description": "Zeige Gästen ein 🔥-Abzeichen bei deinen historisch stärksten Zeitfenstern."
       }
     },
     "staffSubtitle": "Team einladen & verwalten",

@@ -355,6 +355,14 @@
       "waitlist_public": {
         "label": "Self-servis bekleme listesi",
         "description": "Yer kalmadığında misafirlerin herkese açık rezervasyon sayfasından kendi kendilerine bekleme listenize eklenmesine izin verin."
+      },
+      "last_minute_alerts": {
+        "label": "Son dakika bildirimleri",
+        "description": "Misafirlerin bugün bir masa açılır açılmaz bildirim almasına izin verin."
+      },
+      "popularity_indicator": {
+        "label": "Popüler saat rozeti",
+        "description": "Misafirlere en yoğun geçmiş zaman dilimlerinizde 🔥 rozeti gösterin."
       }
     },
     "staffSubtitle": "Ekibi davet et ve yönet",
