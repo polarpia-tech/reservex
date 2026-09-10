@@ -1,13 +1,3 @@
-﻿DO $$ 
-BEGIN
-    ALTER TYPE public.platform_admin_role ADD VALUE IF NOT EXISTS 'platform_admin';
-    ALTER TYPE public.platform_admin_role ADD VALUE IF NOT EXISTS 'technical_admin';
-    ALTER TYPE public.platform_admin_role ADD VALUE IF NOT EXISTS 'super_admin';
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
-
 -- =============================================================================
 -- 0041_platform_admin_hardening.sql
 -- Phase 18, part 1 (Super Admin / Platform Admin command center -- see the
@@ -56,11 +46,50 @@ END $$;
 -- transaction). Granting someone one of the four new roles happens later,
 -- via admin_grant_platform_admin, in whatever future session a super_admin
 -- runs it -- always a separate transaction from this migration.
+--
+-- Every ALTER TYPE statement in section 1 below is additionally guarded
+-- (IF NOT EXISTS / an explicit pg_enum check) so this migration is also
+-- safe to re-run against a database that already got partway through it --
+-- a real failure mode against a live Supabase project, not just this
+-- sandbox's from-scratch rebuild, and the reason this section looks more
+-- defensive than a first read of the paragraph above would suggest.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- 1. Role hierarchy.
+-- 1. Role hierarchy. Each statement below is guarded so this whole block is
+--    safe to re-run against a database where an earlier attempt at this
+--    exact migration got partway through and failed (e.g. a `supabase db
+--    push` that dropped its connection mid-run, or was retried after a
+--    partial apply) -- a plain, unguarded `RENAME VALUE`/`ADD VALUE` errors
+--    on a value that no longer exists / already exists, which is exactly
+--    what happened here once. `ADD VALUE IF NOT EXISTS` (top-level
+--    statements, NOT wrapped in a DO block -- see below) handles the four
+--    new roles; the rename has no `IF EXISTS` form in Postgres, so it gets
+--    an explicit catalog check instead. On a fresh database (CI's own
+--    from-scratch rebuild included) every guard is a no-op and this
+--    behaves exactly like the original unguarded version.
 -- ---------------------------------------------------------------------------
+do $$
+begin
+  if exists (
+    select 1 from pg_enum e
+    join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'platform_admin_role' and e.enumlabel = 'support'
+  ) then
+    alter type public.platform_admin_role rename value 'support' to 'support_admin';
+  end if;
+end $$;
+
+-- Deliberately four plain top-level statements, not wrapped in a DO block:
+-- `ALTER TYPE ... ADD VALUE` cannot be run from inside a DO block/function
+-- body at all (a separate Postgres restriction from the "same-transaction
+-- visibility" one below) -- it must be issued as its own top-level
+-- statement, which is also why IF NOT EXISTS is the only guard available
+-- here instead of a pg_enum existence check like the rename above.
+alter type public.platform_admin_role add value if not exists 'platform_admin';
+alter type public.platform_admin_role add value if not exists 'finance_admin';
+alter type public.platform_admin_role add value if not exists 'technical_admin';
+alter type public.platform_admin_role add value if not exists 'read_only_admin';
 
 comment on type public.platform_admin_role is
   'ReservX''s own internal team roles (platform_admins.role), not restaurant staff_role. Six roles: super_admin (everything, incl. granting/revoking other admins -- see is_platform_super_admin()), platform_admin (everything else), support_admin (restaurants/customers/reservations support, incl. suspend/unsuspend -- NOT billing or feature flags), finance_admin (subscriptions/billing), technical_admin (feature flags), read_only_admin (view-only everywhere; has no write capability in any admin_* function or platform-admin RLS write policy). Fine-grained enforcement lives in has_platform_admin_role() below and in the TypeScript capability map in packages/core/src/api/admin.ts (ADMIN_CAPABILITIES) -- deliberately a small hardcoded map, not a configurable permissions table/UI, since this is a small internal team with a fixed, product-defined set of roles, not a customer-facing RBAC feature.';
