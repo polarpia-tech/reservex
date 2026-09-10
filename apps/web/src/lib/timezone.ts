@@ -91,6 +91,22 @@ export function formatDateTimeInTimeZone(instant: Date | string, timeZone: strin
   }).format(date);
 }
 
+/**
+ * "YYYY-MM-DD" for "now, plus daysOffset days" as seen on `timeZone`'s own
+ * wall clock (Phase 20) -- used for the booking form's "Today"/"Tomorrow"
+ * quick-pick chips. Deliberately keyed to the RESTAURANT's timezone, not
+ * the visitor's browser, same reasoning as zonedTimeToUtc above: a guest
+ * browsing from a different timezone than the restaurant should still see
+ * "Today" mean the restaurant's today. Reuses the same Intl-based
+ * technique as the rest of this file rather than hand-rolling date math;
+ * 'en-CA' is just a locale whose default date format happens to be
+ * YYYY-MM-DD, not a locale-specific display string.
+ */
+export function getDateStringInTimeZone(timeZone: string, daysOffset = 0): string {
+  const instant = new Date(Date.now() + daysOffset * 86_400_000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(instant);
+}
+
 /** "HH:MM:SS" (as stored in opening_hours) -> "HH:MM" for display. */
 export function truncateToHm(time: string): string {
   return time.slice(0, 5);
