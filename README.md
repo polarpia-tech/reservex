@@ -2689,6 +2689,37 @@ path) πάνω στο οποίο θα χτιστούν όλα τα υπόλοι�
   εκτελέστηκε, μόνο χειροκίνητο code review (ίδιος περιορισμός με τη
   Φάση 13).
 
+### Ενημέρωση: hotfix commit απευθείας στο main και διόρθωσή του
+
+Μετά το merge του PR #20, έγινε ένα commit ΑΠΕΥΘΕΙΑΣ στο `main`
+(`8a2c8ee "fix: embed safe enum creation in 0041 for CI/CD"`, εκτός PR/CI
+-- πιθανότατα προσπάθεια να διορθωθεί ένα πραγματικό σφάλμα κατά το
+deploy σε ζωντανό Supabase project, όχι στο sandbox CI που ήδη περνούσε).
+Το commit αυτό εισήγαγε δύο πραγματικά προβλήματα, διορθωμένα σε
+ξεχωριστό PR:
+- Αφαίρεσε ολόκληρο, άσχετο migration
+  (`0040_popularity_indicator_owner_toggle.sql`) -- πιθανό ατύχημα κατά
+  την επεξεργασία, χωρίς καμία σχέση με τη Φάση 18. Αποκαταστάθηκε
+  byte-for-byte από το git history.
+- "Διόρθωσε" το enum του `platform_admin_role` τυλίγοντας τα `ADD VALUE`
+  σε ένα `DO $$ ... EXCEPTION WHEN duplicate_object` block (μια δομή που
+  η ίδια η Postgres δεν επιτρέπει -- το `ALTER TYPE ... ADD VALUE` δεν
+  μπορεί να τρέξει μέσα από DO block/function, μόνο ως ανεξάρτητο
+  top-level statement) ΚΑΙ αφαίρεσε εντελώς το `RENAME VALUE 'support' TO
+  'support_admin'` και τα `ADD VALUE` για τα `finance_admin` και
+  `read_only_admin`. Αποτέλεσμα: τρεις από τους έξι ρόλους της Φάσης 18
+  (`support_admin`, `finance_admin`, `read_only_admin`) θα έσκαγαν με
+  σφάλμα enum σε οποιαδήποτε πραγματική εκτέλεση.
+
+Η σωστή διόρθωση (ίδιο PR): το section 1 του `0041` ξαναγράφτηκε ώστε να
+είναι idempotent-safe χωρίς να χάσει κανέναν από τους έξι ρόλους --
+`RENAME VALUE` προστατευμένο με ρητό έλεγχο στο `pg_enum` (η Postgres δεν
+έχει `RENAME VALUE IF EXISTS`), και τα τέσσερα `ADD VALUE` ως απλά
+top-level statements με `IF NOT EXISTS` (όχι μέσα σε DO block). Σε μια
+φρέσκια βάση (όπως το sandbox CI) συμπεριφέρεται ακριβώς όπως η αρχική,
+απεριόριστη εκδοχή· σε μια βάση που είχε ήδη σταματήσει στα μισά μιας
+προηγούμενης απόπειρας, κάθε βήμα είναι πλέον ασφαλές να ξανατρέξει.
+
 ## Φάση 19: Admin Dashboard (platform overview)
 
 Δεύτερο PR του ίδιου γύρου (βλ. Φάση 18): το `apps/admin/app/page.tsx` ήταν
