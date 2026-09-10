@@ -25,6 +25,13 @@
 -- already applied. Uses the Athens/Munich restaurants and their owners
 -- from seed.sql.
 -- =============================================================================
+--
+-- Phase 18 note (migration 0041): platform_admin_role's 'support' label was
+-- renamed to 'support_admin' -- this file's enum literals were updated to
+-- match (RENAME VALUE is transparent to existing DATA, but a NEW literal
+-- like 'support' typed into a fresh query after the rename would fail with
+-- "invalid input value for enum", so the test script itself needed the
+-- same rename). Run this against a fully-applied 0041 (or later).
 
 \set ON_ERROR_STOP off
 
@@ -220,7 +227,7 @@ end $$;
 \echo '=== TEST D1: a non-admin cannot grant platform admin to anyone ==='
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', false);
 set role authenticated;
-select public.admin_grant_platform_admin('manager.athens@example.com', 'support');
+select public.admin_grant_platform_admin('manager.athens@example.com', 'support_admin');
 \echo '(expected: ERROR: NOT_AUTHORIZED)'
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
@@ -228,15 +235,15 @@ select set_config('request.jwt.claim.sub', '', false);
 \echo '=== TEST D2: super_admin grants support access to the Athens manager ==='
 select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', false);
 set role authenticated;
-select user_id, role, is_active from public.admin_grant_platform_admin('manager.athens@example.com', 'support');
-\echo '(expected: role=support, is_active=t)'
+select user_id, role, is_active from public.admin_grant_platform_admin('manager.athens@example.com', 'support_admin');
+\echo '(expected: role=support_admin, is_active=t)'
 
 \echo '=== TEST D3: a support admin cannot grant platform admin to anyone else (super_admin only) ==='
 reset role;
 select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', false); -- now a support admin (D2)
 set role authenticated;
-select public.admin_grant_platform_admin('owner.munich@example.com', 'support');
-\echo '(expected: ERROR: NOT_AUTHORIZED -- support cannot self-escalate or grant others)'
+select public.admin_grant_platform_admin('owner.munich@example.com', 'support_admin');
+\echo '(expected: ERROR: NOT_AUTHORIZED -- support_admin cannot self-escalate or grant others)'
 
 \echo '=== TEST D4: a support admin CAN still use ordinary admin_* operations (suspend/subscription) ==='
 select id from public.admin_suspend_restaurant('bbbbbbbb-0000-0000-0000-000000000002', 'support-role smoke test');

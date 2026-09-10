@@ -1,6 +1,14 @@
 'use client';
 
-import { fetchPlatformAdmins, grantPlatformAdmin, revokePlatformAdmin, type PlatformAdmin, type PlatformAdminRole } from '@reservex/core';
+import {
+  fetchPlatformAdmins,
+  grantPlatformAdmin,
+  PLATFORM_ADMIN_ROLE_LABELS,
+  PLATFORM_ADMIN_ROLES,
+  revokePlatformAdmin,
+  type PlatformAdmin,
+  type PlatformAdminRole,
+} from '@reservex/core';
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { inputStyle, primaryButtonStyle, dangerButtonStyle } from '@/components/AdminGate';
@@ -28,7 +36,7 @@ export default function AdminsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [grantEmail, setGrantEmail] = useState('');
-  const [grantRole, setGrantRole] = useState<PlatformAdminRole>('support');
+  const [grantRole, setGrantRole] = useState<PlatformAdminRole>('support_admin');
   const [grantBusy, setGrantBusy] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
 
@@ -52,7 +60,7 @@ export default function AdminsPage() {
       const client = getSupabaseBrowserClient();
       await grantPlatformAdmin(client, grantEmail.trim(), grantRole);
       setGrantEmail('');
-      setGrantRole('support');
+      setGrantRole('support_admin');
       refresh();
     } catch (e) {
       setGrantError((e as Error).message);
@@ -89,8 +97,11 @@ export default function AdminsPage() {
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, color: 'var(--text-muted)' }}>
             Role
             <select value={grantRole} onChange={(e) => setGrantRole(e.target.value as PlatformAdminRole)} style={inputStyle}>
-              <option value="support">support</option>
-              <option value="super_admin">super_admin</option>
+              {PLATFORM_ADMIN_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {PLATFORM_ADMIN_ROLE_LABELS[r]}
+                </option>
+              ))}
             </select>
           </label>
           <button type="submit" disabled={grantBusy || !grantEmail.trim()} style={primaryButtonStyle}>
@@ -119,7 +130,7 @@ export default function AdminsPage() {
           >
             <div>
               <div style={{ fontWeight: 600 }}>
-                {admin.email} <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 13 }}>({admin.role})</span>
+                {admin.email} <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 13 }}>({PLATFORM_ADMIN_ROLE_LABELS[admin.role]})</span>
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 {admin.isActive ? 'active' : 'revoked'}

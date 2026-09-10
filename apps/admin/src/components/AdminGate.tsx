@@ -1,6 +1,6 @@
 'use client';
 
-import { isPlatformAdmin, isPlatformSuperAdmin } from '@reservex/core';
+import { fetchMyPlatformAdminRole, isPlatformAdmin, type PlatformAdminRole } from '@reservex/core';
 import type { Session } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: '/organizations', label: 'Organizations' },
   { href: '/feature-flags', label: 'Feature flags' },
   { href: '/admins', label: 'Admins' },
+  { href: '/audit-log', label: 'Audit log' },
 ];
 
 /**
@@ -45,7 +46,8 @@ export default function AdminGate({ children }: { children: ReactNode }) {
 
   const [adminChecked, setAdminChecked] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [role, setRole] = useState<PlatformAdminRole | null>(null);
+  const isSuperAdmin = role === 'super_admin';
 
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -70,10 +72,19 @@ export default function AdminGate({ children }: { children: ReactNode }) {
     if (!session) return;
     const client = getSupabaseBrowserClient();
     let cancelled = false;
-    void Promise.all([isPlatformAdmin(client), isPlatformSuperAdmin(client)]).then(([admin, superAdmin]) => {
+    void isPlatformAdmin(client).then(async (admin) => {
       if (cancelled) return;
       setIsAdmin(admin);
-      setIsSuperAdmin(superAdmin);
+      if (!admin) {
+        setAdminChecked(true);
+        return;
+      }
+      // admin_get_my_role() (0041) -- a targeted lookup of the caller's own
+      // role, not the whole roster. isSuperAdmin above is now derived from
+      // this rather than a second RPC call.
+      const myRole = await fetchMyPlatformAdminRole(client);
+      if (cancelled) return;
+      setRole(myRole);
       setAdminChecked(true);
     });
     return () => {
@@ -95,7 +106,7 @@ export default function AdminGate({ children }: { children: ReactNode }) {
     await getSupabaseBrowserClient().auth.signOut();
     setAdminChecked(false);
     setIsAdmin(false);
-    setIsSuperAdmin(false);
+    setRole(null);
   }
 
   if (!sessionLoaded) return null;
@@ -146,7 +157,7 @@ export default function AdminGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AdminSessionContext.Provider value={{ session, isSuperAdmin, signOut: handleSignOut }}>
+    <AdminSessionContext.Provider value={{ session, isSuperAdmin, role, signOut: handleSignOut }}>
       <div style={{ display: 'flex', minHeight: '100vh' }}>
         <nav
           style={{
@@ -184,7 +195,7 @@ export default function AdminGate({ children }: { children: ReactNode }) {
           <div style={{ marginTop: 'auto', fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
             <span>
               {session.user.email}
-              {isSuperAdmin ? ' (super_admin)' : ''}
+              {role ? ` (${role})` : ''}
             </span>
             <button type="button" onClick={handleSignOut} style={secondaryButtonStyle}>
               Sign out

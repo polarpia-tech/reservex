@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   AdminOrganizationSummary,
   AdminRestaurantSummary,
+  AuditActorType,
+  AuditLogEntry,
   FeatureFlag,
   FeatureFlagOverride,
   PlatformAdmin,
@@ -207,7 +209,7 @@ export async function fetchPlatformAdmins(client: SupabaseClient): Promise<Platf
 }
 
 /** admin_grant_platform_admin() -- super_admin only. Looks up p_email in auth.users server-side; throws USER_NOT_FOUND if no account exists with that email yet (they must sign up normally first -- there is no invite-by-email flow). */
-export async function grantPlatformAdmin(client: SupabaseClient, email: string, role: PlatformAdminRole = 'support'): Promise<PlatformAdmin> {
+export async function grantPlatformAdmin(client: SupabaseClient, email: string, role: PlatformAdminRole = 'support_admin'): Promise<PlatformAdmin> {
   const { data, error } = await client.rpc('admin_grant_platform_admin', { p_email: email, p_role: role });
   if (error) throw error;
   return mapPlatformAdminRow(data as PlatformAdminRow);
@@ -217,6 +219,64 @@ export async function grantPlatformAdmin(client: SupabaseClient, email: string, 
 export async function revokePlatformAdmin(client: SupabaseClient, userId: UUID): Promise<void> {
   const { error } = await client.rpc('admin_revoke_platform_admin', { p_user_id: userId });
   if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 18: role hierarchy + capability map. Six roles (migration 0041,
+// packages/core/src/types/database.ts). Deliberately a small, HARDCODED
+// map, not a configurable permissions table/UI -- this is ReservX's own
+// small internal team with a fixed, product-defined set of roles, not a
+// customer-facing RBAC feature that needs to be editable at runtime. This
+// is the client-side mirror of has_platform_admin_role() (0041): every
+// admin_* write RPC already enforces its own narrow role check server-side
+// regardless of what this map says, so getting this map wrong is a UX bug
+// (the wrong button shown/hidden), never a security hole -- but it should
+// still be kept in lockstep with the SQL comment on platform_admin_role.
+// ---------------------------------------------------------------------------
+export type AdminCapability =
+  | 'manage_admins' // grant/revoke other platform admins
+  | 'manage_restaurants' // suspend/unsuspend
+  | 'manage_billing' // subscriptions
+  | 'manage_feature_flags';
+
+export const PLATFORM_ADMIN_ROLES: PlatformAdminRole[] = [
+  'super_admin',
+  'platform_admin',
+  'support_admin',
+  'finance_admin',
+  'technical_admin',
+  'read_only_admin',
+];
+
+export const PLATFORM_ADMIN_ROLE_LABELS: Record<PlatformAdminRole, string> = {
+  super_admin: 'Super Admin',
+  platform_admin: 'Platform Admin',
+  support_admin: 'Support Admin',
+  finance_admin: 'Finance Admin',
+  technical_admin: 'Technical Admin',
+  read_only_admin: 'Read-only Admin',
+};
+
+const ADMIN_CAPABILITIES: Record<PlatformAdminRole, AdminCapability[]> = {
+  super_admin: ['manage_admins', 'manage_restaurants', 'manage_billing', 'manage_feature_flags'],
+  platform_admin: ['manage_restaurants', 'manage_billing', 'manage_feature_flags'],
+  support_admin: ['manage_restaurants'],
+  finance_admin: ['manage_billing'],
+  technical_admin: ['manage_feature_flags'],
+  read_only_admin: [],
+};
+
+/** Client-side UI check only -- see this section's header comment. Every real enforcement happens server-side in the matching admin_* RPC / RLS policy. */
+export function hasAdminCapability(role: PlatformAdminRole | null | undefined, capability: AdminCapability): boolean {
+  if (!role) return false;
+  return ADMIN_CAPABILITIES[role].includes(capability);
+}
+
+/** admin_get_my_role() (0041) -- the caller's own active role, or null if not an active admin. Cheaper than fetching the whole roster (fetchPlatformAdmins) just to find one row. */
+export async function fetchMyPlatformAdminRole(client: SupabaseClient): Promise<PlatformAdminRole | null> {
+  const { data, error } = await client.rpc('admin_get_my_role');
+  if (error) throw error;
+  return (data as PlatformAdminRole | null) ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -348,4 +408,77 @@ export async function setFeatureFlagOverride(client: SupabaseClient, input: SetF
 export async function deleteFeatureFlagOverride(client: SupabaseClient, overrideId: UUID): Promise<void> {
   const { error } = await client.from('feature_flag_overrides').delete().eq('id', overrideId);
   if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Phase 18: audit log viewer. admin_list_audit_logs() (0041) -- the read
+// path that was missing entirely until now (audit_logs_select, 0011, only
+// ever covered a restaurant's own owner/manager). Any active platform
+// admin, any role, may call this -- view access stays universal, see that
+// migration's header for why.
+// ---------------------------------------------------------------------------
+export interface AuditLogFilters {
+  restaurantId?: UUID | null;
+  organizationId?: UUID | null;
+  actorUserId?: UUID | null;
+  /** Plain prefix match, e.g. 'restaurant.' matches every restaurant.* action. */
+  actionPrefix?: string | null;
+  entityType?: string | null;
+  since?: string | null;
+  until?: string | null;
+  /** Capped server-side at 200; defaults to 50. */
+  limit?: number;
+  offset?: number;
+}
+
+interface AuditLogRow {
+  id: string;
+  organization_id: string | null;
+  organization_name: string | null;
+  restaurant_id: string | null;
+  restaurant_name: string | null;
+  actor_type: AuditActorType;
+  actor_user_id: string | null;
+  actor_email: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  before_data: Record<string, unknown> | null;
+  after_data: Record<string, unknown> | null;
+  created_at: string;
+}
+
+function mapAuditLogRow(row: AuditLogRow): AuditLogEntry {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    organizationName: row.organization_name,
+    restaurantId: row.restaurant_id,
+    restaurantName: row.restaurant_name,
+    actorType: row.actor_type,
+    actorUserId: row.actor_user_id,
+    actorEmail: row.actor_email,
+    action: row.action,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    beforeData: row.before_data,
+    afterData: row.after_data,
+    createdAt: row.created_at,
+  };
+}
+
+export async function fetchAuditLogs(client: SupabaseClient, filters: AuditLogFilters = {}): Promise<AuditLogEntry[]> {
+  const { data, error } = await client.rpc('admin_list_audit_logs', {
+    p_restaurant_id: filters.restaurantId ?? null,
+    p_organization_id: filters.organizationId ?? null,
+    p_actor_user_id: filters.actorUserId ?? null,
+    p_action_prefix: filters.actionPrefix ?? null,
+    p_entity_type: filters.entityType ?? null,
+    p_since: filters.since ?? null,
+    p_until: filters.until ?? null,
+    p_limit: filters.limit ?? 50,
+    p_offset: filters.offset ?? 0,
+  });
+  if (error) throw error;
+  return (data as AuditLogRow[]).map(mapAuditLogRow);
 }

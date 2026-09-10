@@ -5,6 +5,7 @@ import {
   fetchAdminRestaurants,
   fetchOrganizationSubscriptionHistory,
   fetchSubscriptionPlans,
+  hasAdminCapability,
   setOrganizationSubscription,
   suspendRestaurant,
   unsuspendRestaurant,
@@ -37,7 +38,9 @@ const SUBSCRIPTION_STATUSES: SubscriptionStatus[] = ['trialing', 'active', 'past
  * search on the Organizations list page.
  */
 export default function OrganizationDetailPage({ params }: { params: { id: string } }) {
-  useAdminSession();
+  const { role } = useAdminSession();
+  const canManageRestaurants = hasAdminCapability(role, 'manage_restaurants');
+  const canManageBilling = hasAdminCapability(role, 'manage_billing');
   const organizationId = params.id;
 
   const [organization, setOrganization] = useState<AdminOrganizationSummary | null>(null);
@@ -184,20 +187,21 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
                       <div style={{ color: 'var(--warning)', fontSize: 13, marginTop: 4 }}>Paused by owner (not a platform suspension)</div>
                     )}
                   </div>
-                  {suspended ? (
-                    <button type="button" onClick={() => handleUnsuspend(restaurant.restaurantId)} disabled={busyRestaurantId === restaurant.restaurantId} style={secondaryButtonStyle}>
-                      Unsuspend
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleSuspend(restaurant.restaurantId)}
-                      disabled={busyRestaurantId === restaurant.restaurantId}
-                      style={{ ...secondaryButtonStyle, color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                    >
-                      Suspend
-                    </button>
-                  )}
+                  {canManageRestaurants &&
+                    (suspended ? (
+                      <button type="button" onClick={() => handleUnsuspend(restaurant.restaurantId)} disabled={busyRestaurantId === restaurant.restaurantId} style={secondaryButtonStyle}>
+                        Unsuspend
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSuspend(restaurant.restaurantId)}
+                        disabled={busyRestaurantId === restaurant.restaurantId}
+                        style={{ ...secondaryButtonStyle, color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                      >
+                        Suspend
+                      </button>
+                    ))}
                 </div>
               </li>
             );
@@ -211,6 +215,10 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
           Manual override -- no Stripe involved. Retires any existing active subscription and starts a new one. Use this for pilot restaurants, comped
           plans, or correcting a broken Stripe state; a reason is recommended (goes into the audit log).
         </p>
+        {!canManageBilling && (
+          <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Your admin role does not include billing changes (Finance Admin or above required).</p>
+        )}
+        {canManageBilling && (
         <form onSubmit={handleSetSubscription} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', maxWidth: 420 }}>
           <label style={fieldLabelStyle}>
             Plan
@@ -252,6 +260,7 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
             Apply subscription
           </button>
         </form>
+        )}
       </section>
 
       <section>

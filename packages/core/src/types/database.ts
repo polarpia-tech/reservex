@@ -449,7 +449,11 @@ export interface Subscription {
 // migration 0020. Not restaurant-side data at all -- ReservX's own internal
 // team looking across every organization/restaurant, never scoped to one.
 // ---------------------------------------------------------------------------
-export type PlatformAdminRole = 'super_admin' | 'support';
+// Phase 18: six roles (grew from super_admin/support). 'support' was
+// RENAMEd to 'support_admin' in migration 0041 -- see that migration's
+// header for why a plain enum RENAME VALUE needed no data migration.
+// Order here matches the hierarchy comment on the SQL type itself.
+export type PlatformAdminRole = 'super_admin' | 'platform_admin' | 'support_admin' | 'finance_admin' | 'technical_admin' | 'read_only_admin';
 
 export interface PlatformAdmin {
   id: UUID;
@@ -484,6 +488,28 @@ export interface AdminRestaurantSummary {
   isActive: boolean;
   suspendedByPlatformAt: ISODateTime | null;
   suspensionReason: string | null;
+  createdAt: ISODateTime;
+}
+
+// Phase 18: mirrors audit_logs (migration 0010) plus the joins
+// admin_list_audit_logs() (0041) adds -- organization/restaurant name and
+// actor email (auth.users, never otherwise readable by any client role).
+export type AuditActorType = 'user' | 'ai' | 'system';
+
+export interface AuditLogEntry {
+  id: UUID;
+  organizationId: UUID | null;
+  organizationName: string | null;
+  restaurantId: UUID | null;
+  restaurantName: string | null;
+  actorType: AuditActorType;
+  actorUserId: UUID | null;
+  actorEmail: string | null;
+  action: string;
+  entityType: string;
+  entityId: UUID | null;
+  beforeData: Record<string, unknown> | null;
+  afterData: Record<string, unknown> | null;
   createdAt: ISODateTime;
 }
 
