@@ -2804,3 +2804,117 @@ Support Mode, mobile-first redesign, AI/notification administration,
 - Καμία νέα SQL/migration σε αυτή τη φάση, άρα το `Database migrations,
   RLS, and regression suite` CI job δεν έχει τίποτα νέο να ελέγξει --
   αναμενόμενο πέρασμα χωρίς αλλαγή συμπεριφοράς.
+
+## Φάση 20: Customer UI redesign, μέρος 1 (design system + booking flow)
+
+Πρώτο PR μιας μεγαλύτερης πρωτοβουλίας: πλήρες redesign του δημόσιου,
+customer-facing `apps/web` (directory, restaurant profile, booking form,
+account) βάσει ρητής, 18-σημείων προδιαγραφής -- premium, full-screen,
+mobile-first-αλλά-όχι-mobile-only εμπειρία, μηδενικά κίτρινα/amber tones,
+chip-style επιλογείς αντί για classic dropdowns/native inputs, χωρίς καμία
+αλλαγή σε backend/business logic. Το redesign χωρίστηκε σε πολλαπλά PR για
+να μένει κάθε ένα ελέγξιμο· αυτό το πρώτο καλύπτει το θεμέλιο (παλέτα +
+design tokens + κοινά style primitives) και την πιο σημαντική οθόνη, τη
+φόρμα κράτησης.
+
+### Τι χτίστηκε
+
+- **Νέα παλέτα (`apps/web/app/theme-editorial.css`)**: πλήρης αντικατάσταση
+  του amber/teal "KRATO" θέματος με ένα ουδέτερο ανθρακί/γκράφαιτ φόντο,
+  σχεδόν λευκό κείμενο (χωρίς την προηγούμενη ζεστή/κρεμ απόχρωση, που
+  ανήκε στην ίδια οικογένεια με το amber), και ένα μοναδικό, χαμηλού
+  κορεσμού accent (muted emerald `#2F8F6F`). Το `--warning` άλλαξε σε μια
+  ζεστή τερακότα αντί για amber -- σκόπιμα, ώστε να μην ξαναμπεί κίτρινο
+  tone από την πίσω πόρτα σε ένα semantic token. Το ίδιο αρχείο τεκμηριώνει
+  ρητά γιατί αυτό ΔΕΝ είναι απλώς μια επανάληψη του ήδη-απορριφθέντος
+  round-1 μπλε (διαφορετική βάση ουδέτερων + διαφορετική οικογένεια
+  χρώματος accent). Ενημερώθηκαν και τα δύο hardcoded hex mirrors που
+  ΔΕΝ μπορούν να διαβάσουν τα CSS variables (`app/manifest.ts`'s
+  `theme_color`/`background_color`, `app/layout.tsx`'s `viewport.themeColor`)
+  και τα rgba literals του `STATUS_TONE` στο account page.
+- **Κοινό design-system layer (`apps/web/src/lib/ui.ts`, νέο αρχείο)**:
+  style-factory συναρτήσεις (`buttonStyle`, `chipStyle`, `badgeStyle`) και
+  σταθερές (`cardStyle`, `stickyBarStyle`, `bottomSheetOverlayStyle`/
+  `bottomSheetStyle`) -- η πρώτη φορά που αυτή η εφαρμογή έχει ΚΑΠΟΙΟ κοινό
+  σημείο για patterns που επαναλαμβάνονταν με μικρές παραλλαγές σε κάθε
+  αρχείο. Δεν εισάγεται καμία νέα εξάρτηση/CSS-in-JS -- παραμένουν plain
+  `CSSProperties` objects, ίδια σύμβαση με το υπόλοιπο app.
+- **`Skeleton`/`SkeletonLines` (`apps/web/src/components/Skeleton.tsx`,
+  νέο αρχείο)** + ένα πραγματικό CSS keyframe animation στο `globals.css`
+  (`@keyframes skeleton-shimmer`, με `prefers-reduced-motion` opt-out) --
+  η μοναδική περίπτωση σε αυτό το redesign όπου χρειάστηκε πραγματικό CSS
+  class αντί για inline style, αφού ένα keyframe animation δεν εκφράζεται
+  μέσα σε ένα `style={{...}}` object.
+- **Νέα ροή κράτησης (`BookingForm.tsx`)**: τα native
+  `<input type="date"/"time"/"number">` αντικαταστάθηκαν από chip-style
+  επιλογείς -- "Σήμερα"/"Αύριο"/"Άλλη ημερομηνία" (η τελευταία ανοίγει τον
+  ίδιο native date picker ως fallback), chips αριθμού ατόμων μέσα στο
+  min/max εύρος του εστιατορίου + "Άλλος αριθμός" fallback, και ένα quick
+  time-chip row (19:00-21:30) για εστιατόρια ΧΩΡΙΣ live availability flag
+  (όσα το ΕΧΟΥΝ ενεργό συνεχίζουν να δείχνουν το ήδη υπάρχον
+  `LiveAvailabilityPanel`, που είναι ήδη ένα chip-like schedule board με
+  πραγματικούς αριθμούς τραπεζιών -- εκεί δεν άλλαξε καμία λογική, μόνο η
+  παλέτα, μέσω των ήδη-CSS-variable-based χρωμάτων του). Η κάρτα της φόρμας
+  και η οθόνη επιβεβαίωσης περνούν τώρα από το κοινό `cardStyle`, το κουμπί
+  υποβολής από το κοινό `buttonStyle`, με ένα sticky wrapper (`position:
+  sticky; bottom: 0`) ώστε να μένει προσβάσιμο σε μεγάλες φόρμες σε κινητό.
+  Προστέθηκαν δύο μικρά CSS keyframe animations (`pop-in` στην επιβεβαίωση,
+  `fade-in-up` στη λίστα διαθέσιμων ωρών) και ένα skeleton placeholder στη
+  θέση του παλιού απλού "Loading..." κειμένου για τη διαθεσιμότητα.
+- **`getDateStringInTimeZone()` (`apps/web/src/lib/timezone.ts`, νέα
+  συνάρτηση)**: "Σήμερα"/"Αύριο" υπολογίζονται στο timezone του
+  ΕΣΤΙΑΤΟΡΙΟΥ, όχι του browser του επισκέπτη -- ίδια αρχή με το
+  `zonedTimeToUtc` που ήδη υπήρχε για την ίδια την υποβολή της κράτησης.
+- **Νέα i18n keys** (`today`, `tomorrow`, `otherDate`, `otherTime`,
+  `partySizeOtherLabel` κάτω από `public.booking`) προστέθηκαν και στα
+  4 locales (DE/EN/EL/TR), όχι μόνο αγγλικά/ελληνικά.
+
+### Σημαντικές αρχιτεκτονικές αποφάσεις
+
+- **Μηδενικές αλλαγές σε `@reservex/core`, σε migrations/RLS, ή στο
+  κοινόχρηστο `packages/ui/src/tokens.ts`.** Καθαρά αλλαγή στο
+  presentation layer του `apps/web`· οι ίδιες ακριβώς κλήσεις προς backend
+  (`bookPublicReservation`, `fetchPublicAvailabilitySummary`, κ.λπ.)
+  παραμένουν αμετάβλητες.
+- **Συνειδητή, μικρή αλλαγή συμπεριφοράς**: όταν το `liveAvailabilityEnabled`
+  είναι true, ο επισκέπτης δεν έχει πια ένα free-text ώρας -- διαλέγει
+  αποκλειστικά από τα πραγματικά διαθέσιμα slots του `LiveAvailabilityPanel`
+  (πριν, υπήρχε ΚΑΙ το native time input ΚΑΙ το panel ταυτόχρονα). Σκόπιμο:
+  αποτρέπει την επιλογή μιας ώρας εκτός των πραγματικών slots όταν η
+  πληροφορία είναι ήδη διαθέσιμη, και ταιριάζει με το πνεύμα "καμία ψεύτικη
+  διαθεσιμότητα" που ήδη διέπει αυτό το panel. Για εστιατόρια ΧΩΡΙΣ το
+  flag, τίποτα δεν άλλαξε πέρα από το quick-chip fast path (το ελεύθερο
+  time input παραμένει διαθέσιμο ως fallback).
+- **Δεν ξαναχτίστηκε πλήρες custom ημερολόγιο/date-picker.** Το "Σήμερα"/
+  "Αύριο" καλύπτει το κοινό σενάριο· για οποιαδήποτε άλλη ημερομηνία, ο
+  ήδη-δοκιμασμένος native date picker του browser παραμένει διαθέσιμος πίσω
+  από το "Άλλη ημερομηνία" chip -- λιγότερος νέος κώδικας, μηδενικό νέο
+  ρίσκο γύρω από ημερομηνίες/timezone edge cases.
+
+### Τι ΔΕΝ χτίστηκε εδώ (έρχεται σε επόμενο PR της ίδιας πρωτοβουλίας)
+
+Hero ενότητα στη σελίδα εστιατορίου, full-bleed directory/account (ακόμα σε
+fixed `maxWidth` containers), rating/events/offers (δεν υπάρχει καν τέτοιο
+μοντέλο δεδομένων ακόμα -- βλ. σημείωση παρακάτω), AI assistant entry point,
+και τα υπόλοιπα skeleton/animation περάσματα πέρα από τη φόρμα κράτησης.
+
+### Τι επαληθεύτηκε πραγματικά εδώ (και τι όχι)
+
+✅ Επαληθεύτηκε:
+- Κάθε αλλαγμένο/νέο TypeScript αρχείο περνάει πραγματικό
+  `tsc --noEmit` syntax check (relaxed moduleResolution, χωρίς
+  εγκατεστημένα node_modules) -- μηδέν σφάλματα parser (TS1xxx). Τα μόνα
+  errors είναι τα αναμενόμενα "cannot find module"/"implicit any"/
+  `react/jsx-runtime` από την απουσία type declarations, όχι πραγματικά
+  λάθη κώδικα.
+- Ισορροπημένα `{}`/`()`/`[]`/`<>``</>` σε όλο το `BookingForm.tsx` μετά
+  τις αλλαγές (προγραμματιστικός έλεγχος πριν το commit).
+- Όλα τα 4 locale JSON αρχεία παραμένουν valid JSON μετά την προσθήκη
+  των νέων keys (φορτώθηκαν/ξαναγράφτηκαν μέσω `json.load`/`json.dump`,
+  άρα ένα malformed αρχείο θα είχε αποτύχει αμέσως).
+
+⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**: πραγματικό render σε browser έναντι
+ζωντανής βάσης (κανένα `npm install`/`next dev`), οπτικός έλεγχος της νέας
+παλέτας/chips σε πραγματική σελίδα. Θα επαληθευτεί από το `Lint & typecheck`
+και τα `Build web apps`/Vercel preview-deployment CI jobs σε αυτό το PR, και
+οπτικά από το Vercel preview link πριν το merge.

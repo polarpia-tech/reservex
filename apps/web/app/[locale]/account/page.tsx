@@ -286,10 +286,13 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
 // reservation.status values this app models (see STATUS_KEY above) --
 // every one of them maps to something here, not just the two the design
 // mockup happened to show a screenshot of (pending, confirmed).
+// rgba mirrors of --warning/--success/--danger below (2026-09 palette --
+// see theme-editorial.css) -- can't reference the CSS variables directly
+// inside an rgba() alpha-blend, same limitation noted on this const before.
 const STATUS_TONE: Record<string, { fg: string; bg: string }> = {
-  pending: { fg: 'var(--warning)', bg: 'rgba(232, 163, 61, 0.15)' },
-  confirmed: { fg: 'var(--success)', bg: 'rgba(78, 156, 147, 0.15)' },
-  seated: { fg: 'var(--success)', bg: 'rgba(78, 156, 147, 0.15)' },
+  pending: { fg: 'var(--warning)', bg: 'rgba(201, 122, 61, 0.15)' },
+  confirmed: { fg: 'var(--success)', bg: 'rgba(63, 174, 134, 0.15)' },
+  seated: { fg: 'var(--success)', bg: 'rgba(63, 174, 134, 0.15)' },
   completed: { fg: 'var(--text-muted)', bg: 'var(--surface-elevated)' },
   cancelled: { fg: 'var(--text-muted)', bg: 'var(--surface-elevated)' },
   no_show: { fg: 'var(--danger)', bg: 'rgba(224, 102, 90, 0.15)' },
