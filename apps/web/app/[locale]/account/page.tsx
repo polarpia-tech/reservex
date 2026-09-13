@@ -13,9 +13,11 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 
 import { BellIcon, CalendarOffIcon, PhoneIcon } from '@/components/icons';
+import { Skeleton, SkeletonLines } from '@/components/Skeleton';
 import { DEFAULT_LOCALE, getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
 import { formatDateTimeInTimeZone } from '@/lib/timezone';
+import { buttonStyle, cardStyle } from '@/lib/ui';
 
 const STATUS_KEY: Record<string, string> = {
   pending: 'reservations.status.pending',
@@ -144,11 +146,25 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
   }
 
   if (!isSupportedLocale(params.locale)) return null;
-  if (!sessionLoaded) return null;
+
+  if (!sessionLoaded) {
+    // Skeleton shell instead of a blank flash while the browser Supabase
+    // client resolves its own session (a few hundred ms, but a plain
+    // `return null` here means every visit to /account -- signed in or
+    // not -- starts with a flash of empty page above a dark background).
+    return (
+      <div style={{ width: '100%', maxWidth: 720, margin: '0 auto', padding: 'clamp(24px, 5vw, 48px) clamp(20px, 5vw, 64px)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2xl)' }}>
+        <Skeleton width={180} height={30} />
+        <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+          <SkeletonLines count={3} />
+        </div>
+      </div>
+    );
+  }
 
   if (!session) {
     return (
-      <div style={{ maxWidth: 360, margin: '0 auto', padding: 'var(--space-2xl)' }}>
+      <div style={{ width: '100%', maxWidth: 400, margin: '0 auto', padding: 'clamp(24px, 6vw, 48px) clamp(20px, 5vw, 32px)', animation: 'fade-in-up 0.4s ease both' }}>
         <div style={{ display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
           <TabButton active={mode === 'login'} onClick={() => setMode('login')} label={t(dict, 'public.account.loginTab')} />
           <TabButton active={mode === 'signup'} onClick={() => setMode('signup')} label={t(dict, 'public.account.signUpTab')} />
@@ -161,7 +177,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} style={inputStyle} />
           </Field>
           {authError && <p style={{ color: 'var(--danger)', fontSize: 14, margin: 0 }}>{authError}</p>}
-          <button type="submit" disabled={authBusy} style={primaryButtonStyle}>
+          <button type="submit" disabled={authBusy} style={buttonStyle('primary', { disabled: authBusy, fullWidth: true })}>
             {mode === 'login' ? t(dict, 'auth.login') : t(dict, 'auth.createAccount')}
           </button>
         </form>
@@ -170,10 +186,10 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
   }
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: 'var(--space-2xl)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2xl)' }}>
+    <div style={{ width: '100%', maxWidth: 720, margin: '0 auto', padding: 'clamp(24px, 5vw, 48px) clamp(20px, 5vw, 64px)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2xl)', animation: 'fade-in-up 0.4s ease both' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, margin: 0 }}>{t(dict, 'public.account.title')}</h1>
-        <button type="button" onClick={handleSignOut} style={secondaryButtonStyle}>
+        <button type="button" onClick={handleSignOut} style={buttonStyle('secondary')}>
           {t(dict, 'public.account.signOut')}
         </button>
       </div>
@@ -192,7 +208,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
           {t(dict, 'public.account.marketingOptIn')}
         </label>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-          <button type="submit" style={primaryButtonStyle}>
+          <button type="submit" style={buttonStyle('primary')}>
             {t(dict, 'public.account.saveProfile')}
           </button>
           {profileSaved && <span style={{ color: 'var(--success)', fontSize: 13 }}>{t(dict, 'public.account.profileSaved')}</span>}
@@ -201,6 +217,12 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
 
       <section>
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>{t(dict, 'public.account.myReservationsTitle')}</h2>
+        {!reservationsLoaded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            <Skeleton height={78} radius="var(--radius-lg)" />
+            <Skeleton height={78} radius="var(--radius-lg)" />
+          </div>
+        )}
         {reservationsLoaded && reservations.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-2xl) 0', color: 'var(--text-muted)' }}>
             <CalendarOffIcon size={32} style={{ opacity: 0.5 }} />
@@ -208,10 +230,10 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
           </div>
         )}
         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          {reservations.map((reservation) => (
+          {reservations.map((reservation, index) => (
             <li
               key={reservation.id}
-              style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-lg)', background: 'var(--surface)' }}
+              style={{ ...cardStyle, padding: 'var(--space-lg)', animation: 'fade-in-up 0.35s ease both', animationDelay: `${Math.min(index, 8) * 30}ms` }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
                 <div>
@@ -230,7 +252,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
                   </div>
                 </div>
                 {CANCELLABLE_STATUSES.has(reservation.status) && (
-                  <button type="button" onClick={() => handleCancel(reservation.id)} disabled={cancellingId === reservation.id} style={secondaryButtonStyle}>
+                  <button type="button" onClick={() => handleCancel(reservation.id)} disabled={cancellingId === reservation.id} style={buttonStyle('secondary', { disabled: cancellingId === reservation.id })}>
                     {t(dict, 'public.account.cancelButton')}
                   </button>
                 )}
@@ -245,6 +267,12 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
           <BellIcon size={17} style={{ color: 'var(--text-muted)' }} />
           {t(dict, 'public.account.notificationsTitle')}
         </h2>
+        {!notificationsLoaded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+            <Skeleton height={40} radius="var(--radius-md)" />
+            <Skeleton height={40} radius="var(--radius-md)" />
+          </div>
+        )}
         {notificationsLoaded && notifications.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-sm)', padding: 'var(--space-2xl) 0', color: 'var(--text-muted)' }}>
             <BellIcon size={32} style={{ opacity: 0.5 }} />
@@ -369,24 +397,4 @@ const inputStyle: CSSProperties = {
   borderRadius: 'var(--radius-md)',
   padding: '8px 10px',
   width: '100%',
-};
-
-const primaryButtonStyle: CSSProperties = {
-  background: 'var(--accent)',
-  color: 'var(--accent-contrast)',
-  border: 'none',
-  borderRadius: 'var(--radius-full)',
-  padding: '10px 18px',
-  fontWeight: 600,
-  cursor: 'pointer',
-};
-
-const secondaryButtonStyle: CSSProperties = {
-  background: 'none',
-  color: 'var(--text-primary)',
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-full)',
-  padding: '8px 14px',
-  fontSize: 13,
-  cursor: 'pointer',
 };

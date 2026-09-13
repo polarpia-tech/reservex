@@ -2918,3 +2918,136 @@ fixed `maxWidth` containers), rating/events/offers (δεν υπάρχει καν
 παλέτας/chips σε πραγματική σελίδα. Θα επαληθευτεί από το `Lint & typecheck`
 και τα `Build web apps`/Vercel preview-deployment CI jobs σε αυτό το PR, και
 οπτικά από το Vercel preview link πριν το merge.
+
+## Φάση 20: Customer UI redesign, μέρος 2 (hero, full-bleed directory/account, animations, AI feasibility)
+
+Συνέχεια του PR #23 (μέρος 1: design system + booking flow chips, ήδη
+merged στο main). Αυτό το PR καλύπτει το μεγαλύτερο μέρος των υπόλοιπων
+σημείων της αρχικής 18-σημείων προδιαγραφής: hero στη σελίδα εστιατορίου,
+full-bleed directory, βελτιωμένο account page με skeleton loading, και μια
+τεκμηριωμένη επαλήθευση σκοπιμότητας (feasibility) για το AI entry point.
+
+### Τι χτίστηκε
+
+- **`apps/web/src/lib/restaurantType.ts` (νέο αρχείο).** Το
+  `restaurantType -> μετάφραση` mapping υπήρχε ως τοπικό const μόνο μέσα
+  στο directory page. Τώρα που και η σελίδα εστιατορίου το χρειάζεται (για
+  το νέο type badge στο hero), βγήκε σε ένα κοινό σημείο
+  (`restaurantTypeLabelKey()`) αντί να υπάρχουν δύο αντίγραφα που θα
+  μπορούσαν να ξεσυγχρονιστούν αν προστεθεί ποτέ νέος τύπος.
+
+- **Directory page (`app/[locale]/page.tsx`) -- πλέον πραγματικά
+  full-bleed.** Αφαιρέθηκε το fixed `maxWidth: 1000, margin: '0 auto'` --
+  τώρα χρησιμοποιεί το ίδιο `clamp()` side-padding pattern με τη σελίδα
+  εστιατορίου, ώστε να μην "σπάει" η αίσθηση πλήρους οθόνης ανάμεσα σε δύο
+  full-bleed σελίδες. Κάθε κάρτα εστιατορίου είναι τώρα ΕΝΑ `<Link>` (πριν
+  ήταν clickable μόνο το κουμπί "Προβολή & κράτηση" μέσα στην κάρτα) --
+  μεγαλύτερο, σαφέστερο target για tap σε κινητό, ένα focus stop αντί για
+  δύο επικαλυπτόμενα. Το "κουμπί" μέσα στην κάρτα είναι πλέον `<span>` (όχι
+  `<button>` μέσα σε `<a>`, που είναι άκυρο HTML). Νέο: badge τύπου
+  εστιατορίου (`badgeStyle('muted')` από το ήδη υπάρχον `lib/ui.ts`) αντί
+  για απλό κείμενο, μικρό λογότυπο (`restaurant.logoUrl`) όταν υπάρχει, και
+  hover lift (`.card-hover`, νέα CSS κλάση) + staggered
+  `fade-in-up` είσοδο ανά κάρτα.
+
+- **Restaurant profile hero (`app/[locale]/r/[slug]/page.tsx`).** Η σελίδα
+  ήταν ήδη full-bleed από παλιότερο commit (`b92a518`, πριν το Phase 20),
+  αλλά το header ήταν επίπεδο κείμενο. Τώρα: μια διακοσμητική radial-glow
+  ανταύγεια πίσω από τον τίτλο (καθαρό CSS gradient, καμία εικόνα), το
+  `logoUrl` -- όταν υπάρχει -- ως μικρό τετράγωνο badge δίπλα στο όνομα
+  (όχι ως full-bleed φωτογραφικό hero -- βλ. παρακάτω γιατί), και ένα νέο
+  badge τύπου εστιατορίου δίπλα στη διεύθυνση/τηλέφωνο. Όλο το hero block
+  μπαίνει με `fade-in-up` animation.
+
+- **Account page (`app/[locale]/account/page.tsx`) -- σκελετός φόρτωσης +
+  ενιαίο design system.** Πριν, η σελίδα έκανε `return null` όσο δεν είχε
+  φορτώσει το session (λευκό/σκοτεινό flash σε κάθε επίσκεψη), και η λίστα
+  κρατήσεων/ειδοποιήσεων δεν έδειχνε τίποτα κατά τη φόρτωση (απλά άδεια
+  μέχρι να έρθουν τα δεδομένα). Τώρα: `Skeleton`/`SkeletonLines` (ήδη
+  υπάρχοντα components από το μέρος 1) σε όλα τα σημεία φόρτωσης. Τα τοπικά
+  `primaryButtonStyle`/`secondaryButtonStyle` consts αντικαταστάθηκαν από
+  το κοινό `buttonStyle()` του `lib/ui.ts` (ο σκοπός για τον οποίο χτίστηκε
+  στο μέρος 1 -- ένα σημείο αλήθειας για το button look, όχι κυνήγι σε κάθε
+  αρχείο). Το container πλάτυνε ελαφρώς (640px -> 720px) με `clamp()`
+  padding αντί για fixed `var(--space-2xl)`, ώστε να μην νιώθει σαν κουτί
+  σε πολύ φαρδιές οθόνες, αλλά ΠΑΡΕΜΕΙΝΕ boxed/κεντραρισμένο -- σκόπιμα: σε
+  αντίθεση με τη σελίδα κατευθύνσεων/booking, ένα προσωπικό account/
+  settings page με μια ευανάγνωστη κεντρική στήλη είναι η σωστή επιλογή
+  UX, όχι κάτι που η αρχική προδιαγραφή ("no artificial containers")
+  στόχευε να αποτρέψει.
+
+- **`app/globals.css`**: νέα `.card-hover` κλάση (transform lift +
+  border/shadow στο hover/focus-visible) -- το ίδιο σκεπτικό με το ήδη
+  υπάρχον focus-visible ring rule: inline `style={{...}}` objects δεν
+  μπορούν να εκφράσουν `:hover`, οπότε αυτό είναι ένας ακόμα μικρός,
+  σκόπιμος κανόνας CSS πάνω στην ίδια εξαίρεση, όχι αλλαγή προσέγγισης.
+
+### Σημαντικές αρχιτεκτονικές αποφάσεις
+
+- **Το `logoUrl` ΔΕΝ έγινε full-bleed φωτογραφικό hero.** Το data model
+  (`packages/core/src/types/database.ts`) έχει `logoUrl` (λογότυπο) αλλά
+  ΚΑΝΕΝΑ ξεχωριστό cover-photo/gallery field. Ζητώντας από ένα λογότυπο να
+  γεμίσει μια πλατιά φωτογραφική λωρίδα με `object-fit: cover` θα σήμαινε
+  να παραμορφωθεί σε ένα crop για το οποίο δεν φτιάχτηκε ποτέ -- ένα δικό
+  του είδος "ψέματος" για το τι πραγματικά υπάρχει, στο ίδιο πνεύμα με τον
+  κανόνα "ποτέ ψεύτικη διαθεσιμότητα" του μέρους 1. Αντ' αυτού, η "premium"
+  αίσθηση έρχεται από σύνθεση/τυπογραφία/χρώμα (η radial glow ανταύγεια) --
+  και το λογότυπο, όταν υπάρχει, εμφανίζεται τίμια ως μικρό badge, όχι ως
+  κάτι που δεν είναι.
+
+- **Rating/events/offers ΔΕΝ χτίστηκαν.** Δεν υπάρχει κανένα πίνακας
+  ratings/events/offers στη βάση σήμερα (επιβεβαιώθηκε ψάχνοντας το
+  `Restaurant` interface και το σχετικό schema). Χτίζοντας UI για αυτά τώρα
+  θα σήμαινε είτε fake δεδομένα είτε ένα μόνιμα άδειο section -- και τα δύο
+  αντίθετα στην ίδια αρχή "no fake data" που ήδη διέπει το
+  `LiveAvailabilityPanel`. Μένει ρητά εκτός scope μέχρι να υπάρξει
+  πραγματικό μοντέλο δεδομένων γι' αυτά.
+
+- **AI entry point: investigation μόνο, ΟΧΙ UI αυτό το PR.** Διαβάστηκε
+  ολόκληρο το `supabase/functions/ai-gateway/index.ts` και το
+  `packages/core/src/api/ai.ts`. Το gateway το ίδιο δηλώνει ρητά στο δικό
+  του header comment: μόνο το `channel: 'staff_chat'` είναι πραγματικά
+  συνδεδεμένο με executor path σήμερα· το `customer_chat` (και
+  `voice`/`whatsapp`) είναι "schema-ready" (0009) αλλά χωρίς κανένα
+  executor και καμία υλοποίηση UI, ρητά αφημένο εκτός ως "μια πραγματική,
+  ξεχωριστή δυνατότητα που χρειάζεται δικές της αποφάσεις προϊόντος (rate
+  limiting, anonymous-guest identity, escalation σε άνθρωπο)". Επιπλέον, το
+  gateway περνάει από `getAuthenticatedUser` -- δηλαδή προϋποθέτει
+  αυθεντικοποιημένο caller, όχι ανώνυμο επισκέπτη, οπότε ούτε καν το
+  transport layer είναι έτοιμο για anonymous customer χωρίς επιπλέον
+  δουλειά. Συμπέρασμα: η αρχιτεκτονική είναι ήδη "AI-first-ready" με τη
+  σωστή έννοια -- η ΜΟΝΗ πόρτα προς τα δεδομένα είναι αυτό το gateway, όχι
+  απευθείας πρόσβαση στη βάση, ακριβώς όπως απαιτεί ο hard constraint της
+  αρχικής προδιαγραφής -- αλλά η ίδια η customer-facing υλοποίηση (auth
+  μοντέλο για anonymous guest, rate limiting, νέο executor scope
+  περιορισμένο σε δεδομένα ΜΟΝΟ του συγκεκριμένου πελάτη/εστιατορίου, UI)
+  είναι αρκετά μεγάλη και ευαίσθητη σε ασφάλεια ώστε να αξίζει τη δική της
+  ξεχωριστή φάση/PR με αποκλειστική εστίαση, όχι να μπει σαν πρόσθετο μέσα
+  σε ένα PR για UI restyling. Δεν προστέθηκε κανένα ορατό "AI" στοιχείο
+  στο UI αυτό το PR -- ένα κουμπί χωρίς λειτουργικό backend πίσω του θα
+  ήταν μισή δουλειά, όχι πρόοδος.
+
+### Τι ΔΕΝ χτίστηκε εδώ
+
+Πραγματικό customer-facing AI chat (βλ. παραπάνω -- ξεχωριστή φάση).
+Rating/events/offers (δεν υπάρχει μοντέλο δεδομένων). QR-code booking flow
+(ξεχωριστό feature, όχι styling). Search/filter στο directory (ήδη
+τεκμηριωμένο ως εκτός scope στο ίδιο το page.tsx πριν από αυτό το PR).
+
+### Τι επαληθεύτηκε πραγματικά εδώ (και τι όχι)
+
+✅ Επαληθεύτηκε:
+- Κάθε αλλαγμένο/νέο TypeScript αρχείο (directory page, restaurant profile
+  page, account page, `restaurantType.ts`, `ui.ts`, `Skeleton.tsx`) περνάει
+  πραγματικό `tsc --noEmit` syntax check (ίδια relaxed σημαία configuration
+  με το μέρος 1) -- μηδέν σφάλματα parser (TS1xxx). Τα υπόλοιπα errors
+  είναι το ίδιο αναμενόμενο "cannot find module"/"implicit any"/JSX-χωρίς-
+  `@types/react` θόρυβο από την απουσία εγκατεστημένων node_modules, όχι
+  πραγματικά λάθη κώδικα.
+- Ισορροπημένα `{}`/`()`/`[]` σε κάθε αλλαγμένο αρχείο (προγραμματιστικός
+  έλεγχος πριν το commit, ίδια μέθοδος με το μέρος 1).
+
+⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**: πραγματικό render σε browser έναντι
+ζωντανής βάσης. Θα επαληθευτεί από το CI αυτού του PR και οπτικά από το
+Vercel preview link πριν το merge -- ίδια διαδικασία με το PR #23.
+
