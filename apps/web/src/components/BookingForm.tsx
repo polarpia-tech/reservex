@@ -22,9 +22,11 @@ import {
 import { useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { DepositPaymentStep } from '@/components/DepositPaymentStep';
 import { CalendarIcon, CheckCircleIcon, ClockIcon, PhoneIcon, UsersIcon } from '@/components/icons';
+import { Skeleton } from '@/components/Skeleton';
 import { getDictionary, interpolate, t, type SupportedLocale } from '@/lib/dictionary';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
-import { formatDateTimeInTimeZone, formatTimeInTimeZone, zonedTimeToUtc } from '@/lib/timezone';
+import { formatDateTimeInTimeZone, formatTimeInTimeZone, getDateStringInTimeZone, zonedTimeToUtc } from '@/lib/timezone';
+import { buttonStyle, cardStyle, chipStyle } from '@/lib/ui';
 import { requestWebPushSubscription } from '@/lib/webPush';
 interface BookingRestaurant {
   id: string;
@@ -82,6 +84,27 @@ export function BookingForm({
   popularityIndicatorEnabled?: boolean;
 }) {
   const dict = getDictionary(locale);
+  // Phase 20: chip-style date/time/party-size pickers, replacing the plain
+  // native <input type="date"/"time"/"number"> row this form used before
+  // (see the redesign brief's section 5 -- visual chips instead of classic
+  // form fields wherever that makes sense). todayStr/tomorrowStr are read
+  // in the RESTAURANT's own timezone (see getDateStringInTimeZone's own
+  // comment), same "the restaurant's clock is authoritative" principle
+  // zonedTimeToUtc already applies to the actual booking submission.
+  const todayStr = getDateStringInTimeZone(restaurant.timezone, 0);
+  const tomorrowStr = getDateStringInTimeZone(restaurant.timezone, 1);
+  const partySizeChipOptions = Array.from(
+    { length: Math.max(1, Math.min(5, restaurant.maxPartySize - restaurant.minPartySize + 1)) },
+    (_, i) => restaurant.minPartySize + i,
+  );
+  // Each "custom" picker starts collapsed (the chips cover the common
+  // case) but is never allowed to HIDE a value the state already holds
+  // that doesn't match a chip -- the `||` checks at each render site below
+  // (not just this initial flag) are what actually guarantee that; this
+  // state only tracks an explicit "show me the full picker" tap.
+  const [showCustomDate, setShowCustomDate] = useState(false);
+  const [showCustomPartySize, setShowCustomPartySize] = useState(false);
+  const [showCustomTime, setShowCustomTime] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [profileName, setProfileName] = useState<string | null>(null);
   const [date, setDate] = useState('');
@@ -516,11 +539,9 @@ export function BookingForm({
     return (
       <section
         style={{
-          border: '1px solid var(--border)',
+          ...cardStyle,
           borderLeft: '3px solid var(--success)',
-          borderRadius: 'var(--radius-lg)',
-          padding: 'clamp(24px, 4vw, 40px)',
-          background: 'var(--surface)',
+          animation: 'pop-in 0.35s ease',
         }}
       >
         <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--success)', margin: 0 }}>
@@ -575,7 +596,7 @@ export function BookingForm({
     );
   }
   return (
-    <section style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 'clamp(24px, 4vw, 40px)', background: 'var(--surface)' }}>
+    <section style={cardStyle}>
       <h2
         style={{
           fontFamily: 'var(--font-display)',
@@ -592,25 +613,85 @@ export function BookingForm({
         {isSignedIn ? interpolate(t(dict, 'public.booking.signedInNotice'), { name: profileName ?? guestEmail ?? '' }) : t(dict, 'public.booking.guestNotice')}
       </p>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 'var(--space-md)' }}>
-          <Field label={t(dict, 'public.booking.date')} icon={<CalendarIcon size={13} />}>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={inputStyle} />
-          </Field>
-          <Field label={t(dict, 'public.booking.time')} icon={<ClockIcon size={13} />}>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required style={inputStyle} />
-          </Field>
-          <Field label={t(dict, 'public.booking.partySize')} icon={<UsersIcon size={13} />}>
-            <input
-              type="number"
-              min={restaurant.minPartySize}
-              max={restaurant.maxPartySize}
-              value={partySize}
-              onChange={(e) => setPartySize(Number(e.target.value))}
-              required
-              style={inputStyle}
-            />
-          </Field>
-        </div>
+        <>
+          <div>
+            <ChipFieldLabel icon={<CalendarIcon size={13} />} label={t(dict, 'public.booking.date')} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <button type="button" style={chipStyle({ selected: date === todayStr })} onClick={() => { setDate(todayStr); setShowCustomDate(false); }}>
+                {t(dict, 'public.booking.today')}
+              </button>
+              <button type="button" style={chipStyle({ selected: date === tomorrowStr })} onClick={() => { setDate(tomorrowStr); setShowCustomDate(false); }}>
+                {t(dict, 'public.booking.tomorrow')}
+              </button>
+              <button
+                type="button"
+                style={chipStyle({ selected: showCustomDate || (Boolean(date) && date !== todayStr && date !== tomorrowStr) })}
+                onClick={() => setShowCustomDate((prev) => !prev)}
+              >
+                {t(dict, 'public.booking.otherDate')}
+              </button>
+            </div>
+            {(showCustomDate || (Boolean(date) && date !== todayStr && date !== tomorrowStr)) && (
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={{ ...inputStyle, marginTop: 8 }} />
+            )}
+          </div>
+          <div>
+            <ChipFieldLabel icon={<UsersIcon size={13} />} label={t(dict, 'public.booking.partySize')} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {partySizeChipOptions.map((size) => (
+                <button key={size} type="button" style={chipStyle({ selected: partySize === size })} onClick={() => { setPartySize(size); setShowCustomPartySize(false); }}>
+                  {size}
+                </button>
+              ))}
+              <button
+                type="button"
+                style={chipStyle({ selected: showCustomPartySize || !partySizeChipOptions.includes(partySize) })}
+                onClick={() => setShowCustomPartySize((prev) => !prev)}
+              >
+                {t(dict, 'public.booking.partySizeOtherLabel')}
+              </button>
+            </div>
+            {(showCustomPartySize || !partySizeChipOptions.includes(partySize)) && (
+              <input
+                type="number"
+                min={restaurant.minPartySize}
+                max={restaurant.maxPartySize}
+                value={partySize}
+                onChange={(e) => setPartySize(Number(e.target.value))}
+                required
+                style={{ ...inputStyle, marginTop: 8, maxWidth: 120 }}
+              />
+            )}
+          </div>
+          {/* The live-availability panel below already IS the chip-style time
+              picker for a restaurant that has it enabled (real per-slot table
+              counts, not a guess -- see LiveAvailabilityPanel's own header
+              comment), so this quick row only renders for a restaurant
+              WITHOUT that flag, where the old plain <input type="time"> was
+              the only way to pick a time at all. */}
+          {!liveAvailabilityEnabled ? (
+            <div>
+              <ChipFieldLabel icon={<ClockIcon size={13} />} label={t(dict, 'public.booking.time')} />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {QUICK_TIME_OPTIONS.map((slot) => (
+                  <button key={slot} type="button" style={chipStyle({ selected: time === slot })} onClick={() => { setTime(slot); setShowCustomTime(false); }}>
+                    {slot}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  style={chipStyle({ selected: showCustomTime || (Boolean(time) && !QUICK_TIME_OPTIONS.includes(time)) })}
+                  onClick={() => setShowCustomTime((prev) => !prev)}
+                >
+                  {t(dict, 'public.booking.otherTime')}
+                </button>
+              </div>
+              {(showCustomTime || (Boolean(time) && !QUICK_TIME_OPTIONS.includes(time))) && (
+                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required style={{ ...inputStyle, marginTop: 8, maxWidth: 160 }} />
+              )}
+            </div>
+          ) : null}
+        </>
         {showLastMinuteAlertPanel ? (
           <LastMinuteAlertPanel
             dict={dict}
@@ -686,25 +767,16 @@ export function BookingForm({
           />
         </Field>
         {errorMessage && <p style={{ color: 'var(--danger)', fontSize: 14, margin: 0 }}>{errorMessage}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          style={{
-            background: 'var(--accent)',
-            color: 'var(--accent-contrast)',
-            border: 'none',
-            borderRadius: 'var(--radius-full)',
-            padding: '14px 24px',
-            fontSize: 15,
-            fontWeight: 600,
-            letterSpacing: '0.01em',
-            width: '100%',
-            cursor: submitting ? 'default' : 'pointer',
-            opacity: submitting ? 0.7 : 1,
-          }}
-        >
-          {submitting ? t(dict, 'public.booking.submitting') : t(dict, 'public.booking.submitButton')}
-        </button>
+        {/* position: sticky (Phase 20, spec section 10: "sticky CTA where
+            sensible" on mobile) -- on a long form that scrolls past the
+            viewport, the primary action stays reachable at the bottom of
+            the screen instead of the guest having to scroll all the way
+            down; on a short form/desktop it simply never engages. */}
+        <div style={{ position: 'sticky', bottom: 0, background: 'var(--surface)', paddingTop: 4, paddingBottom: 'env(safe-area-inset-bottom, 0px)', marginTop: -4 }}>
+          <button type="submit" disabled={submitting} style={buttonStyle('primary', { disabled: submitting, fullWidth: true, size: 'lg' })}>
+            {submitting ? t(dict, 'public.booking.submitting') : t(dict, 'public.booking.submitButton')}
+          </button>
+        </div>
       </form>
       {liveActivityNotice ? (
         <div
@@ -924,7 +996,11 @@ function LiveAvailabilityPanel({
         {t(dict, 'public.booking.liveAvailability.title')}
       </p>
       {loading && !slots ? (
-        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.loading')}</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} aria-label={t(dict, 'public.booking.liveAvailability.loading')}>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height={40} radius="var(--radius-md)" />
+          ))}
+        </div>
       ) : slots && slots.length === 0 ? (
         <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.closed')}</p>
       ) : slots && slots.length > 0 ? (
@@ -934,7 +1010,7 @@ function LiveAvailabilityPanel({
               container changed, from a flex-wrap chip grid to a vertical
               list of full-width rows (grid-template-columns), so it reads
               like a schedule board instead of a tag cloud. */}
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', animation: 'fade-in-up 0.25s ease' }}>
             {slots.map((slot) => {
               const localTime = formatTimeInTimeZone(slot.slotStartsAt, timezone, locale);
               const isAvailable = slot.availableTableCount > 0 || slot.hasCombinableOption;
@@ -1240,6 +1316,29 @@ function LastMinuteAlertPanel({
           {submitting ? t(dict, 'public.booking.lastMinuteAlert.notifyRequesting') : t(dict, 'public.booking.lastMinuteAlert.notifyButton')}
         </button>
       </div>
+    </div>
+  );
+}
+// Common dinner-time quick-picks (Phase 20) -- a fast path for the ~80%
+// case, offered only when a restaurant has no live-availability data to
+// build real chips from (see this file's only call site). Purely a
+// convenience default: picking one just fills the same `time` state a
+// manually-typed value would, so a restaurant that's actually closed at
+// one of these hours surfaces the existing OUTSIDE_BOOKING_WINDOW-style
+// error on submit exactly as if the guest had typed it themselves -- no
+// new validation path, no assumption baked in about any restaurant's
+// actual hours.
+const QUICK_TIME_OPTIONS = ['19:00', '19:30', '20:00', '20:30', '21:00', '21:30'];
+
+// Same small-caps label treatment as Field's own <span> below, but for a
+// chip ROW rather than a single labelled input -- chips are buttons, not
+// one form control, so this renders as a plain heading above them instead
+// of wrapping them in a <label>.
+function ChipFieldLabel({ label, icon }: { label: string; icon?: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600, marginBottom: 8 }}>
+      {icon}
+      {label}
     </div>
   );
 }

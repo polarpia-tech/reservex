@@ -34,7 +34,7 @@ export const viewport: Viewport = {
   // Matches theme-editorial.css's --accent -- keep these in lockstep; this
   // one can't reference the CSS variable since it's read by the browser
   // chrome (status bar / task-switcher tint) before any CSS loads.
-  themeColor: '#E8A33D',
+  themeColor: '#2F8F6F',
 };
 
 // Locale-aware routing (app/[locale]/...) was built in Phase 08 alongside

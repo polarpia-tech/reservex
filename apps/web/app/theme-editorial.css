@@ -1,14 +1,30 @@
 /*
- * Hand-authored, web-only "dark editorial" theme -- approved 2026-09 from
- * the ReservX Design (ΚΡΑΤΩ) mockup: amber accent, teal secondary, Fraunces
- * display type on a dark ink surface. This went through two rounds this
- * same week -- round 1 swapped the whole palette to a royal-blue accent on
- * deeper charcoal neutrals; after seeing it live, the call was to go back
- * to the original ΚΡΑΤΩ amber/teal look (this is that reversion), while
- * KEEPING round 1's --accent-contrast token and the KRATO-style tile/board
- * layout additions in BookingForm.tsx/OpeningHoursList.tsx/page.tsx, which
- * were never the part anyone objected to. This intentionally overrides
- * ./theme-tokens.css's variables rather than editing packages/ui/src/tokens.ts:
+ * Hand-authored, web-only "dark editorial" theme -- customer-facing UI
+ * redesign (2026-09, Phase 20). Replaces the "KRATO" amber/teal palette
+ * that lived here before with a quieter, more neutral anthracite/graphite
+ * base and a single, deliberately low-saturation accent (a muted emerald)
+ * -- per an explicit product decision to remove EVERY yellow/amber tone
+ * from the customer-facing app, and to replace it with something read as
+ * mature/professional rather than another loud brand color.
+ *
+ * History, for whoever reads this next (see git log for the full trail):
+ *   1. Original ΚΡΑΤΩ mockup -- amber accent, teal secondary.
+ *   2. Round 1 of a redesign swapped that for a royal-blue accent.
+ *   3. Round 2 reverted round 1 back to the original amber/teal, by
+ *      explicit call, after seeing round 1 live.
+ *   4. This change (Phase 20) is a THIRD, different attempt -- explicitly
+ *      not a return to round 1's blue. Where round 1 was a fairly
+ *      saturated, cool royal-blue dropped onto a deepened version of the
+ *      SAME warm-leaning neutrals, this pass changes the neutrals
+ *      themselves (a true graphite scale, no warm/cream cast in the text
+ *      color this time) and pairs them with a low-chroma emerald rather
+ *      than blue -- a different combination, not a re-litigation of the
+ *      one that was already rejected. If this doesn't land either, the
+ *      fix is this one file (see --accent / --accent-contrast below),
+ *      exactly as with the previous two rounds.
+ *
+ * This intentionally overrides ./theme-tokens.css's variables rather than
+ * editing packages/ui/src/tokens.ts:
  *
  *   - tokens.ts is SHARED with the mobile app, so changing it here would
  *     also (probably unintentionally) reskin the mobile app.
@@ -18,35 +34,43 @@
  * Loaded LAST in globals.css, as a plain ungated `:root` block -- that
  * makes it win over both theme-tokens.css's light-mode defaults AND its
  * `@media (prefers-color-scheme: dark)` block, regardless of the visitor's
- * OS setting. The site is dark-only by explicit user decision (the mockup
- * only ever showed a dark theme, and the user chose "Μόνο dark, πάντα"
- * over building a second light variant) -- so this file deliberately has
- * NO prefers-color-scheme guard. Do not add one; that would bring back the
- * light theme for some visitors.
+ * OS setting. The site remains dark-only by the same standing decision as
+ * before ("Μόνο dark, πάντα") -- still no prefers-color-scheme guard here;
+ * do not add one.
  *
- * --accent-contrast: the amber accent is light enough that dark text reads
- * clearly on top of it, so this resolves to var(--surface) here -- but any
- * component that draws text on an --accent-filled surface (buttons, the
- * selected time slot, the logo mark's checkmark) should keep reading
- * --accent-contrast rather than hardcoding --surface, so a future palette
- * change (like round 1's blue, which needed a light accent-contrast
- * instead) is a one-line change here, not a hunt through every component.
+ * --accent-contrast: unlike the old amber (light enough for dark text),
+ * this emerald sits at a medium luminance, so it needs a LIGHT contrast
+ * color, not var(--surface) -- hence the standalone value below. Any
+ * component painting text on an --accent-filled surface (buttons, the
+ * selected chip/time-slot, the logo mark's checkmark) should keep reading
+ * --accent-contrast rather than hardcoding a color, so a future palette
+ * change is once again a one-line edit here.
+ *
+ * --warning intentionally stays out of the yellow/amber family too (a
+ * muted terracotta instead) -- the "no yellow tones" instruction was
+ * global, not just "no yellow as the brand accent", and reintroducing
+ * amber under the --warning token would quietly bring back exactly the
+ * color family this redesign removes (it was one of the more visible
+ * uses of --accent's amber before, e.g. the "pending" status pill).
  */
 :root {
-  --background: #12181F;
-  --surface: #1B232D;
-  --surface-elevated: #202932;
-  --border: #232D38;
-  --border-strong: #2A3441;
-  --text-primary: #F1EDE3;
-  --text-muted: #8A93A0;
-  --text-faint: #4A5563;
-  --accent: #E8A33D;
-  --accent-contrast: var(--surface);
-  --ai: #4E9C93;
-  --success: #4E9C93;
-  --warning: #E8A33D;
+  --background: #15171A;
+  --surface: #1C2024;
+  --surface-elevated: #23282D;
+  --border: #2A2F35;
+  --border-strong: #363C43;
+  --text-primary: #EDEDEE;
+  --text-muted: #939AA3;
+  --text-faint: #5A6067;
+  --accent: #2F8F6F;
+  --accent-contrast: #F3FAF7;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+  --ai: #7C8FE0;
+  --success: #3FAE86;
+  --warning: #C97A3D;
   --danger: #E0665A;
+  --shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-elevated: 0 10px 30px rgba(0, 0, 0, 0.45);
   --font-family: 'Inter', system-ui, sans-serif;
   --font-display: 'Fraunces', Georgia, serif;
 }
