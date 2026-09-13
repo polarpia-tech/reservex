@@ -3360,3 +3360,191 @@ offers να εμφανίζονται στη δημόσια σελίδα κάθε
   forms συμπεριφέρονται σωστά σε πραγματικές timezone άκρες (π.χ.
   αλλαγή ώρας θερινής/χειμερινής) -- μόνο λογική επιθεώρηση, καμία
   runtime δοκιμή με πραγματικές ημερομηνίες σε πραγματική συσκευή.
+
+## Φάση 22: Email/SMS notification dispatcher
+
+Δεύτερο "νέο feature" PR μετά τη Φάση 21, ζητήθηκε ρητά από τον
+ιδιοκτήτη της πλατφόρμας ως επόμενη προτεραιότητα: το `notifications`
+σύστημα της Φάσης 09 (0016) γεμίζει σωστά την ουρά (`status = queued`)
+για email/sms events, αλλά ποτέ δεν τα στέλνει πραγματικά -- κανένας
+provider, καμία HTTP κλήση, τίποτα. Αυτή η φάση χτίζει το κομμάτι που
+έλειπε: έναν πραγματικό dispatcher (Resend για email, Twilio για SMS)
+που παίρνει αυτές τις ουρές και τις παραδίδει.
+
+### Τι χτίστηκε
+
+- **`supabase/migrations/0043_notification_dispatch.sql`**: νέα τιμή
+  enum `sending` στο `notification_status` (ενδιάμεση κατάσταση ανάμεσα
+  σε `queued` και `sent`/`failed`, ώστε δύο ταυτόχρονες dispatch κλήσεις
+  να μην πιάσουν ποτέ την ίδια εγγραφή), νέες στήλες
+  `dispatch_attempts`/`last_attempt_at` στο `notifications`. Δύο νέες
+  SECURITY DEFINER συναρτήσεις: `claim_notifications_for_dispatch()`
+  (atomic claim με `FOR UPDATE SKIP LOCKED` πάνω σε due, queued email/sms
+  εγγραφές, με join σε `restaurants`/`customers`/`reservations` για να
+  επιστρέψει ό,τι χρειάζεται το Edge Function -- email/τηλέφωνο
+  παραλήπτη, locale, όνομα/timezone εστιατορίου) και
+  `mark_notification_dispatched()` (το μοναδικό μονοπάτι επιστροφής από
+  `sending`: επιτυχία -> `sent`, αποτυχία -> πίσω σε `queued` με γραμμικό
+  backoff μέχρι 5 προσπάθειες, μετά μόνιμα `failed`). Ίδιο EXECUTE
+  revoke από `anon`/`authenticated` με το `claim_waitlist_matches_for_
+  restaurant` (0031) -- callable μόνο από το service-role client.
+  Τέλος, ένα `AFTER INSERT` trigger (`trg_dispatch_notifications_on_
+  insert`) πάνω στο `notifications`, ίδιο σχήμα με το
+  `trigger_notify_waitlist_on_availability_change` (0032): διαβάζει το
+  shared secret από το Supabase Vault και καλεί το
+  `dispatch-notifications` μέσω `net.http_post` -- ένα απλό "ξύπνα,
+  κάτι μπορεί να είναι έτοιμο" ping, χωρίς ευαίσθητο payload.
+- **`supabase/functions/dispatch-notifications/index.ts`** (νέο): το
+  πραγματικό Edge Function. Auth μέσω `x-webhook-secret` header (ίδιο
+  μοτίβο με το `notify-waitlist`/`stripe-webhook` -- καμία Supabase
+  session σε καμία από τις δύο κλήσεις που το ενεργοποιούν). Καλεί το
+  `claim_notifications_for_dispatch`, και για κάθε εγγραφή στέλνει μέσω
+  Resend REST API (email) ή Twilio REST API (sms), μετά αναφέρει το
+  αποτέλεσμα πίσω στη βάση μέσω `mark_notification_dispatched`. Μία
+  αποτυχία δεν μπλοκάρει το batch -- κάθε εγγραφή έχει το δικό της
+  try/catch.
+- **`supabase/functions/_shared/notificationTemplates.ts`** (νέο): το
+  περιεχόμενο email/sms για τα 4 template_codes που φτάνουν ποτέ σε
+  email/sms κανάλι (`reservation_confirmed`, `reservation_cancelled`,
+  `reservation_rescheduled`, `reservation_reminder` -- τα άλλα δύο
+  template_codes του project, `reservation_created`/`no_show_recorded`,
+  είναι πάντα staff-only in_app, άρα δεν χρειάζονται render εδώ).
+  Πλήρως μεταφρασμένο και στα 4 locales (`el`/`en`/`de`/`tr`) -- δικό
+  του, μικρό σύνολο strings, ξεχωριστό από το `packages/i18n` (server-
+  side Deno function, όχι client bundle).
+- **`.github/workflows/dispatch-notifications-cron.yml`** (νέο): το
+  περιοδικό κομμάτι -- ένα GitHub Actions scheduled workflow (κάθε 5
+  λεπτά) που καλεί το ίδιο Edge Function με το ίδιο shared secret. Δες
+  "Σημαντικές αρχιτεκτονικές αποφάσεις" παρακάτω για το γιατί GitHub
+  Actions αντί για `pg_cron`.
+- **`.env.example`**: νέα μεταβλητά `RESEND_API_KEY`,
+  `NOTIFICATIONS_FROM_EMAIL`, `TWILIO_ACCOUNT_SID`,
+  `TWILIO_FROM_NUMBER`, `NOTIFICATIONS_WEBHOOK_SECRET` -- πλήρως
+  τεκμηριωμένα, ίδιο μοτίβο σχολιασμού με το `WAITLIST_WEBHOOK_SECRET`.
+  Το ήδη υπάρχον `TWILIO_AUTH_TOKEN` (Φάση 11) τώρα χρησιμοποιείται
+  ΚΑΙ εδώ (για την πραγματική Twilio REST API κλήση, όχι μόνο για
+  επαλήθευση inbound webhook signature) -- ο σχολιασμός ενημερώθηκε να
+  το αναφέρει ρητά.
+- **`supabase/config.toml`**: νέα καταχώρηση
+  `[functions.dispatch-notifications]` με `verify_jwt = false` (ίδιος
+  λόγος με το `notify-waitlist` -- ο καλών δεν έχει Supabase session).
+
+### Σημαντικές αρχιτεκτονικές αποφάσεις
+
+- **GitHub Actions scheduled workflow αντί για `pg_cron`, για το
+  χρονικά-εξαρτημένο κομμάτι (υπενθυμίσεις).** Το `notify-waitlist`
+  μοτίβο (pg_net trigger) δουλεύει τέλεια για το ΑΜΕΣΟ dispatch (μια
+  επιβεβαίωση κράτησης), γιατί κάτι αλλάζει σε μια γραμμή τη στιγμή
+  που πρέπει να σταλεί. Μια υπενθύμιση όμως είναι queued με
+  `scheduled_for` στο μέλλον -- τίποτα δεν "συμβαίνει" στην ίδια τη
+  γραμμή όταν έρθει η ώρα της, κάτι πρέπει περιοδικά να ρωτήσει "είναι
+  κάτι έτοιμο τώρα;". Αυτό το project δεν έχει κανένα `pg_cron` job
+  πουθενά, και το ενεργοποίηση του θα ήταν ένα project-level Dashboard
+  toggle που αυτό το sandbox δεν μπορεί να επαληθεύσει ότι όντως
+  δουλεύει σε αυτό το συγκεκριμένο project (ίδιο ρίσκο με το `pg_net`
+  πριν από αυτό -- βλ. το header comment του migration 0032: "φαίνεται
+  υποστηριζόμενο, αποτυγχάνει σε αυτό το project" ήταν μια πραγματική,
+  όχι υποθετική, έκπληξη εκεί). Αντί να μαντέψουμε μια δεύτερη
+  αδοκίμαστη επέκταση, χρησιμοποιήθηκε κάτι ήδη αποδεδειγμένο σε αυτό
+  το repo: τα GitHub Actions scheduled workflows (το `ci.yml`/
+  `deploy.yml` είναι ήδη πραγματικά, τρέχουν σε κάθε push). Το
+  αποτέλεσμα είναι ταυτόσημο functionally με `pg_cron` (κάτι χτυπάει το
+  endpoint περιοδικά) χωρίς να προσθέτει ένα δεύτερο αδοκίμαστο κομμάτι
+  υποδομής.
+- **Ένα μοιρασμένο Edge Function, δύο καλούντες.** Το ίδιο ακριβώς
+  `dispatch-notifications` ενεργοποιείται είτε άμεσα (το pg_net trigger,
+  για επιβεβαιώσεις/ακυρώσεις) είτε περιοδικά (το GitHub Actions cron,
+  για υπενθυμίσεις). Και οι δύο απλά "χτυπάνε" το endpoint -- η ίδια η
+  απόφαση "τι είναι πραγματικά έτοιμο τώρα" ζει αποκλειστικά μέσα στο
+  `claim_notifications_for_dispatch`, ποτέ στον caller. Αυτό σημαίνει
+  ότι το trigger firing "πολύ νωρίς" για μια υπενθύμιση είναι εντελώς
+  αβλαβές, όχι race condition.
+- **State machine με `sending` + atomic claim (`FOR UPDATE SKIP
+  LOCKED`), όχι απλό `UPDATE ... WHERE status = 'queued'`.** Με δύο
+  πιθανούς ταυτόχρονους callers (trigger + cron sweep να τρέχουν σχεδόν
+  ταυτόχρονα), μια απλή select-then-update θα μπορούσε θεωρητικά να
+  στείλει το ίδιο μήνυμα δύο φορές. Το `SKIP LOCKED` εγγυάται ότι κάθε
+  γραμμή διεκδικείται από ακριβώς έναν caller.
+- **Γραμμικό backoff (`dispatch_attempts * 2 λεπτά`) με όριο 5
+  προσπαθειών, όχι ατελείωτο retry.** Ένας μόνιμα λάθος αριθμός
+  τηλεφώνου δεν πρέπει να ξαναδοκιμάζεται σε κάθε cron tick για πάντα --
+  μετά την 5η αποτυχία η γραμμή μένει `failed` με το `error_message`
+  του τελευταίου provider error, ορατό σε όποιον το ψάξει (βλ. κενό
+  παρακάτω: καμία UI για αυτό ακόμα).
+- **Τα templates είναι δικό τους, μικρό αρχείο (`_shared/
+  notificationTemplates.ts`), όχι επέκταση του `packages/i18n`.** Το
+  `packages/i18n` χτίστηκε για client bundles (React/React Native) --
+  προσθήκη ενός runtime dependency από ένα Deno Edge Function πάνω σε
+  αυτό θα ήταν λάθος επίπεδο σύζευξης για 4 μικρές φράσεις.
+
+### Τι ΔΕΝ χτίστηκε (σκόπιμα -- εκτός εύρους αυτού του PR)
+
+- **Push notifications.** Το `push` κανάλι παραμένει ακριβώς όπως ήταν
+  από τη Φάση 02/09 -- queued, μη παραδιδόμενο. Χρειάζεται πραγματικό
+  FCM/APNs/Expo Push integration, εντελώς διαφορετικό provider shape
+  από email/SMS -- ξεχωριστή φάση.
+- **WhatsApp.** Ίδιο σκόπιμο κενό -- το `whatsapp` κανάλι δεν αγγίζεται
+  καθόλου από το `claim_notifications_for_dispatch` (το φίλτρο του
+  περιορίζεται ρητά σε `email`/`sms`).
+- **Provider delivery webhooks** (π.χ. Resend's own delivery/bounce
+  webhook). Το `sent` status εδώ σημαίνει "παραδόθηκε επιτυχώς στο
+  Resend/Twilio API", όχι "ο παραλήπτης το άνοιξε/το παρέλαβε πραγματικά
+  η συσκευή του" -- ένα πραγματικό delivered/bounced/opened status θα
+  χρειαζόταν ένα δεύτερο webhook handler που δεν χτίστηκε εδώ.
+- **Καμία UI για να δει κανείς `failed` notifications.** Το
+  `error_message`/`dispatch_attempts` υπάρχουν στη βάση, αλλά καμία
+  οθόνη admin/owner δεν τα εκθέτει ακόμα -- ένα πραγματικό, ορατό κενό
+  για operational visibility, όχι κρυμμένο.
+- **Rate limiting / cost caps στο ίδιο το dispatch** (πέρα από το retry
+  backoff). Καμία προστασία εδώ αν ένα restaurant παράγει ασυνήθιστα
+  μεγάλο όγκο ειδοποιήσεων -- ίδιο σκόπιμο κενό με άλλα σημεία του
+  project όπου το κόστος παρακολουθείται (Φάση 16) αλλά όχι παντού.
+
+### Τι επαληθεύτηκε πραγματικά εδώ (και τι όχι)
+
+✅ Επαληθεύτηκε:
+- **`scripts/verify_phase22_notification_dispatch.sql`** (δοκιμές A έως
+  I) εκτελέστηκε έναντι πραγματικής, τοπικής PostgreSQL 16 εγκατάστασης
+  (πλήρης αλυσίδα και των 43 migrations + `seed.sql` από την αρχή),
+  σε φρέσκο clone του merged `main` (μετά το PR #26). Καλύπτει: το
+  πλήρες state machine (`queued` -> `sending` -> `sent`/`failed`/πίσω σε
+  `queued` με backoff), ότι το atomic claim ΔΕΝ πιάνει δύο φορές την
+  ίδια γραμμή (TEST H), ότι μια πραγματική guest κράτηση (μέσω raw
+  INSERT στο `reservations`, όχι synthetic call) ενεργοποιεί σωστά το
+  ήδη υπάρχον trigger της Φάσης 09 end-to-end και παράγει σωστά και τις
+  δύο αναμενόμενες γραμμές (άμεση επιβεβαίωση + μελλοντική υπενθύμιση),
+  ότι η μελλοντική υπενθύμιση ΔΕΝ διεκδικείται πρόωρα, ότι η επίλυση
+  επαφής (customer email/locale από `customers`, guest email από
+  `reservations.guest_email`) είναι σωστή, ότι το retry-backoff
+  φτάνει σε μόνιμο `failed` μετά από 5 προσπάθειες, και ότι το EXECUTE
+  και στις δύο SECURITY DEFINER συναρτήσεις είναι πραγματικά
+  αποκλεισμένο για `anon`/`authenticated`. Επίσης επαληθεύτηκε ότι η
+  προσθήκη του νέου trigger στο `notifications` δεν έσπασε καμία
+  υπάρχουσα δοκιμή (`verify_phase09_notifications.sql` και όλα τα
+  υπόλοιπα scripts τρέχουν ξανά καθαρά, μόνο με επιπλέον αβλαβή
+  WARNING γραμμές για το λείπον Vault secret, ίδιο μοτίβο με το
+  `notify-waitlist`).
+- **TypeScript syntax check** (`ts.transpileModule`, ίδιος περιορισμός
+  με τη Φάση 21 -- το npm registry ήταν αποκλεισμένο σε αυτό το
+  sandbox) στα δύο νέα αρχεία
+  (`supabase/functions/dispatch-notifications/index.ts`,
+  `supabase/functions/_shared/notificationTemplates.ts`) -- μηδέν
+  διαγνωστικά.
+- **YAML syntax** του `dispatch-notifications-cron.yml` επαληθεύτηκε
+  προγραμματιστικά (`yaml.safe_load`).
+
+⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**:
+- **Την πραγματική αποστολή μέσω Resend/Twilio.** Καμία κλήση σε αυτό
+  το phase δεν έγινε σε πραγματικό Resend/Twilio account -- χρειάζεται
+  πραγματικά API keys και πραγματικό deployed function (βλ. migration
+  0043's header comment). Πρέπει να ελεγχθεί χειροκίνητα μετά το
+  deployment, με τα secrets ρυθμισμένα (βλ. `.env.example`).
+- **Ότι το GitHub Actions scheduled workflow πραγματικά ενεργοποιείται
+  σωστά στο πραγματικό repository.** Ίδιος περιορισμός με κάθε άλλο
+  workflow αρχείο σε αυτό το project (`ci.yml`/`deploy.yml`'s own
+  honesty notes) -- κανένα πραγματικό Actions runner δεν έτρεξε αυτό το
+  YAML μέσα σε αυτό το sandbox.
+- **Ότι το `net.http_post` call μέσα στο trigger πραγματικά φτάνει στο
+  deployed Edge Function στο πραγματικό project.** Ίδιος περιορισμός με
+  το `notify-waitlist`'s δικό του trigger (0032) -- μόνο η λογική
+  επαληθεύτηκε τοπικά, όχι η πραγματική δικτυακή παράδοση.
