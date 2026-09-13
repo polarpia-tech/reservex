@@ -86,6 +86,24 @@ a:focus-visible {
   }
 }
 
+/* Phase 20 part 2: hover lift for card-shaped links (directory listing
+   cards today, anything else card-shaped later) -- inline style objects
+   can't express :hover, same reasoning as the focus-visible rule above.
+   The global prefers-reduced-motion block below already collapses every
+   transition-duration to ~0, so this needs no separate reduced-motion
+   override -- the state change still happens, just without the animated
+   lift. */
+.card-hover {
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.card-hover:hover,
+.card-hover:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-soft);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none;
