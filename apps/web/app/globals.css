@@ -12,6 +12,14 @@ body {
   background: var(--background);
   color: var(--text-primary);
   font-family: var(--font-family);
+  /* Safety net, not the fix itself (see BookingForm.tsx's/account's own
+     inputStyle comments for the actual root cause this was covering for --
+     sub-16px form-field font-size triggering mobile auto-zoom-on-focus).
+     Belt-and-suspenders: nothing in this app is meant to scroll
+     horizontally, so if any future element ever overflows on a narrow
+     screen, this keeps it invisible/clipped instead of an awkward
+     side-scrollable page. */
+  overflow-x: hidden;
 }
 
 a {

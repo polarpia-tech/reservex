@@ -1358,9 +1358,18 @@ function Field({ label, icon, children }: { label: string; icon?: ReactNode; chi
     </label>
   );
 }
+// fontSize is 16 -- not a design choice, a mobile-web requirement: iOS
+// Safari (and some Android configurations) auto-zooms the whole page when
+// a focused form field's computed font-size is under 16px, and the zoomed
+// state then persists after the user scrolls away/back, making everything
+// on the page look shifted/cut off at the right edge. This previously read
+// 14.5 and reproduced exactly that symptom. Applies to every native
+// <input>/<textarea> that spreads this object -- name/phone/email/notes,
+// and the date/number/time fallback inputs behind the "Άλλη
+// ημερομηνία"/"Άλλος αριθμός"/"Άλλη ώρα" chips.
 const inputStyle: CSSProperties = {
   fontFamily: 'var(--font-family)',
-  fontSize: 14.5,
+  fontSize: 16,
   color: 'var(--text-primary)',
   background: 'var(--background)',
   border: '1px solid var(--border)',

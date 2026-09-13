@@ -388,9 +388,13 @@ function Field({ label, icon, children }: { label: string; icon?: ReactNode; chi
   );
 }
 
+// fontSize 16 (not 14) -- same mobile-zoom-on-focus fix as
+// BookingForm.tsx's own inputStyle; see that file's comment for the full
+// explanation. Applies to every input on this page: email/password on the
+// login form, full name/phone on the profile form.
 const inputStyle: CSSProperties = {
   fontFamily: 'var(--font-family)',
-  fontSize: 14,
+  fontSize: 16,
   color: 'var(--text-primary)',
   background: 'var(--background)',
   border: '1px solid var(--border)',
