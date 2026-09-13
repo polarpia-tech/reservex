@@ -19,11 +19,19 @@ import type { CSSProperties } from 'react';
  * forced rewrite of every inline style in the app.
  */
 
+// boxShadow here (not before): a flat bordered rectangle on a near-black
+// background reads as "unstyled placeholder", not "premium app" -- a soft
+// shadow is what actually separates a card from the page behind it. Uses
+// the --shadow-soft token that theme-editorial.css already defines (it
+// was sitting unused outside the sticky-CTA bar/bottom sheet below) so
+// every card -- the booking form, directory listing cards, reservation/
+// notification rows on the account page -- picks this up for free.
 export const cardStyle: CSSProperties = {
   border: '1px solid var(--border)',
   borderRadius: 'var(--radius-lg)',
   padding: 'clamp(20px, 3.5vw, 32px)',
   background: 'var(--surface)',
+  boxShadow: 'var(--shadow-soft)',
 };
 
 export function buttonStyle(
@@ -49,7 +57,7 @@ export function buttonStyle(
     transition: 'transform 0.15s ease, opacity 0.15s ease, background 0.15s ease',
   };
   if (variant === 'primary') {
-    return { ...base, background: 'var(--accent)', color: 'var(--accent-contrast)' };
+    return { ...base, background: 'var(--accent)', color: 'var(--accent-contrast)', boxShadow: 'var(--shadow-soft)' };
   }
   if (variant === 'secondary') {
     return { ...base, background: 'var(--surface-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-strong)' };

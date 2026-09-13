@@ -109,7 +109,10 @@ a:focus-visible {
 .card-hover:focus-visible {
   transform: translateY(-3px);
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-soft);
+  /* cardStyle now gives every card --shadow-soft at rest (see lib/ui.ts) --
+     hover/focus steps up to --shadow-elevated so the lift actually reads
+     as "this card came closer", not just a color change. */
+  box-shadow: var(--shadow-elevated);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -195,7 +195,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
       </div>
 
       <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))', gap: 'var(--space-md)' }}>
           <Field label={t(dict, 'public.account.fullName')}>
             <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} style={inputStyle} />
           </Field>

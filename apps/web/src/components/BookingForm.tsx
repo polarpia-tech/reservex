@@ -749,7 +749,7 @@ export function BookingForm({
         <Field label={t(dict, 'public.booking.guestName')}>
           <input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} required style={inputStyle} />
         </Field>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-md)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))', gap: 'var(--space-md)' }}>
           <Field label={t(dict, 'public.booking.guestPhone')} icon={<PhoneIcon size={13} />}>
             <input type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} style={inputStyle} />
           </Field>
@@ -863,7 +863,7 @@ function LiveStatsTiles({
     tiles.push({ icon: '🔥', value: popularTime, label: t(dict, 'public.booking.stats.popularCaption') });
   }
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))', gap: 8 }}>
       {tiles.map((tile) => (
         <div
           key={tile.label}
