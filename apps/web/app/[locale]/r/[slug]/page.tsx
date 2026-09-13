@@ -165,7 +165,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
           when there's room for both at >= ~340px each, one column
           (opening hours above the booking form) on a narrow phone --
           no separate mobile markup needed. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'start' }}>
         <div style={{ paddingTop: 2 }}>
           <OpeningHoursList locale={locale} openingHours={openingHours} specialHours={specialHours} />
         </div>
