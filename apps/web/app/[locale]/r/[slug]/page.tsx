@@ -1,5 +1,6 @@
-import { fetchOpeningHours, fetchPublicFeatureFlagsForRestaurant, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
+import { fetchOpeningHours, fetchPublicEvents, fetchPublicFeatureFlagsForRestaurant, fetchPublicOffers, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
 import { BookingForm } from '@/components/BookingForm';
+import { EventsOffersSection } from '@/components/EventsOffersSection';
 import { MapPinIcon, PhoneIcon } from '@/components/icons';
 import { OpeningHoursList } from '@/components/OpeningHoursList';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
@@ -33,9 +34,15 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
       </div>
     );
   }
-  const [openingHours, specialHours, flags] = await Promise.all([
+  const [openingHours, specialHours, events, offers, flags] = await Promise.all([
     fetchOpeningHours(supabase, restaurant.id),
     fetchSpecialHours(supabase, restaurant.id),
+    // Phase 20 (migration 0042): both already narrowed server-side to
+    // exactly what an anonymous visitor may see (events_public_select /
+    // offers_public_select) -- see EventsOffersSection's own doc comment
+    // for why no further filtering happens here.
+    fetchPublicEvents(supabase, restaurant.id),
+    fetchPublicOffers(supabase, restaurant.id),
     // Migration 0038: resolves all 4 feature flags in a SINGLE round trip.
     // Root-caused live in production this window (PRs #8-#11, and 0038's
     // own header comment): checking each flag with its own separate RPC
@@ -105,6 +112,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
           </p>
         )}
       </div>
+      <EventsOffersSection locale={locale} events={events} offers={offers} />
       {/* Same auto-fit grid technique as the directory page: two columns
           when there's room for both at >= ~340px each, one column
           (opening hours above the booking form) on a narrow phone --

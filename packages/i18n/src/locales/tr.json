@@ -368,7 +368,12 @@
     "staffSubtitle": "Ekibi davet et ve yönet",
     "notificationsSubtitle": "Gelen kutusu, tercihler, hatırlatma kuralları",
     "deposits": "Depozito politikaları",
-    "depositsSubtitle": "Misafirlerin ne zaman depozito ödemesi gerektiğini yönetin."
+    "depositsSubtitle": "Misafirlerin ne zaman depozito ödemesi gerektiğini yönetin.",
+    "eventsOffers": "Etkinlikler & Kampanyalar",
+    "eventsNav": "Etkinlikler",
+    "eventsNavSubtitle": "Özel geceler, canlı müzik, özel kiralamalar",
+    "offersNav": "Kampanyalar",
+    "offersNavSubtitle": "İndirimler ve kampanyalar"
   },
   "waitlist": {
     "title": "Bekleme listesi",
@@ -414,7 +419,11 @@
       "contactTitle": "İletişim",
       "closedAllDay": "Kapalı",
       "notFoundTitle": "Restoran bulunamadı",
-      "notFoundBody": "Bu restoran mevcut değil veya şu anda online rezervasyon kabul etmiyor."
+      "notFoundBody": "Bu restoran mevcut değil veya şu anda online rezervasyon kabul etmiyor.",
+      "eventsTitle": "Yaklaşan Etkinlikler",
+      "offersTitle": "Kampanyalar",
+      "offerValidFrom": "{{date}} itibarıyla",
+      "offerValidUntil": "{{date}} tarihine kadar"
     },
     "booking": {
       "title": "Masa ayırt",
@@ -681,5 +690,47 @@
     "insightHighOccupancy": "Yüksek talep — masaların %{{percent}} kadarı şu anda dolu.",
     "insightLowOccupancy": "Bolca uygunluk var — masaların yalnızca %{{percent}} kadarı şu anda dolu.",
     "loadError": "Panel verileri yüklenemedi."
+  },
+  "events": {
+    "title": "Etkinlikler",
+    "subtitle": "Özel geceler, canlı müzik, özel kiralamalar -- özel olarak işaretlenmedikçe genel sayfanızda gösterilir.",
+    "noEvents": "Henüz etkinlik yok.",
+    "addEvent": "Etkinlik ekle",
+    "name": "İsim",
+    "namePlaceholder": "örn. Live Jazz Night",
+    "startsAt": "Başlangıç",
+    "endsAt": "Bitiş",
+    "dateTimeHint": "YYYY-AA-GG SS:dd",
+    "isPrivate": "Özel (kapalı etkinlik -- genel sayfada gizli)",
+    "isActive": "Aktif",
+    "capacity": "Kapasite (isteğe bağlı)",
+    "minPartySize": "Min. grup büyüklüğü (isteğe bağlı)",
+    "maxPartySize": "Maks. grup büyüklüğü (isteğe bağlı)",
+    "deactivate": "Devre dışı bırak",
+    "reactivate": "Yeniden etkinleştir",
+    "deleteConfirmTitle": "Etkinlik silinsin mi?",
+    "deleteConfirmBody": "Bu işlem geri alınamaz.",
+    "invalidDates": "Bitiş saati başlangıç saatinden sonra olmalıdır.",
+    "invalidDateFormat": "YYYY-AA-GG SS:dd biçimini kullanın.",
+    "privateBadge": "Özel"
+  },
+  "offers": {
+    "title": "Kampanyalar",
+    "subtitle": "İndirimler ve kampanyalar -- aktif oldukları ve geçerlilik tarihleri içinde oldukları sürece genel sayfanızda gösterilir.",
+    "noOffers": "Henüz kampanya yok.",
+    "addOffer": "Kampanya ekle",
+    "offerTitle": "Başlık",
+    "offerTitlePlaceholder": "örn. Happy Hour 17:00-19:00",
+    "descriptionLabel": "Açıklama (isteğe bağlı)",
+    "descriptionPlaceholder": "Koşullar, neler dahil...",
+    "validFrom": "Başlangıç tarihi (isteğe bağlı)",
+    "validUntil": "Bitiş tarihi (isteğe bağlı)",
+    "isActive": "Aktif",
+    "deactivate": "Devre dışı bırak",
+    "reactivate": "Yeniden etkinleştir",
+    "deleteConfirmTitle": "Kampanya silinsin mi?",
+    "deleteConfirmBody": "Bu işlem geri alınamaz.",
+    "invalidDates": "Bitiş tarihi başlangıç tarihinden sonra olmalıdır.",
+    "invalidDateFormat": "YYYY-AA-GG SS:dd biçimini kullanın."
   }
 }

@@ -86,6 +86,20 @@ export default function SettingsHubScreen() {
       ) : null}
 
       <Text style={[styles.sectionTitle, { color: theme.textMuted, marginTop: spacing['3xl'] }]}>
+        {t('settings.eventsOffers')}
+      </Text>
+      <NavRow
+        title={t('settings.eventsNav')}
+        subtitle={t('settings.eventsNavSubtitle')}
+        onPress={() => router.push('/(tabs)/settings/events')}
+      />
+      <NavRow
+        title={t('settings.offersNav')}
+        subtitle={t('settings.offersNavSubtitle')}
+        onPress={() => router.push('/(tabs)/settings/offers')}
+      />
+
+      <Text style={[styles.sectionTitle, { color: theme.textMuted, marginTop: spacing['3xl'] }]}>
         {t('settings.language')}
       </Text>
       <Card style={styles.languageCard}>

@@ -368,7 +368,12 @@
     "staffSubtitle": "Invite & manage your team",
     "notificationsSubtitle": "Inbox, preferences, reminder rules",
     "deposits": "Deposit policies",
-    "depositsSubtitle": "Manage when guests must pay a deposit to book."
+    "depositsSubtitle": "Manage when guests must pay a deposit to book.",
+    "eventsOffers": "Events & Offers",
+    "eventsNav": "Events",
+    "eventsNavSubtitle": "Special nights, live music, private buyouts",
+    "offersNav": "Offers",
+    "offersNavSubtitle": "Discounts and promotions"
   },
   "waitlist": {
     "title": "Waitlist",
@@ -414,7 +419,11 @@
       "contactTitle": "Contact",
       "closedAllDay": "Closed",
       "notFoundTitle": "Restaurant not found",
-      "notFoundBody": "This restaurant doesn't exist or isn't accepting online bookings right now."
+      "notFoundBody": "This restaurant doesn't exist or isn't accepting online bookings right now.",
+      "eventsTitle": "Upcoming Events",
+      "offersTitle": "Offers",
+      "offerValidFrom": "From {{date}}",
+      "offerValidUntil": "Until {{date}}"
     },
     "booking": {
       "title": "Book a table",
@@ -681,5 +690,47 @@
     "insightHighOccupancy": "High demand — {{percent}}% of tables are occupied right now.",
     "insightLowOccupancy": "Plenty of availability — only {{percent}}% of tables are occupied right now.",
     "loadError": "Couldn't load dashboard stats."
+  },
+  "events": {
+    "title": "Events",
+    "subtitle": "Special nights, live music, private buyouts -- shown on your public page unless marked private.",
+    "noEvents": "No events yet.",
+    "addEvent": "Add event",
+    "name": "Name",
+    "namePlaceholder": "e.g. Live Jazz Night",
+    "startsAt": "Starts at",
+    "endsAt": "Ends at",
+    "dateTimeHint": "YYYY-MM-DD HH:mm",
+    "isPrivate": "Private (buyout -- hidden from your public page)",
+    "isActive": "Active",
+    "capacity": "Capacity (optional)",
+    "minPartySize": "Min party size (optional)",
+    "maxPartySize": "Max party size (optional)",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "deleteConfirmTitle": "Delete event?",
+    "deleteConfirmBody": "This cannot be undone.",
+    "invalidDates": "End time must be after the start time.",
+    "invalidDateFormat": "Use the format YYYY-MM-DD HH:mm.",
+    "privateBadge": "Private"
+  },
+  "offers": {
+    "title": "Offers",
+    "subtitle": "Discounts and promotions -- shown on your public page while active and within their dates.",
+    "noOffers": "No offers yet.",
+    "addOffer": "Add offer",
+    "offerTitle": "Title",
+    "offerTitlePlaceholder": "e.g. Happy Hour 17:00-19:00",
+    "descriptionLabel": "Description (optional)",
+    "descriptionPlaceholder": "Terms, conditions, what's included...",
+    "validFrom": "Valid from (optional)",
+    "validUntil": "Valid until (optional)",
+    "isActive": "Active",
+    "deactivate": "Deactivate",
+    "reactivate": "Reactivate",
+    "deleteConfirmTitle": "Delete offer?",
+    "deleteConfirmBody": "This cannot be undone.",
+    "invalidDates": "The end date must be after the start date.",
+    "invalidDateFormat": "Use the format YYYY-MM-DD HH:mm."
   }
 }

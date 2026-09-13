@@ -368,7 +368,12 @@
     "staffSubtitle": "Team einladen & verwalten",
     "notificationsSubtitle": "Posteingang, Einstellungen, Erinnerungsregeln",
     "deposits": "Anzahlungsregeln",
-    "depositsSubtitle": "Legen Sie fest, wann Gäste eine Anzahlung leisten müssen."
+    "depositsSubtitle": "Legen Sie fest, wann Gäste eine Anzahlung leisten müssen.",
+    "eventsOffers": "Veranstaltungen & Angebote",
+    "eventsNav": "Veranstaltungen",
+    "eventsNavSubtitle": "Besondere Abende, Live-Musik, private Buchungen",
+    "offersNav": "Angebote",
+    "offersNavSubtitle": "Rabatte und Aktionen"
   },
   "waitlist": {
     "title": "Warteliste",
@@ -414,7 +419,11 @@
       "contactTitle": "Kontakt",
       "closedAllDay": "Geschlossen",
       "notFoundTitle": "Restaurant nicht gefunden",
-      "notFoundBody": "Dieses Restaurant existiert nicht oder nimmt derzeit keine Online-Buchungen an."
+      "notFoundBody": "Dieses Restaurant existiert nicht oder nimmt derzeit keine Online-Buchungen an.",
+      "eventsTitle": "Anstehende Veranstaltungen",
+      "offersTitle": "Angebote",
+      "offerValidFrom": "Ab {{date}}",
+      "offerValidUntil": "Bis {{date}}"
     },
     "booking": {
       "title": "Tisch buchen",
@@ -681,5 +690,47 @@
     "insightHighOccupancy": "Hohe Nachfrage — {{percent}}% der Tische sind gerade belegt.",
     "insightLowOccupancy": "Viel Verfügbarkeit — nur {{percent}}% der Tische sind gerade belegt.",
     "loadError": "Dashboard-Daten konnten nicht geladen werden."
+  },
+  "events": {
+    "title": "Veranstaltungen",
+    "subtitle": "Besondere Abende, Live-Musik, private Buchungen -- werden auf Ihrer öffentlichen Seite angezeigt, sofern nicht als privat markiert.",
+    "noEvents": "Noch keine Veranstaltungen.",
+    "addEvent": "Veranstaltung hinzufügen",
+    "name": "Name",
+    "namePlaceholder": "z.B. Live Jazz Night",
+    "startsAt": "Beginn",
+    "endsAt": "Ende",
+    "dateTimeHint": "JJJJ-MM-TT HH:mm",
+    "isPrivate": "Privat (geschlossene Veranstaltung -- nicht auf der öffentlichen Seite sichtbar)",
+    "isActive": "Aktiv",
+    "capacity": "Kapazität (optional)",
+    "minPartySize": "Min. Gruppengröße (optional)",
+    "maxPartySize": "Max. Gruppengröße (optional)",
+    "deactivate": "Deaktivieren",
+    "reactivate": "Reaktivieren",
+    "deleteConfirmTitle": "Veranstaltung löschen?",
+    "deleteConfirmBody": "Dies kann nicht rückgängig gemacht werden.",
+    "invalidDates": "Die Endzeit muss nach der Startzeit liegen.",
+    "invalidDateFormat": "Verwenden Sie das Format JJJJ-MM-TT HH:mm.",
+    "privateBadge": "Privat"
+  },
+  "offers": {
+    "title": "Angebote",
+    "subtitle": "Rabatte und Aktionen -- werden auf Ihrer öffentlichen Seite angezeigt, solange sie aktiv und innerhalb ihres Gültigkeitszeitraums sind.",
+    "noOffers": "Noch keine Angebote.",
+    "addOffer": "Angebot hinzufügen",
+    "offerTitle": "Titel",
+    "offerTitlePlaceholder": "z.B. Happy Hour 17:00-19:00",
+    "descriptionLabel": "Beschreibung (optional)",
+    "descriptionPlaceholder": "Bedingungen, was enthalten ist...",
+    "validFrom": "Gültig ab (optional)",
+    "validUntil": "Gültig bis (optional)",
+    "isActive": "Aktiv",
+    "deactivate": "Deaktivieren",
+    "reactivate": "Reaktivieren",
+    "deleteConfirmTitle": "Angebot löschen?",
+    "deleteConfirmBody": "Dies kann nicht rückgängig gemacht werden.",
+    "invalidDates": "Das Enddatum muss nach dem Startdatum liegen.",
+    "invalidDateFormat": "Verwenden Sie das Format JJJJ-MM-TT HH:mm."
   }
 }
