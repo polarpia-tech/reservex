@@ -533,3 +533,65 @@ export interface FeatureFlagOverride {
   isEnabled: boolean;
   createdAt: ISODateTime;
 }
+
+// ---- Phase 21: events & offers (migration 0042) ------------------------
+
+/**
+ * `events` has existed since Phase 02 (0004_availability_and_events.sql) as
+ * a staff-only entity (NYE, live music nights, private buyouts -- each can
+ * carry its own capacity/booking window, separate from normal service).
+ * Phase 21 (0042) adds nothing to the table itself -- only a new public
+ * read policy (events_public_select) so genuinely public, non-private,
+ * active events show up on the restaurant's own public page.
+ */
+export interface RestaurantEvent {
+  id: UUID;
+  restaurantId: UUID;
+  name: string;
+  description: string | null;
+  descriptionI18n: Partial<Record<'de' | 'en' | 'el' | 'tr', string>>;
+  coverImageUrl: string | null;
+  startsAt: ISODateTime;
+  endsAt: ISODateTime;
+  capacity: number | null;
+  minPartySize: number | null;
+  maxPartySize: number | null;
+  /** Buyouts/closed-door parties -- deliberately excluded from public read (events_public_select), still fully manageable by staff. */
+  isPrivate: boolean;
+  bookingOpensAt: ISODateTime | null;
+  bookingClosesAt: ISODateTime | null;
+  isActive: boolean;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+  deletedAt: ISODateTime | null;
+}
+
+/**
+ * Brand-new in migration 0042: a discount/promotion a restaurant runs (e.g.
+ * "Happy Hour 17:00-19:00", "20% off Tuesdays"). Deliberately simpler than
+ * RestaurantEvent -- no capacity/booking-window fields (an offer is terms
+ * that apply to a normal reservation, not something a guest books a slot
+ * for) and no cover image (mirrors why `restaurants` itself doesn't have a
+ * working image upload path yet -- see Phase 05's README note on Storage
+ * buckets not being set up).
+ *
+ * validFrom/validUntil are both nullable: an offer with neither is a
+ * standing/evergreen offer (e.g. a permanent "kids eat free on Sundays"),
+ * not a bug -- null means "no bound on this side". Whether an offer is
+ * *currently* within its validity window is a query-layer concern (see
+ * isOfferCurrentlyValid() in api/offers.ts), not something RLS enforces.
+ */
+export interface Offer {
+  id: UUID;
+  restaurantId: UUID;
+  title: string;
+  titleI18n: Partial<Record<'de' | 'en' | 'el' | 'tr', string>>;
+  description: string | null;
+  descriptionI18n: Partial<Record<'de' | 'en' | 'el' | 'tr', string>>;
+  validFrom: ISODateTime | null;
+  validUntil: ISODateTime | null;
+  isActive: boolean;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+  deletedAt: ISODateTime | null;
+}

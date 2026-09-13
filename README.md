@@ -2804,7 +2804,6 @@ Support Mode, mobile-first redesign, AI/notification administration,
 - Καμία νέα SQL/migration σε αυτή τη φάση, άρα το `Database migrations,
   RLS, and regression suite` CI job δεν έχει τίποτα νέο να ελέγξει --
   αναμενόμενο πέρασμα χωρίς αλλαγή συμπεριφοράς.
-
 ## Φάση 20: Customer UI redesign, μέρος 1 (design system + booking flow)
 
 Πρώτο PR μιας μεγαλύτερης πρωτοβουλίας: πλήρες redesign του δημόσιου,
@@ -3183,3 +3182,181 @@ padding vs. το hard-coded minimum), όχι απλά υποψία.
 όχι πιθανολογία -- πολύ πιο σίγουρο από το προηγούμενο font-size fix.
 Χρειάζεται δοκιμή σε πραγματικό κινητό ΜΕΤΑ το merge.
 
+## Φάση 21: Events & Offers (δημόσια σελίδα)
+
+Πρώτο "νέο feature" PR μετά τη Φάση 19, ζητήθηκε ρητά από τον ιδιοκτήτη
+της πλατφόρμας ως προτεραιότητα υψηλότερη από τεχνικό χρέος: events και
+offers να εμφανίζονται στη δημόσια σελίδα κάθε εστιατορίου. Το
+`events` υπάρχει ως πίνακας από τη Φάση 02 (μόνο staff-only μέχρι τώρα,
+καμία δημόσια ανάγνωση, καμία UI για δημιουργία/επεξεργασία). Τα
+`offers` δεν υπήρχαν καθόλου -- νέος πίνακας. Ratings/reviews **δεν**
+είναι μέρος αυτής της φάσης (βλ. "Τι ΔΕΝ χτίστηκε" παρακάτω).
+
+### Τι χτίστηκε
+
+- **`supabase/migrations/0042_events_offers_public.sql`**: δύο πράγματα.
+  (1) `events_public_select` -- νέο RLS SELECT policy πάνω στον ήδη
+  υπάρχοντα πίνακα `events`, ίδιο μοτίβο με τα public-read policies της
+  Φάσης 08 (0014): ορατό σε `anon` μόνο όταν `is_active`, `deleted_at is
+  null`, `not is_private`, και το εστιατόριο-γονέας είναι ενεργό/μη
+  διαγραμμένο. Buyouts/private events παραμένουν αόρατα σε δημόσια
+  ανάγνωση -- η εγγραφή τους παραμένει ανεπηρέαστη (`events_write` από
+  τη 0011 δεν αγγίζεται καθόλου). (2) νέος πίνακας `public.offers`
+  (εκπτώσεις/προσφορές -- π.χ. "Happy Hour 17:00-19:00"): σκόπιμα πιο
+  απλός από το `events` -- χωρίς capacity/booking-window στήλες (μια
+  προσφορά δεν είναι κάτι που κλείνεις ραντεβού, είναι όροι πάνω σε μια
+  κανονική κράτηση) και χωρίς `cover_image_url` (καμία λειτουργική
+  Storage διαδρομή upload να τη γεμίσει ακόμα -- βλ. Φάση 05). Ίδιο
+  ζεύγος write/public-read policies με το `events` (owner/manager/
+  reservation_manager write, narrow public-read).
+- **`packages/core/src/api/events.ts`** (νέο) και
+  **`packages/core/src/api/offers.ts`** (νέο): `mapEventRow`/
+  `mapOfferRow`, `fetchEvents`/`fetchOffers` (staff, όλα τα μη
+  διαγραμμένα), `fetchPublicEvents`/`fetchPublicOffers` (ό,τι επιτρέπει
+  ήδη το server-side RLS, με επιπλέον client-side φιλτράρισμα: μόνο
+  μελλοντικά events, μόνο offers εντός του δικού τους παραθύρου
+  ισχύος -- `isOfferCurrentlyValid()`), `create*`/`update*`/`delete*`
+  (soft delete μέσω `deleted_at`, ίδιο μοτίβο με `deleteTable()`). Απλά
+  sequential inserts, όχι SECURITY DEFINER function -- καμία συνθήκη
+  ανταγωνισμού να προστατευτεί εδώ, ίδια λογική με το
+  `createTableCombination()`. Νέοι τύποι `RestaurantEvent`/`Offer` στο
+  `packages/core/src/types/database.ts`, exported από το
+  `packages/core/src/index.ts`.
+- **`apps/mobile/app/(tabs)/settings/events.tsx`** και **`.../offers.tsx`**
+  (νέα): ένα flat add + list + toggle-active + delete screen το καθένα,
+  ίδιο μοτίβο με το `deposit-policies.tsx` -- μικρή λίστα ρυθμίσεων ανά
+  εστιατόριο, όχι αρκετά πολύπλοκη ώστε να αξίζει δικό της multi-screen
+  stack. Ημερομηνίες/ώρες εισάγονται ως απλό κείμενο
+  "YYYY-MM-DD HH:mm" (χωρίς date-picker εξάρτηση -- καμία δεν υπάρχει
+  ήδη πουθενά αλλού στην εφαρμογή). Δύο νέα nav rows στο
+  `settings/index.tsx` κάτω από μια νέα ενότητα "Events & Offers"
+  (ορατά σε όλο το staff -- η ίδια η RLS ήδη επιτρέπει ανάγνωση σε κάθε
+  μέλος του εστιατορίου, μόνο τα κουμπιά επεξεργασίας/διαγραφής
+  κρύβονται πίσω από `isOwnerOrManager`, ίδιο μοτίβο με το
+  `combinations` screen).
+- **`apps/web/src/components/EventsOffersSection.tsx`** (νέο): καθαρά
+  presentational Server Component, ίδια λογική διαχωρισμού με το
+  `OpeningHoursList.tsx` -- καμία δική του λήψη δεδομένων, απλά
+  εμφανίζει ό,τι του περάσουν οι δύο νέες `fetchPublicEvents`/
+  `fetchPublicOffers` κλήσεις. Renders `null` (καμία ένδειξη κενής
+  λίστας) όταν και τα δύο σύνολα είναι άδεια -- μια δημόσια σελίδα δεν
+  χρειάζεται να πει "δεν υπάρχουν events ακόμα" σε επισκέπτη. Ενταγμένο
+  στο `apps/web/app/[locale]/r/[slug]/page.tsx` ανάμεσα στο header και
+  στο δίστηλο opening-hours/booking-form grid. Νέο `TagIcon` στο
+  `apps/web/src/components/icons.tsx` (ίδιο hand-rolled SVG μοτίβο με
+  τα υπόλοιπα εικονίδια του αρχείου -- καμία νέα εξωτερική εξάρτηση).
+- **i18n**: νέα top-level κλειδιά `events.*`/`offers.*` (mobile
+  διαχείριση) και `public.restaurant.eventsTitle`/`offersTitle`/
+  `offerValidFrom`/`offerValidUntil` (δημόσια σελίδα) και στα 4 locale
+  αρχεία (`en`, `el`, `de`, `tr`), πλήρως μεταφρασμένα (όχι μόνο
+  αγγλικά με τα υπόλοιπα ως fallback) -- επαληθευμένη ισότητα του
+  συνόλου κλειδιών ανάμεσα στα 4 αρχεία (βλ. "Τι επαληθεύτηκε"
+  παρακάτω). Νέα ενότητα `settings.eventsOffers`/`eventsNav`/
+  `offersNav` + subtitles για τα δύο νέα nav rows.
+
+### Σημαντικές αρχιτεκτονικές αποφάσεις
+
+- **Ratings/reviews σκόπιμα ΕΚΤΟΣ αυτού του PR**, παρότι ήταν μέρος της
+  αρχικής κατηγοριοποίησης "Ratings/Events/Offers". Μια αξιολόγηση
+  χρειάζεται μοντέλο εμπιστοσύνης (ποιος επιτρέπεται να αξιολογήσει,
+  μία αξιολόγηση ανά ολοκληρωμένη κράτηση, πρόληψη κατάχρησης/spam,
+  πιθανώς moderation queue) που δεν σχεδιάστηκε καθόλου σε αυτή τη
+  φάση -- η προσθήκη μιας απλής `reviews` στήλης/πίνακα χωρίς αυτό το
+  μοντέλο θα δημιουργούσε ακριβώς το είδος του "λειτουργεί αλλά δεν
+  έχει ξανακοιταχτεί" κενού που αυτό το project προσπαθεί συστηματικά
+  να αποφύγει.
+- **Το `events_public_select` δεν αγγίζει καθόλου το write path.** Η
+  Φάση 21 προσθέτει ΜΟΝΟ ένα νέο SELECT policy πάνω σε πίνακα που ήδη
+  υπήρχε από τη Φάση 02 -- καμία αλλαγή σχήματος, καμία αλλαγή στο
+  `events_write` (0011). Αυτό σημαίνει ότι το reservation-engine
+  fallback της Φάσης 07 (`get_available_table_combinations` κ.λπ.) και
+  οτιδήποτε άλλο ήδη διαβάζει/γράφει `events` παραμένει 100% αμετάβλητο.
+- **Δύο ξεχωριστές fetch συναρτήσεις ανά entity (staff vs public), όχι
+  μία με παράμετρο.** `fetchEvents`/`fetchPublicEvents` και
+  `fetchOffers`/`fetchPublicOffers` -- το staff view χρειάζεται τα
+  πάντα (inactive/private/past), το public view χρειάζεται ένα
+  γνησίως διαφορετικό υποσύνολο με δικά του φίλτρα (μελλοντικά events,
+  offers εντός του δικού τους παραθύρου ισχύος) πάνω από ό,τι ήδη
+  φιλτράρει η ίδια η RLS. Ξεχωριστές συναρτήσεις κάνουν αυτή τη διαφορά
+  ρητή στον κώδικα, αντί για ένα boolean flag που θα έκρυβε τη διαφορά.
+- **`isOfferCurrentlyValid()` είναι query-layer λογική, όχι RLS.** Η
+  RLS (`offers_public_select`) επιτρέπει ανάγνωση όσο η ίδια η
+  εγγραφή/το εστιατόριο είναι ενεργά -- το αν μια προσφορά είναι ΤΩΡΑ
+  εντός του `valid_from`/`valid_until` παραθύρου της είναι ξεχωριστός
+  έλεγχος, ίδιος διαχωρισμός ευθύνης με το `is_restaurant_open_at()`
+  της Φάσης 08 vs το opening-hours read policy.
+- **Καμία date-picker εξάρτηση.** Τόσο το mobile όσο και το web app δεν
+  έχουν ξαναχρησιμοποιήσει native/browser date picker πουθενά (opening
+  hours, special hours -- όλα απλά text/number fields) -- τα νέα forms
+  ακολουθούν την ίδια σύμβαση αντί να εισάγουν ασύμμετρα ένα νέο
+  UI pattern μόνο για δύο οθόνες.
+
+### Τι ΔΕΝ χτίστηκε (σκόπιμα -- εκτός εύρους αυτού του PR)
+
+- Ratings/reviews (βλ. πάνω).
+- Cover image για events (η στήλη `cover_image_url` υπάρχει από τη
+  Φάση 02, αλλά καμία upload διαδρομή/Storage bucket δεν έχει χτιστεί
+  ακόμα σε καμία φάση -- ίδιο σκόπιμο κενό με το λογότυπο εστιατορίου
+  από τη Φάση 05).
+- Επαναλαμβανόμενα (recurring) events -- κάθε event είναι ένα μεμονωμένο
+  `starts_at`/`ends_at` ζεύγος, καμία υποδομή για "κάθε Παρασκευή στις
+  20:00".
+- Ειδοποίηση (push/email/in-app) όταν δημοσιεύεται νέο event/offer --
+  καμία σύνδεση με την υπάρχουσα υποδομή ειδοποιήσεων της Φάσης 09.
+- Καμία ορατότητα σε επίπεδο Admin πλατφόρμας (Φάσεις 13/18/19) για
+  events/offers σε όλα τα εστιατόρια -- παραμένει αμιγώς per-restaurant
+  λειτουργία.
+- Booking μέσω event (καμία σύνδεση των `capacity`/`min_party_size`/
+  `max_party_size`/`booking_opens_at`/`booking_closes_at` στηλών του
+  `events` με το booking flow -- αυτές οι στήλες υπάρχουν από τη Φάση
+  02 αλλά κανένα UI, mobile ή web, τις εκθέτει ακόμα σε αυτή τη φάση).
+
+### Τι επαληθεύτηκε πραγματικά εδώ (και τι όχι)
+
+✅ Επαληθεύτηκε:
+- **`scripts/verify_phase20_events_offers.sql`** (9 δοκιμές, A έως I)
+  εκτελέστηκε έναντι πραγματικής, τοπικής PostgreSQL 16 εγκατάστασης
+  (πλήρης αλυσίδα και των 42 migrations + `seed.sql` από την αρχή),
+  όχι μόνο syntax check: tenant isolation στο write path (Δ, Η
+  αναμένουν RLS error), δημόσια ορατότητα φιλτραρισμένη σωστά κατά
+  `is_active`/`deleted_at`/`is_private`/κατάσταση εστιατορίου (Ε, Ζ, Θ,
+  Ι), και ισοτιμία staff-vs-anon για γνησίως δημόσια events (ΣΤ --
+  ένα δημόσιο event είναι δημόσιο σε όλους, όχι μόνο σε `anon`).
+  Εντοπίστηκε και διορθώθηκε κατά την ανάπτυξη ένα session-level GUC
+  leak (`request.jwt.claim.sub`) στο ίδιο το test script (όχι bug στο
+  migration) -- βλ. πλήρη περιγραφή στο commit/PR αυτής της φάσης.
+- **TypeScript syntax check** (`ts.transpileModule`, χωρίς πλήρη
+  εγκατεστημένα node_modules -- το pnpm workspace δεν είναι
+  εγκατεστημένο σε αυτό το sandbox και το npm registry ήταν
+  αποκλεισμένο κατά τη διάρκεια αυτής της φάσης) σε όλα τα νέα/
+  τροποποιημένα `.ts`/`.tsx` αρχεία: `packages/core/src/api/events.ts`,
+  `offers.ts`, `types/database.ts`, `index.ts`,
+  `apps/mobile/app/(tabs)/settings/events.tsx`, `offers.tsx`,
+  `index.tsx`, `apps/web/src/components/EventsOffersSection.tsx`,
+  `icons.tsx`, `apps/web/app/[locale]/r/[slug]/page.tsx` -- μηδέν
+  διαγνωστικά (0 syntax/JSX errors) σε όλα. Επιπλέον, τα δύο νέα
+  αρχεία core API (`events.ts`/`offers.ts`) περάστηκαν από πλήρη
+  `tsc --noEmit` (όχι μόνο `transpileModule`) με πραγματικά
+  εγκατεστημένο `typescript`+`@supabase/supabase-js` σε
+  απομονωμένο φάκελο -- μηδέν σφάλματα τύπων.
+- **i18n**: και τα 4 αρχεία locale (`en`/`el`/`de`/`tr`) επαληθεύτηκαν
+  ως έγκυρο JSON μετά την επεξεργασία, και το σύνολο κλειδιών κάτω από
+  `events`, `offers`, και τα νέα `settings.*`/`public.restaurant.*`
+  κλειδιά επαληθεύτηκε προγραμματιστικά ως πανομοιότυπο και στα 4
+  αρχεία (καμία γλώσσα να μην λείπει κλειδί που έχουν οι άλλες τρεις).
+- Ισορροπημένα `{}`/`()`/`[]` σε όλα τα νέα αρχεία (προγραμματιστικός
+  έλεγχος πριν το transfer στη συσκευή του χρήστη).
+
+⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**:
+- Ότι οι δύο νέες mobile οθόνες και το νέο web section πραγματικά
+  κάνουν render σωστά σε πραγματικό Expo/Next dev server έναντι
+  ζωντανής Supabase βάσης -- κανένα `npm install`/`expo start`/
+  `next dev` εκτελέστηκε (το npm registry ήταν αποκλεισμένο σε αυτό
+  το sandbox κατά τη διάρκεια αυτής της φάσης· βλ. σημείωση παραπάνω).
+  Μόνο syntax check + χειροκίνητο code review, ίδιος περιορισμός με
+  τις Φάσεις 13/18/19. Θα επαληθευτεί από το `Lint & typecheck` CI job
+  στο PR αυτής της φάσης.
+- Ότι το `isOfferCurrentlyValid()` και το date-parsing στα δύο mobile
+  forms συμπεριφέρονται σωστά σε πραγματικές timezone άκρες (π.χ.
+  αλλαγή ώρας θερινής/χειμερινής) -- μόνο λογική επιθεώρηση, καμία
+  runtime δοκιμή με πραγματικές ημερομηνίες σε πραγματική συσκευή.

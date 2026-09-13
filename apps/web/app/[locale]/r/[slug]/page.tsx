@@ -1,5 +1,6 @@
-import { fetchOpeningHours, fetchPublicFeatureFlagsForRestaurant, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
+import { fetchOpeningHours, fetchPublicEvents, fetchPublicFeatureFlagsForRestaurant, fetchPublicOffers, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
 import { BookingForm } from '@/components/BookingForm';
+import { EventsOffersSection } from '@/components/EventsOffersSection';
 import { MapPinIcon, PhoneIcon, UtensilsIcon } from '@/components/icons';
 import { OpeningHoursList } from '@/components/OpeningHoursList';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
@@ -35,9 +36,15 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
       </div>
     );
   }
-  const [openingHours, specialHours, flags] = await Promise.all([
+  const [openingHours, specialHours, events, offers, flags] = await Promise.all([
     fetchOpeningHours(supabase, restaurant.id),
     fetchSpecialHours(supabase, restaurant.id),
+    // Phase 21 (migration 0042): both already narrowed server-side to
+    // exactly what an anonymous visitor may see (events_public_select /
+    // offers_public_select) -- see EventsOffersSection's own doc comment
+    // for why no further filtering happens here.
+    fetchPublicEvents(supabase, restaurant.id),
+    fetchPublicOffers(supabase, restaurant.id),
     // Migration 0038: resolves all 4 feature flags in a SINGLE round trip.
     // Root-caused live in production this window (PRs #8-#11, and 0038's
     // own header comment): checking each flag with its own separate RPC
@@ -75,10 +82,12 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
           composition/type/color instead -- a soft decorative accent glow
           (pure CSS, no image), the logo shown honestly as a small badge
           next to the name when present, and a real restaurant-type chip
-          (data the app already has). Star ratings, events and offers from
-          the original brief stay out for the same reason: there is no
-          ratings/events/offers table yet (see this PR's README section) --
-          adding that UI now would mean shipping fake or empty content. */}
+          (data the app already has). Star ratings from the original brief
+          stay out for the same reason: there is no ratings table yet
+          (see this PR's README section). Events and offers landed
+          separately in Phase 21, rendered below via EventsOffersSection
+          rather than folded into this hero -- keeping this hero's own
+          scope (identity/contact/description) unchanged. */}
       <div
         style={{
           position: 'relative',
@@ -161,6 +170,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
           </p>
         )}
       </div>
+      <EventsOffersSection locale={locale} events={events} offers={offers} />
       {/* Same auto-fit grid technique as the directory page: two columns
           when there's room for both at >= ~340px each, one column
           (opening hours above the booking form) on a narrow phone --

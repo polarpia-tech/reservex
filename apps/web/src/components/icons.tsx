@@ -78,6 +78,15 @@ export function CalendarIcon({ size = 16, style }: IconProps) {
   );
 }
 
+export function TagIcon({ size = 16, style }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ ...base(size), ...style }} aria-hidden="true">
+      <path d="M12.5 3.5H6a2.5 2.5 0 0 0-2.5 2.5v6.5a1 1 0 0 0 .3.7l9.3 9.3a1.5 1.5 0 0 0 2.12 0l6.68-6.68a1.5 1.5 0 0 0 0-2.12l-9.3-9.3a1 1 0 0 0-.7-.3Z" />
+      <circle cx="8" cy="8" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function UsersIcon({ size = 16, style }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ ...base(size), ...style }} aria-hidden="true">
