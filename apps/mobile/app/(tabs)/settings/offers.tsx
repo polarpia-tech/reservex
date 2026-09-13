@@ -18,7 +18,7 @@ import { useTheme } from '@/theme/ThemeProvider';
  * Owner/manager/reservation_manager only (offers_write RLS, migration
  * 0042). One flat add + list + toggle-active + delete screen, same pattern
  * as deposit-policies.tsx and events.tsx -- `offers` is a brand-new table
- * in Phase 20, this is its only management UI.
+ * in Phase 21, this is its only management UI.
  *
  * validFrom/validUntil are both optional, plain "YYYY-MM-DD HH:mm" text
  * (same reasoning as events.tsx: no date-picker dependency exists anywhere

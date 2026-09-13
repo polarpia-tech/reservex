@@ -19,7 +19,7 @@ import { useTheme } from '@/theme/ThemeProvider';
  * Phase 02). One flat add + list + toggle-active + delete screen, same
  * reasoning as deposit-policies.tsx: a small single-restaurant config list.
  *
- * `events` itself is not new (Phase 02) -- what's new in Phase 20 is that a
+ * `events` itself is not new (Phase 02) -- what's new in Phase 21 is that a
  * non-private, active event created here now actually shows up on the
  * restaurant's public page (events_public_select, migration 0042). This
  * screen is the first UI to create/edit events at all.

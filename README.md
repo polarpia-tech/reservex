@@ -2804,8 +2804,385 @@ Support Mode, mobile-first redesign, AI/notification administration,
 - Καμία νέα SQL/migration σε αυτή τη φάση, άρα το `Database migrations,
   RLS, and regression suite` CI job δεν έχει τίποτα νέο να ελέγξει --
   αναμενόμενο πέρασμα χωρίς αλλαγή συμπεριφοράς.
+## Φάση 20: Customer UI redesign, μέρος 1 (design system + booking flow)
 
-## Φάση 20: Events & Offers (δημόσια σελίδα)
+Πρώτο PR μιας μεγαλύτερης πρωτοβουλίας: πλήρες redesign του δημόσιου,
+customer-facing `apps/web` (directory, restaurant profile, booking form,
+account) βάσει ρητής, 18-σημείων προδιαγραφής -- premium, full-screen,
+mobile-first-αλλά-όχι-mobile-only εμπειρία, μηδενικά κίτρινα/amber tones,
+chip-style επιλογείς αντί για classic dropdowns/native inputs, χωρίς καμία
+αλλαγή σε backend/business logic. Το redesign χωρίστηκε σε πολλαπλά PR για
+να μένει κάθε ένα ελέγξιμο· αυτό το πρώτο καλύπτει το θεμέλιο (παλέτα +
+design tokens + κοινά style primitives) και την πιο σημαντική οθόνη, τη
+φόρμα κράτησης.
+
+### Τι χτίστηκε
+
+- **Νέα παλέτα (`apps/web/app/theme-editorial.css`)**: πλήρης αντικατάσταση
+  του amber/teal "KRATO" θέματος με ένα ουδέτερο ανθρακί/γκράφαιτ φόντο,
+  σχεδόν λευκό κείμενο (χωρίς την προηγούμενη ζεστή/κρεμ απόχρωση, που
+  ανήκε στην ίδια οικογένεια με το amber), και ένα μοναδικό, χαμηλού
+  κορεσμού accent (muted emerald `#2F8F6F`). Το `--warning` άλλαξε σε μια
+  ζεστή τερακότα αντί για amber -- σκόπιμα, ώστε να μην ξαναμπεί κίτρινο
+  tone από την πίσω πόρτα σε ένα semantic token. Το ίδιο αρχείο τεκμηριώνει
+  ρητά γιατί αυτό ΔΕΝ είναι απλώς μια επανάληψη του ήδη-απορριφθέντος
+  round-1 μπλε (διαφορετική βάση ουδέτερων + διαφορετική οικογένεια
+  χρώματος accent). Ενημερώθηκαν και τα δύο hardcoded hex mirrors που
+  ΔΕΝ μπορούν να διαβάσουν τα CSS variables (`app/manifest.ts`'s
+  `theme_color`/`background_color`, `app/layout.tsx`'s `viewport.themeColor`)
+  και τα rgba literals του `STATUS_TONE` στο account page.
+- **Κοινό design-system layer (`apps/web/src/lib/ui.ts`, νέο αρχείο)**:
+  style-factory συναρτήσεις (`buttonStyle`, `chipStyle`, `badgeStyle`) και
+  σταθερές (`cardStyle`, `stickyBarStyle`, `bottomSheetOverlayStyle`/
+  `bottomSheetStyle`) -- η πρώτη φορά που αυτή η εφαρμογή έχει ΚΑΠΟΙΟ κοινό
+  σημείο για patterns που επαναλαμβάνονταν με μικρές παραλλαγές σε κάθε
+  αρχείο. Δεν εισάγεται καμία νέα εξάρτηση/CSS-in-JS -- παραμένουν plain
+  `CSSProperties` objects, ίδια σύμβαση με το υπόλοιπο app.
+- **`Skeleton`/`SkeletonLines` (`apps/web/src/components/Skeleton.tsx`,
+  νέο αρχείο)** + ένα πραγματικό CSS keyframe animation στο `globals.css`
+  (`@keyframes skeleton-shimmer`, με `prefers-reduced-motion` opt-out) --
+  η μοναδική περίπτωση σε αυτό το redesign όπου χρειάστηκε πραγματικό CSS
+  class αντί για inline style, αφού ένα keyframe animation δεν εκφράζεται
+  μέσα σε ένα `style={{...}}` object.
+- **Νέα ροή κράτησης (`BookingForm.tsx`)**: τα native
+  `<input type="date"/"time"/"number">` αντικαταστάθηκαν από chip-style
+  επιλογείς -- "Σήμερα"/"Αύριο"/"Άλλη ημερομηνία" (η τελευταία ανοίγει τον
+  ίδιο native date picker ως fallback), chips αριθμού ατόμων μέσα στο
+  min/max εύρος του εστιατορίου + "Άλλος αριθμός" fallback, και ένα quick
+  time-chip row (19:00-21:30) για εστιατόρια ΧΩΡΙΣ live availability flag
+  (όσα το ΕΧΟΥΝ ενεργό συνεχίζουν να δείχνουν το ήδη υπάρχον
+  `LiveAvailabilityPanel`, που είναι ήδη ένα chip-like schedule board με
+  πραγματικούς αριθμούς τραπεζιών -- εκεί δεν άλλαξε καμία λογική, μόνο η
+  παλέτα, μέσω των ήδη-CSS-variable-based χρωμάτων του). Η κάρτα της φόρμας
+  και η οθόνη επιβεβαίωσης περνούν τώρα από το κοινό `cardStyle`, το κουμπί
+  υποβολής από το κοινό `buttonStyle`, με ένα sticky wrapper (`position:
+  sticky; bottom: 0`) ώστε να μένει προσβάσιμο σε μεγάλες φόρμες σε κινητό.
+  Προστέθηκαν δύο μικρά CSS keyframe animations (`pop-in` στην επιβεβαίωση,
+  `fade-in-up` στη λίστα διαθέσιμων ωρών) και ένα skeleton placeholder στη
+  θέση του παλιού απλού "Loading..." κειμένου για τη διαθεσιμότητα.
+- **`getDateStringInTimeZone()` (`apps/web/src/lib/timezone.ts`, νέα
+  συνάρτηση)**: "Σήμερα"/"Αύριο" υπολογίζονται στο timezone του
+  ΕΣΤΙΑΤΟΡΙΟΥ, όχι του browser του επισκέπτη -- ίδια αρχή με το
+  `zonedTimeToUtc` που ήδη υπήρχε για την ίδια την υποβολή της κράτησης.
+- **Νέα i18n keys** (`today`, `tomorrow`, `otherDate`, `otherTime`,
+  `partySizeOtherLabel` κάτω από `public.booking`) προστέθηκαν και στα
+  4 locales (DE/EN/EL/TR), όχι μόνο αγγλικά/ελληνικά.
+
+### Σημαντικές αρχιτεκτονικές αποφάσεις
+
+- **Μηδενικές αλλαγές σε `@reservex/core`, σε migrations/RLS, ή στο
+  κοινόχρηστο `packages/ui/src/tokens.ts`.** Καθαρά αλλαγή στο
+  presentation layer του `apps/web`· οι ίδιες ακριβώς κλήσεις προς backend
+  (`bookPublicReservation`, `fetchPublicAvailabilitySummary`, κ.λπ.)
+  παραμένουν αμετάβλητες.
+- **Συνειδητή, μικρή αλλαγή συμπεριφοράς**: όταν το `liveAvailabilityEnabled`
+  είναι true, ο επισκέπτης δεν έχει πια ένα free-text ώρας -- διαλέγει
+  αποκλειστικά από τα πραγματικά διαθέσιμα slots του `LiveAvailabilityPanel`
+  (πριν, υπήρχε ΚΑΙ το native time input ΚΑΙ το panel ταυτόχρονα). Σκόπιμο:
+  αποτρέπει την επιλογή μιας ώρας εκτός των πραγματικών slots όταν η
+  πληροφορία είναι ήδη διαθέσιμη, και ταιριάζει με το πνεύμα "καμία ψεύτικη
+  διαθεσιμότητα" που ήδη διέπει αυτό το panel. Για εστιατόρια ΧΩΡΙΣ το
+  flag, τίποτα δεν άλλαξε πέρα από το quick-chip fast path (το ελεύθερο
+  time input παραμένει διαθέσιμο ως fallback).
+- **Δεν ξαναχτίστηκε πλήρες custom ημερολόγιο/date-picker.** Το "Σήμερα"/
+  "Αύριο" καλύπτει το κοινό σενάριο· για οποιαδήποτε άλλη ημερομηνία, ο
+  ήδη-δοκιμασμένος native date picker του browser παραμένει διαθέσιμος πίσω
+  από το "Άλλη ημερομηνία" chip -- λιγότερος νέος κώδικας, μηδενικό νέο
+  ρίσκο γύρω από ημερομηνίες/timezone edge cases.
+
+### Τι ΔΕΝ χτίστηκε εδώ (έρχεται σε επόμενο PR της ίδιας πρωτοβουλίας)
+
+Hero ενότητα στη σελίδα εστιατορίου, full-bleed directory/account (ακόμα σε
+fixed `maxWidth` containers), rating/events/offers (δεν υπάρχει καν τέτοιο
+μοντέλο δεδομένων ακόμα -- βλ. σημείωση παρακάτω), AI assistant entry point,
+και τα υπόλοιπα skeleton/animation περάσματα πέρα από τη φόρμα κράτησης.
+
+### Τι επαληθεύτηκε πραγματικά εδώ (και τι όχι)
+
+✅ Επαληθεύτηκε:
+- Κάθε αλλαγμένο/νέο TypeScript αρχείο περνάει πραγματικό
+  `tsc --noEmit` syntax check (relaxed moduleResolution, χωρίς
+  εγκατεστημένα node_modules) -- μηδέν σφάλματα parser (TS1xxx). Τα μόνα
+  errors είναι τα αναμενόμενα "cannot find module"/"implicit any"/
+  `react/jsx-runtime` από την απουσία type declarations, όχι πραγματικά
+  λάθη κώδικα.
+- Ισορροπημένα `{}`/`()`/`[]`/`<>``</>` σε όλο το `BookingForm.tsx` μετά
+  τις αλλαγές (προγραμματιστικός έλεγχος πριν το commit).
+- Όλα τα 4 locale JSON αρχεία παραμένουν valid JSON μετά την προσθήκη
+  των νέων keys (φορτώθηκαν/ξαναγράφτηκαν μέσω `json.load`/`json.dump`,
+  άρα ένα malformed αρχείο θα είχε αποτύχει αμέσως).
+
+⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**: πραγματικό render σε browser έναντι
+ζωντανής βάσης (κανένα `npm install`/`next dev`), οπτικός έλεγχος της νέας
+παλέτας/chips σε πραγματική σελίδα. Θα επαληθευτεί από το `Lint & typecheck`
+και τα `Build web apps`/Vercel preview-deployment CI jobs σε αυτό το PR, και
+οπτικά από το Vercel preview link πριν το merge.
+
+## Φάση 20: Customer UI redesign, μέρος 2 (hero, full-bleed directory/account, animations, AI feasibility)
+
+Συνέχεια του PR #23 (μέρος 1: design system + booking flow chips, ήδη
+merged στο main). Αυτό το PR καλύπτει το μεγαλύτερο μέρος των υπόλοιπων
+σημείων της αρχικής 18-σημείων προδιαγραφής: hero στη σελίδα εστιατορίου,
+full-bleed directory, βελτιωμένο account page με skeleton loading, και μια
+τεκμηριωμένη επαλήθευση σκοπιμότητας (feasibility) για το AI entry point.
+
+### Τι χτίστηκε
+
+- **`apps/web/src/lib/restaurantType.ts` (νέο αρχείο).** Το
+  `restaurantType -> μετάφραση` mapping υπήρχε ως τοπικό const μόνο μέσα
+  στο directory page. Τώρα που και η σελίδα εστιατορίου το χρειάζεται (για
+  το νέο type badge στο hero), βγήκε σε ένα κοινό σημείο
+  (`restaurantTypeLabelKey()`) αντί να υπάρχουν δύο αντίγραφα που θα
+  μπορούσαν να ξεσυγχρονιστούν αν προστεθεί ποτέ νέος τύπος.
+
+- **Directory page (`app/[locale]/page.tsx`) -- πλέον πραγματικά
+  full-bleed.** Αφαιρέθηκε το fixed `maxWidth: 1000, margin: '0 auto'` --
+  τώρα χρησιμοποιεί το ίδιο `clamp()` side-padding pattern με τη σελίδα
+  εστιατορίου, ώστε να μην "σπάει" η αίσθηση πλήρους οθόνης ανάμεσα σε δύο
+  full-bleed σελίδες. Κάθε κάρτα εστιατορίου είναι τώρα ΕΝΑ `<Link>` (πριν
+  ήταν clickable μόνο το κουμπί "Προβολή & κράτηση" μέσα στην κάρτα) --
+  μεγαλύτερο, σαφέστερο target για tap σε κινητό, ένα focus stop αντί για
+  δύο επικαλυπτόμενα. Το "κουμπί" μέσα στην κάρτα είναι πλέον `<span>` (όχι
+  `<button>` μέσα σε `<a>`, που είναι άκυρο HTML). Νέο: badge τύπου
+  εστιατορίου (`badgeStyle('muted')` από το ήδη υπάρχον `lib/ui.ts`) αντί
+  για απλό κείμενο, μικρό λογότυπο (`restaurant.logoUrl`) όταν υπάρχει, και
+  hover lift (`.card-hover`, νέα CSS κλάση) + staggered
+  `fade-in-up` είσοδο ανά κάρτα.
+
+- **Restaurant profile hero (`app/[locale]/r/[slug]/page.tsx`).** Η σελίδα
+  ήταν ήδη full-bleed από παλιότερο commit (`b92a518`, πριν το Phase 20),
+  αλλά το header ήταν επίπεδο κείμενο. Τώρα: μια διακοσμητική radial-glow
+  ανταύγεια πίσω από τον τίτλο (καθαρό CSS gradient, καμία εικόνα), το
+  `logoUrl` -- όταν υπάρχει -- ως μικρό τετράγωνο badge δίπλα στο όνομα
+  (όχι ως full-bleed φωτογραφικό hero -- βλ. παρακάτω γιατί), και ένα νέο
+  badge τύπου εστιατορίου δίπλα στη διεύθυνση/τηλέφωνο. Όλο το hero block
+  μπαίνει με `fade-in-up` animation.
+
+- **Account page (`app/[locale]/account/page.tsx`) -- σκελετός φόρτωσης +
+  ενιαίο design system.** Πριν, η σελίδα έκανε `return null` όσο δεν είχε
+  φορτώσει το session (λευκό/σκοτεινό flash σε κάθε επίσκεψη), και η λίστα
+  κρατήσεων/ειδοποιήσεων δεν έδειχνε τίποτα κατά τη φόρτωση (απλά άδεια
+  μέχρι να έρθουν τα δεδομένα). Τώρα: `Skeleton`/`SkeletonLines` (ήδη
+  υπάρχοντα components από το μέρος 1) σε όλα τα σημεία φόρτωσης. Τα τοπικά
+  `primaryButtonStyle`/`secondaryButtonStyle` consts αντικαταστάθηκαν από
+  το κοινό `buttonStyle()` του `lib/ui.ts` (ο σκοπός για τον οποίο χτίστηκε
+  στο μέρος 1 -- ένα σημείο αλήθειας για το button look, όχι κυνήγι σε κάθε
+  αρχείο). Το container πλάτυνε ελαφρώς (640px -> 720px) με `clamp()`
+  padding αντί για fixed `var(--space-2xl)`, ώστε να μην νιώθει σαν κουτί
+  σε πολύ φαρδιές οθόνες, αλλά ΠΑΡΕΜΕΙΝΕ boxed/κεντραρισμένο -- σκόπιμα: σε
+  αντίθεση με τη σελίδα κατευθύνσεων/booking, ένα προσωπικό account/
+  settings page με μια ευανάγνωστη κεντρική στήλη είναι η σωστή επιλογή
+  UX, όχι κάτι που η αρχική προδιαγραφή ("no artificial containers")
+  στόχευε να αποτρέψει.
+
+- **`app/globals.css`**: νέα `.card-hover` κλάση (transform lift +
+  border/shadow στο hover/focus-visible) -- το ίδιο σκεπτικό με το ήδη
+  υπάρχον focus-visible ring rule: inline `style={{...}}` objects δεν
+  μπορούν να εκφράσουν `:hover`, οπότε αυτό είναι ένας ακόμα μικρός,
+  σκόπιμος κανόνας CSS πάνω στην ίδια εξαίρεση, όχι αλλαγή προσέγγισης.
+
+### Σημαντικές αρχιτεκτονικές αποφάσεις
+
+- **Το `logoUrl` ΔΕΝ έγινε full-bleed φωτογραφικό hero.** Το data model
+  (`packages/core/src/types/database.ts`) έχει `logoUrl` (λογότυπο) αλλά
+  ΚΑΝΕΝΑ ξεχωριστό cover-photo/gallery field. Ζητώντας από ένα λογότυπο να
+  γεμίσει μια πλατιά φωτογραφική λωρίδα με `object-fit: cover` θα σήμαινε
+  να παραμορφωθεί σε ένα crop για το οποίο δεν φτιάχτηκε ποτέ -- ένα δικό
+  του είδος "ψέματος" για το τι πραγματικά υπάρχει, στο ίδιο πνεύμα με τον
+  κανόνα "ποτέ ψεύτικη διαθεσιμότητα" του μέρους 1. Αντ' αυτού, η "premium"
+  αίσθηση έρχεται από σύνθεση/τυπογραφία/χρώμα (η radial glow ανταύγεια) --
+  και το λογότυπο, όταν υπάρχει, εμφανίζεται τίμια ως μικρό badge, όχι ως
+  κάτι που δεν είναι.
+
+- **Rating/events/offers ΔΕΝ χτίστηκαν.** Δεν υπάρχει κανένα πίνακας
+  ratings/events/offers στη βάση σήμερα (επιβεβαιώθηκε ψάχνοντας το
+  `Restaurant` interface και το σχετικό schema). Χτίζοντας UI για αυτά τώρα
+  θα σήμαινε είτε fake δεδομένα είτε ένα μόνιμα άδειο section -- και τα δύο
+  αντίθετα στην ίδια αρχή "no fake data" που ήδη διέπει το
+  `LiveAvailabilityPanel`. Μένει ρητά εκτός scope μέχρι να υπάρξει
+  πραγματικό μοντέλο δεδομένων γι' αυτά.
+
+- **AI entry point: investigation μόνο, ΟΧΙ UI αυτό το PR.** Διαβάστηκε
+  ολόκληρο το `supabase/functions/ai-gateway/index.ts` και το
+  `packages/core/src/api/ai.ts`. Το gateway το ίδιο δηλώνει ρητά στο δικό
+  του header comment: μόνο το `channel: 'staff_chat'` είναι πραγματικά
+  συνδεδεμένο με executor path σήμερα· το `customer_chat` (και
+  `voice`/`whatsapp`) είναι "schema-ready" (0009) αλλά χωρίς κανένα
+  executor και καμία υλοποίηση UI, ρητά αφημένο εκτός ως "μια πραγματική,
+  ξεχωριστή δυνατότητα που χρειάζεται δικές της αποφάσεις προϊόντος (rate
+  limiting, anonymous-guest identity, escalation σε άνθρωπο)". Επιπλέον, το
+  gateway περνάει από `getAuthenticatedUser` -- δηλαδή προϋποθέτει
+  αυθεντικοποιημένο caller, όχι ανώνυμο επισκέπτη, οπότε ούτε καν το
+  transport layer είναι έτοιμο για anonymous customer χωρίς επιπλέον
+  δουλειά. Συμπέρασμα: η αρχιτεκτονική είναι ήδη "AI-first-ready" με τη
+  σωστή έννοια -- η ΜΟΝΗ πόρτα προς τα δεδομένα είναι αυτό το gateway, όχι
+  απευθείας πρόσβαση στη βάση, ακριβώς όπως απαιτεί ο hard constraint της
+  αρχικής προδιαγραφής -- αλλά η ίδια η customer-facing υλοποίηση (auth
+  μοντέλο για anonymous guest, rate limiting, νέο executor scope
+  περιορισμένο σε δεδομένα ΜΟΝΟ του συγκεκριμένου πελάτη/εστιατορίου, UI)
+  είναι αρκετά μεγάλη και ευαίσθητη σε ασφάλεια ώστε να αξίζει τη δική της
+  ξεχωριστή φάση/PR με αποκλειστική εστίαση, όχι να μπει σαν πρόσθετο μέσα
+  σε ένα PR για UI restyling. Δεν προστέθηκε κανένα ορατό "AI" στοιχείο
+  στο UI αυτό το PR -- ένα κουμπί χωρίς λειτουργικό backend πίσω του θα
+  ήταν μισή δουλειά, όχι πρόοδος.
+
+### Τι ΔΕΝ χτίστηκε εδώ
+
+Πραγματικό customer-facing AI chat (βλ. παραπάνω -- ξεχωριστή φάση).
+Rating/events/offers (δεν υπάρχει μοντέλο δεδομένων). QR-code booking flow
+(ξεχωριστό feature, όχι styling). Search/filter στο directory (ήδη
+τεκμηριωμένο ως εκτός scope στο ίδιο το page.tsx πριν από αυτό το PR).
+
+### Τι επαληθεύτηκε πραγματικά εδώ (και τι όχι)
+
+✅ Επαληθεύτηκε:
+- Κάθε αλλαγμένο/νέο TypeScript αρχείο (directory page, restaurant profile
+  page, account page, `restaurantType.ts`, `ui.ts`, `Skeleton.tsx`) περνάει
+  πραγματικό `tsc --noEmit` syntax check (ίδια relaxed σημαία configuration
+  με το μέρος 1) -- μηδέν σφάλματα parser (TS1xxx). Τα υπόλοιπα errors
+  είναι το ίδιο αναμενόμενο "cannot find module"/"implicit any"/JSX-χωρίς-
+  `@types/react` θόρυβο από την απουσία εγκατεστημένων node_modules, όχι
+  πραγματικά λάθη κώδικα.
+- Ισορροπημένα `{}`/`()`/`[]` σε κάθε αλλαγμένο αρχείο (προγραμματιστικός
+  έλεγχος πριν το commit, ίδια μέθοδος με το μέρος 1).
+
+⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**: πραγματικό render σε browser έναντι
+ζωντανής βάσης. Θα επαληθευτεί από το CI αυτού του PR και οπτικά από το
+Vercel preview link πριν το merge -- ίδια διαδικασία με το PR #23.
+
+## Φάση 20: Customer UI redesign, hotfix (mobile auto-zoom / "κομμένη" οθόνη)
+
+Αναφορά χρήστη με screenshots από πραγματικό Android κινητό: στη σελίδα
+εστιατορίου/φόρμας κράτησης, το περιεχόμενο φαινόταν κομμένο στη δεξιά
+άκρη της οθόνης -- ώρες λειτουργίας, πεδία τηλέφωνο/email, το κουμπί
+"Αίτημα κράτησης".
+
+### Root cause
+
+Δύο `inputStyle` consts (`BookingForm.tsx`, `account/page.tsx`) είχαν
+`fontSize` 14/14.5px στα πραγματικά `<input>`/`<textarea>` στοιχεία. Αυτό
+είναι ένα πολύ γνωστό mobile-web ζήτημα: το iOS Safari (και το Android
+Chrome σε ορισμένες ρυθμίσεις) κάνει αυτόματο zoom-in σε ΟΛΗ τη σελίδα
+όταν ο χρήστης πατήσει (focus) σε πεδίο με υπολογισμένο font-size κάτω
+από 16px -- και το zoomed state παραμένει μετά, ακόμα κι αν ο χρήστης
+μετακινηθεί/scrollάρει αλλού, γι' αυτό εμφανίζεται "κομμένο" ολόκληρο το
+περιεχόμενο με την ίδια μετατόπιση σε κάθε στοιχείο (χαρακτηριστικό
+zoom, όχι μεμονωμένο CSS overflow bug σε ένα component). Ταίριαζε
+ακριβώς με τα screenshots: η ίδια δεξιά "κοπή" σε ανόμοια στοιχεία
+(ώρες, πεδία φόρμας, κουμπί) -- συνεπές μόνο με zoom σε επίπεδο σελίδας.
+
+### Fix
+
+- `BookingForm.tsx`: `inputStyle.fontSize` 14.5 -> 16 (καλύπτει name/
+  phone/email/notes plus τα native date/number/time fallback inputs πίσω
+  από τα "Άλλη ημερομηνία"/"Άλλος αριθμός"/"Άλλη ώρα" chips, όλα κάνουν
+  spread αυτό το ίδιο object).
+- `account/page.tsx`: `inputStyle.fontSize` 14 -> 16 (email/password στη
+  σελίδα σύνδεσης, όνομα/τηλέφωνο στο προφίλ).
+- `globals.css`: `overflow-x: hidden` σε `html, body` ως safety net --
+  ΔΕΝ είναι το fix (το πραγματικό αίτιο ήταν το font-size), αλλά αφού
+  τίποτα σε αυτή την εφαρμογή δεν χρειάζεται οριζόντιο scroll, αυτό
+  εξασφαλίζει ότι ένα μελλοντικό, απρόβλεπτο overflow δεν θα γίνει ποτέ
+  ένα άβολο side-scrollable page.
+
+### Τι επαληθεύτηκε (και τι όχι)
+
+✅ `tsc --noEmit` στα δύο αλλαγμένα αρχεία -- μηδέν σφάλματα parser.
+Ισορροπημένα `{}`/`()`/`[]`.
+
+⚠️ Δεν μπόρεσα να αναπαράγω πραγματικό στενό mobile viewport σε αυτό το
+sandbox (το εργαλείο resize του browser έμεινε κολλημένο σε πλάτος
+desktop σε αυτό το περιβάλλον -- επιβεβαιωμένο μέσω
+`window.innerWidth`/`outerWidth`), οπότε η διόρθωση βασίζεται σε
+τεκμηριωμένη γνωστή αιτία + επιθεώρηση κώδικα, όχι σε οπτική
+επιβεβαίωση πριν/μετά σε πραγματικό στενό viewport εδώ. Θα χρειαστεί
+οπτική επιβεβαίωση από τον χρήστη στο πραγματικό του κινητό μετά το
+merge.
+
+## Φάση 20: Customer UI redesign, hotfix μέρος 2 (πραγματικό root cause) + σκιές
+
+Ο χρήστης δοκίμασε το προηγούμενο hotfix σε πραγματικό Android κινητό: το
+πρόβλημα παρέμενε. Δύο πράγματα διορθώθηκαν εδώ:
+
+### Το προηγούμενο fix δεν είχε καν φτάσει live
+
+Το commit `8a862f6` (font-size 16 fix) ήταν μόνο pushed σε branch --
+ποτέ δεν έγινε merge/deploy. Άρα η δοκιμή του χρήστη ήταν αναπόφευκτα
+πάνω στο ΠΑΛΙΟ, μη διορθωμένο site. Αυτό δεν αναιρεί το font-size fix
+(παραμένει σωστό και χρήσιμο ανεξάρτητα -- προλαμβάνει το γνωστό mobile
+auto-zoom-on-focus), αλλά σημαίνει ότι δεν ήταν ακόμα δοκιμασμένο.
+
+### Το πραγματικό, επαληθεύσιμο root cause: `minmax(340px, 1fr)`
+
+Ξανακοιτάζοντας προσεκτικά τα δύο screenshots του χρήστη: στο πρώτο, ο
+τίτλος/badges/διεύθυνση του hero εμφανίζονται ΠΛΗΡΩΣ, χωρίς να κοπούν --
+μόνο οι σειρές των ωρών λειτουργίας κόβονται στη δεξιά άκρη. Αν επρόκειτο
+για zoom σε επίπεδο σελίδας, θα κοβόταν ΚΑΙ ο τίτλος. Αυτό δεν ταιριάζει
+με "page zoom" -- ταιριάζει με πραγματικό CSS grid overflow σε
+συγκεκριμένο container.
+
+Η σελίδα εστιατορίου (`app/[locale]/r/[slug]/page.tsx`) βάζει τις ώρες
+λειτουργίας + τη φόρμα κράτησης σε
+`gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))'`. Το
+`minmax(340px, 1fr)` σημαίνει: κάθε στήλη ΤΟΥΛΑΧΙΣΤΟΝ 340px -- αυτό είναι
+ΣΚΛΗΡΟ κάτω όριο στο CSS Grid, όχι πρόταση. Σε πραγματικό κινητό, μετά
+την πλευρική padding (`clamp(20px, 5vw, 64px)`), ο διαθέσιμος χώρος
+συχνά πέφτει ΚΑΤΩ από 340px (π.χ. ένα τυπικό Android στα 360px πλάτος,
+πλην 2×20px padding = 320px διαθέσιμα -- 20px λιγότερα από το
+minimum). Το grid ΔΕΝ συρρικνώνεται κάτω από αυτό το minimum -- απλά
+overflow-άρει, σέρνοντας μαζί του ό,τι είναι μέσα στη στήλη (και τις
+ώρες λειτουργίας ΚΑΙ όλη τη φόρμα κράτησης), ενώ το hero από πάνω (που
+δεν είναι μέσα σε αυτό το grid) παραμένει ανεπηρέαστο -- ακριβώς το
+pattern που δείχνουν τα screenshots.
+
+Βρέθηκαν συνολικά 5 τέτοια `minmax(Npx, 1fr)` σε όλο το `apps/web`
+(directory cards στα 280px, το κύριο δίστηλο στα 340px, τα phone/email
+grids στα 140px σε 2 αρχεία) -- όλα διορθώθηκαν ομοιόμορφα σε
+`minmax(min(Npx, 100%), 1fr)`. Το `min(Npx, 100%)` είναι το καθιερωμένο
+CSS trick γι' αυτό ακριβώς: το minimum ποτέ δεν ξεπερνά το πραγματικά
+διαθέσιμο πλάτος του container, οπότε το grid μπορεί να συρρικνωθεί σε
+πραγματικά στενές οθόνες αντί να κάνει overflow -- ενώ σε desktop/tablet
+(όπου πάντα υπάρχει άφθονος χώρος) η συμπεριφορά είναι ΑΚΡΙΒΩΣ ίδια με
+πριν, μηδενικό ρίσκο εκεί.
+
+### Σκιές (αίτημα χρήστη: "πιο όμορφο και επαγγελματικό")
+
+Το `theme-editorial.css` όριζε ήδη `--shadow-soft`/`--shadow-elevated`
+από τη Φάση 20 μέρος 1, αλλά μόνο το sticky-CTA bar και το bottom sheet
+τα χρησιμοποιούσαν -- οι κάρτες (`cardStyle`) ήταν εντελώς flat, κάτι
+που σε σχεδόν-μαύρο φόντο δείχνει "unstyled" αντί για "premium". Τώρα:
+
+- `cardStyle` (lib/ui.ts) παίρνει `boxShadow: var(--shadow-soft)` ως
+  βάση -- ισχύει αυτόματα παντού όπου ήδη χρησιμοποιείται: η κάρτα της
+  φόρμας κράτησης, οι κάρτες του directory, οι σειρές κρατήσεων στο
+  account page.
+- Το πρωτεύον (primary) button variant παίρνει το ίδιο `--shadow-soft`
+  -- λίγη "ανύψωση" στο κύριο CTA, τα secondary/ghost buttons μένουν
+  επίτηδες flat ώστε η σκιά η ίδια να δείχνει ποιο είναι το κύριο
+  action.
+- `.card-hover` (directory cards): το hover/focus state ανεβαίνει σε
+  `--shadow-elevated` αντί για `--shadow-soft` -- αφού πλέον η ηρεμη
+  κατάσταση έχει ήδη soft shadow, το hover έπρεπε να ανέβει σε κάτι πιο
+  έντονο για να νιώθεται σαν πραγματική "ανύψωση", όχι απλή αλλαγή
+  χρώματος.
+
+### Τι επαληθεύτηκε (και τι όχι, ξανά με ειλικρίνεια)
+
+✅ `tsc --noEmit` σε όλα τα αλλαγμένα αρχεία -- μηδέν σφάλματα parser.
+Ισορροπημένα `{}`/`()`/`[]`. Το `minmax(340px,...)` root cause
+επιβεβαιώθηκε λογικά/μαθηματικά (πραγματικά πλάτη κινητών minus
+padding vs. το hard-coded minimum), όχι απλά υποψία.
+
+⚠️ ΞΑΝΑ δεν μπόρεσα να πάρω πραγματικό στενό mobile viewport screenshot
+σε αυτό το sandbox για πριν/μετά σύγκριση (το browser resize tool
+παραμένει κολλημένο σε desktop πλάτος εδώ, επιβεβαιωμένο μέσω
+`window.innerWidth`/`outerWidth` και στις δύο προσπάθειες). Αυτή τη
+φορά όμως το ίδιο το root cause είναι αποδείξιμο με απλή αριθμητική
+(340px minimum > πραγματικό διαθέσιμο πλάτος σε κοινά μεγέθη κινητών),
+όχι πιθανολογία -- πολύ πιο σίγουρο από το προηγούμενο font-size fix.
+Χρειάζεται δοκιμή σε πραγματικό κινητό ΜΕΤΑ το merge.
+
+## Φάση 21: Events & Offers (δημόσια σελίδα)
 
 Πρώτο "νέο feature" PR μετά τη Φάση 19, ζητήθηκε ρητά από τον ιδιοκτήτη
 της πλατφόρμας ως προτεραιότητα υψηλότερη από τεχνικό χρέος: events και
@@ -2889,7 +3266,7 @@ offers να εμφανίζονται στη δημόσια σελίδα κάθε
   έχει ξανακοιταχτεί" κενού που αυτό το project προσπαθεί συστηματικά
   να αποφύγει.
 - **Το `events_public_select` δεν αγγίζει καθόλου το write path.** Η
-  Φάση 20 προσθέτει ΜΟΝΟ ένα νέο SELECT policy πάνω σε πίνακα που ήδη
+  Φάση 21 προσθέτει ΜΟΝΟ ένα νέο SELECT policy πάνω σε πίνακα που ήδη
   υπήρχε από τη Φάση 02 -- καμία αλλαγή σχήματος, καμία αλλαγή στο
   `events_write` (0011). Αυτό σημαίνει ότι το reservation-engine
   fallback της Φάσης 07 (`get_available_table_combinations` κ.λπ.) και

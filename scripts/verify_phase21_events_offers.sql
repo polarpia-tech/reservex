@@ -1,5 +1,5 @@
 -- =============================================================================
--- verify_phase20_events_offers.sql
+-- verify_phase21_events_offers.sql
 -- Proves, against real data, that migration 0042 does what it claims:
 --   A. Athens owner creates a public (active, non-private) event for Athens.
 --   B. Athens owner creates a private event for Athens (still allowed to

@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ISODateTime, Offer, UUID } from '../types/database';
 
 // ---------------------------------------------------------------------------
-// offers: brand new in migration 0042 (Phase 20). Same shape of split as
+// offers: brand new in migration 0042 (Phase 21). Same shape of split as
 // events.ts -- fetchOffers() for staff (offers_select, all non-deleted rows
 // for the restaurant) and fetchPublicOffers() for the public page
 // (offers_public_select already restricts server-side to active/non-deleted/

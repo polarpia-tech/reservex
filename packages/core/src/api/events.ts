@@ -4,7 +4,7 @@ import type { ISODateTime, RestaurantEvent, UUID } from '../types/database';
 
 // ---------------------------------------------------------------------------
 // events (staff-side CRUD, existing since Phase 02) + the new public read
-// added by migration 0042 (Phase 20). The table itself is unchanged by this
+// added by migration 0042 (Phase 21). The table itself is unchanged by this
 // phase -- only a new events_public_select RLS policy was added, so the
 // SAME fetch function below works for a staff caller (existing
 // events_select policy, unaffected) and for an anon/public caller

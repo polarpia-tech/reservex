@@ -534,13 +534,13 @@ export interface FeatureFlagOverride {
   createdAt: ISODateTime;
 }
 
-// ---- Phase 20: events & offers (migration 0042) ------------------------
+// ---- Phase 21: events & offers (migration 0042) ------------------------
 
 /**
  * `events` has existed since Phase 02 (0004_availability_and_events.sql) as
  * a staff-only entity (NYE, live music nights, private buyouts -- each can
  * carry its own capacity/booking window, separate from normal service).
- * Phase 20 (0042) adds nothing to the table itself -- only a new public
+ * Phase 21 (0042) adds nothing to the table itself -- only a new public
  * read policy (events_public_select) so genuinely public, non-private,
  * active events show up on the restaurant's own public page.
  */

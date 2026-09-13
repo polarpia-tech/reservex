@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 0042_events_offers_public.sql
--- Purpose: Phase 20 (customer-facing Events & Offers). Two things:
+-- Purpose: Phase 21 (customer-facing Events & Offers). Two things:
 --   1. `events` (existing since 0004, staff-only until now) gets a narrow
 --      public read policy, same pattern as restaurants/opening_hours/
 --      special_hours in 0014 -- only active, non-deleted, non-private events

@@ -6,7 +6,7 @@ import { CalendarIcon, TagIcon } from '@/components/icons';
 import { getDictionary, interpolate, t, type SupportedLocale } from '@/lib/dictionary';
 
 /**
- * Phase 20 (migration 0042): public-facing events and offers on a
+ * Phase 21 (migration 0042): public-facing events and offers on a
  * restaurant's own page. Both lists are already narrowed to exactly what
  * an anonymous visitor should see by the API layer -- fetchPublicEvents()
  * (upcoming, active, non-private, restaurant active) and

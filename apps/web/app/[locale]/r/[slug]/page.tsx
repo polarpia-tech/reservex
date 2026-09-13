@@ -1,10 +1,12 @@
 import { fetchOpeningHours, fetchPublicEvents, fetchPublicFeatureFlagsForRestaurant, fetchPublicOffers, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
 import { BookingForm } from '@/components/BookingForm';
 import { EventsOffersSection } from '@/components/EventsOffersSection';
-import { MapPinIcon, PhoneIcon } from '@/components/icons';
+import { MapPinIcon, PhoneIcon, UtensilsIcon } from '@/components/icons';
 import { OpeningHoursList } from '@/components/OpeningHoursList';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
+import { restaurantTypeLabelKey } from '@/lib/restaurantType';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
+import { badgeStyle } from '@/lib/ui';
 // Same reasoning as app/[locale]/page.tsx's own force-dynamic: opening
 // hours, special-hours exceptions and live table availability all change
 // after a restaurant owner edits them in the mobile app, and this page
@@ -37,7 +39,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
   const [openingHours, specialHours, events, offers, flags] = await Promise.all([
     fetchOpeningHours(supabase, restaurant.id),
     fetchSpecialHours(supabase, restaurant.id),
-    // Phase 20 (migration 0042): both already narrowed server-side to
+    // Phase 21 (migration 0042): both already narrowed server-side to
     // exactly what an anonymous visitor may see (events_public_select /
     // offers_public_select) -- see EventsOffersSection's own doc comment
     // for why no further filtering happens here.
@@ -70,29 +72,85 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
     // immersive booking portal rather than a boxed document on very wide
     // screens.
     <div style={{ width: '100%', padding: '0 clamp(20px, 5vw, 64px) clamp(56px, 9vw, 104px)' }}>
+      {/* Hero (Phase 20 part 2). The data model has a restaurant `logoUrl`
+          (a brand mark) but no cover-photo/gallery field -- forcing that
+          into a full-bleed photographic banner would mean stretching a
+          logo into a crop it was never meant for, which is its own kind
+          of dishonesty about what's actually there. Same principle as
+          BookingForm's live-availability panel: real data only, no
+          invented content. So the "premium hero" feeling comes from
+          composition/type/color instead -- a soft decorative accent glow
+          (pure CSS, no image), the logo shown honestly as a small badge
+          next to the name when present, and a real restaurant-type chip
+          (data the app already has). Star ratings from the original brief
+          stay out for the same reason: there is no ratings table yet
+          (see this PR's README section). Events and offers landed
+          separately in Phase 21, rendered below via EventsOffersSection
+          rather than folded into this hero -- keeping this hero's own
+          scope (identity/contact/description) unchanged. */}
       <div
         style={{
+          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           gap: 'var(--space-sm)',
           padding: 'clamp(40px, 8vw, 88px) 0 clamp(32px, 5vw, 56px)',
           borderBottom: '1px solid var(--border)',
           marginBottom: 'clamp(32px, 5vw, 56px)',
+          overflow: 'hidden',
+          animation: 'fade-in-up 0.5s ease both',
         }}
       >
-        <h1
+        <div
+          aria-hidden
           style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 600,
-            fontSize: 'clamp(32px, 5vw, 52px)',
-            lineHeight: 1.08,
-            letterSpacing: '-0.01em',
-            margin: 0,
+            position: 'absolute',
+            top: '-45%',
+            left: '-8%',
+            width: 440,
+            height: 440,
+            background: 'radial-gradient(circle, var(--accent-soft) 0%, transparent 70%)',
+            pointerEvents: 'none',
           }}
-        >
-          {restaurant.name}
-        </h1>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-xs) var(--space-xl)', color: 'var(--text-muted)', fontSize: 15 }}>
+        />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 16 }}>
+          {restaurant.logoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element -- see the
+            // directory card's own note; same reasoning here.
+            <img
+              src={restaurant.logoUrl}
+              alt=""
+              width={64}
+              height={64}
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 'var(--radius-lg)',
+                objectFit: 'cover',
+                border: '1px solid var(--border)',
+                background: 'var(--surface-elevated)',
+                flexShrink: 0,
+              }}
+            />
+          )}
+          <h1
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 600,
+              fontSize: 'clamp(32px, 5vw, 52px)',
+              lineHeight: 1.08,
+              letterSpacing: '-0.01em',
+              margin: 0,
+            }}
+          >
+            {restaurant.name}
+          </h1>
+        </div>
+        <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-xs) var(--space-xl)', color: 'var(--text-muted)', fontSize: 15 }}>
+          <span style={badgeStyle('muted')}>
+            <UtensilsIcon size={12} />
+            {t(dict, restaurantTypeLabelKey(restaurant.restaurantType))}
+          </span>
           {(restaurant.addressLine || restaurant.city) && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <MapPinIcon size={16} />
@@ -107,7 +165,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
           )}
         </div>
         {restaurant.description && (
-          <p style={{ marginTop: 'var(--space-sm)', maxWidth: 680, lineHeight: 1.65, color: 'var(--text-primary)', fontSize: 15.5 }}>
+          <p style={{ position: 'relative', marginTop: 'var(--space-sm)', maxWidth: 680, lineHeight: 1.65, color: 'var(--text-primary)', fontSize: 15.5 }}>
             {restaurant.description}
           </p>
         )}
@@ -117,7 +175,7 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
           when there's room for both at >= ~340px each, one column
           (opening hours above the booking form) on a narrow phone --
           no separate mobile markup needed. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'start' }}>
         <div style={{ paddingTop: 2 }}>
           <OpeningHoursList locale={locale} openingHours={openingHours} specialHours={specialHours} />
         </div>

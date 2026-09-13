@@ -12,6 +12,14 @@ body {
   background: var(--background);
   color: var(--text-primary);
   font-family: var(--font-family);
+  /* Safety net, not the fix itself (see BookingForm.tsx's/account's own
+     inputStyle comments for the actual root cause this was covering for --
+     sub-16px form-field font-size triggering mobile auto-zoom-on-focus).
+     Belt-and-suspenders: nothing in this app is meant to scroll
+     horizontally, so if any future element ever overflows on a narrow
+     screen, this keeps it invisible/clipped instead of an awkward
+     side-scrollable page. */
+  overflow-x: hidden;
 }
 
 a {
@@ -36,4 +44,84 @@ select:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Phase 20 (customer UI redesign): a small set of real CSS rules for the
+   two things plain inline `style={{...}}` objects genuinely cannot express
+   -- a keyframe animation (skeleton loading shimmer) and prefers-reduced-
+   motion opt-out. Everything else in the redesign stays inline style
+   objects, same convention as the rest of this app; these are the narrow,
+   deliberate exceptions, not a switch to a new styling approach. */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-elevated) 25%, var(--border) 50%, var(--surface-elevated) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Phase 20 part 2: hover lift for card-shaped links (directory listing
+   cards today, anything else card-shaped later) -- inline style objects
+   can't express :hover, same reasoning as the focus-visible rule above.
+   The global prefers-reduced-motion block below already collapses every
+   transition-duration to ~0, so this needs no separate reduced-motion
+   override -- the state change still happens, just without the animated
+   lift. */
+.card-hover {
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.card-hover:hover,
+.card-hover:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  /* cardStyle now gives every card --shadow-soft at rest (see lib/ui.ts) --
+     hover/focus steps up to --shadow-elevated so the lift actually reads
+     as "this card came closer", not just a color change. */
+  box-shadow: var(--shadow-elevated);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
