@@ -1,0 +1,66 @@
+name: Dispatch notifications (cron)
+
+# =============================================================================
+# Phase 22. The periodic half of notification dispatch -- see
+# supabase/migrations/0043_notification_dispatch.sql's header comment for
+# why this exists at all instead of pg_cron: this project has no pg_cron
+# job anywhere, and (like pg_net before it, see migration 0032's own header)
+# this sandbox has no way to verify enabling it would actually work on the
+# real project. GitHub Actions' own `schedule` trigger is already proven
+# infrastructure here (ci.yml/deploy.yml are real, reviewable workflows run
+# by a real Actions runner on every push -- see their own header notes), so
+# reusing it for "call this Edge Function every few minutes" needs no new,
+# unverified moving part.
+#
+# What this actually does: POSTs to the already-deployed dispatch-
+# notifications Edge Function with the same shared secret it also expects
+# from this project's own pg_net trigger (0043) -- the function's own
+# claim_notifications_for_dispatch call is what decides whether anything is
+# actually due; most invocations of this workflow will find nothing to do
+# and that is the expected, healthy common case, not a failure.
+#
+# HONESTY NOTE, same as every other workflow in this repo: real, reviewable
+# YAML, never executed by a real Actions runner in this sandbox (no git
+# remote, no network, and DISPATCH secrets below don't exist here). Needs
+# one manual one-time step after this merges -- see this migration's README
+# section -- adding the SUPABASE_PROJECT_REF (already set, reused from
+# deploy.yml's own secret of the same name) and a new
+# NOTIFICATIONS_WEBHOOK_SECRET repository secret, matching the value set
+# both as the dispatch-notifications Edge Function secret and as the
+# 'notifications_webhook_secret' Vault row (see .env.example).
+# =============================================================================
+
+on:
+  schedule:
+    # Every 5 minutes. Reminders are scheduled in whole-minute increments
+    # from reminder_rules.minutes_before_start (0016) -- a 5-minute sweep
+    # means a reminder fires at most 5 minutes later than its configured
+    # time, which is fine for "arrive in a few hours" style copy. GitHub's
+    # own scheduler does not guarantee exact timing under load either, so a
+    # tighter interval would not actually buy a tighter guarantee.
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  dispatch:
+    name: Call dispatch-notifications
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: POST to dispatch-notifications
+        run: |
+          http_code=$(curl -sS -o /tmp/response.json -w "%{http_code}" \
+            -X POST \
+            "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/dispatch-notifications" \
+            -H "Content-Type: application/json" \
+            -H "x-webhook-secret: ${NOTIFICATIONS_WEBHOOK_SECRET}" \
+            -d '{"reason":"scheduled_sweep"}')
+          echo "HTTP $http_code"
+          cat /tmp/response.json
+          if [ "$http_code" -ge 300 ]; then
+            echo "dispatch-notifications returned a non-2xx status."
+            exit 1
+          fi
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          NOTIFICATIONS_WEBHOOK_SECRET: ${{ secrets.NOTIFICATIONS_WEBHOOK_SECRET }}

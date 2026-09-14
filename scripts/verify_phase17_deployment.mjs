@@ -104,7 +104,16 @@ if (tomlData) {
   // instead. verify_jwt = false is correct for it for exactly the same
   // reason it's correct for the other two; this allowlist just predates
   // that function and was never updated when it shipped.
-  const expectNoJwt = new Set(['stripe-webhook', 'voice-webhook', 'notify-waitlist']);
+  //
+  // dispatch-notifications (Phase 22, migration 0043) added here for the
+  // identical reason: it is called with no Supabase user session, both by
+  // the pg_net trigger in 0043_notification_dispatch.sql (from inside the
+  // database itself, immediately after a notification is queued) and by
+  // the GitHub Actions cron sweep in
+  // .github/workflows/dispatch-notifications-cron.yml -- and it
+  // authenticates the caller via its own custom x-webhook-secret header
+  // (checked in the function's own source), same as notify-waitlist.
+  const expectNoJwt = new Set(['stripe-webhook', 'voice-webhook', 'notify-waitlist', 'dispatch-notifications']);
   for (const name of realFunctionNames) {
     const entry = declared[name] ?? {};
     const verifyJwt = entry.verify_jwt;
