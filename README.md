@@ -169,10 +169,18 @@ key του πραγματικού Supabase project σου (από τη Φάση 
 
 ### Γνωστά σημεία προσοχής
 
-- Τα εικονίδια/splash (`apps/mobile/assets/*.png`) είναι **προσωρινά
-  placeholders** που έφτιαξα προγραμματιστικά (ένα απλό σχήμα σε ember πάνω
-  σε σκούρο φόντο) — δεν είναι το τελικό brand mark. Αντικατέστησέ τα πριν
-  το πρώτο πραγματικό build για κατάστημα εφαρμογών.
+- Τα εικονίδια/splash (`apps/mobile/assets/*.png`) **ενημερώθηκαν** (15/09/2026,
+  στο πλαίσιο της προετοιμασίας για Play Store) ώστε να χρησιμοποιούν το
+  πραγματικό, ήδη υπάρχον brand mark της εφαρμογής — το ίδιο glyph με το
+  `LogoMark` component του `apps/web` (`apps/web/src/components/icons.tsx`):
+  στρογγυλεμένο τετράγωνο σε accent orange (`#E85D2C`) με λευκό checkmark,
+  παραγμένο εδώ σε πραγματική ανάλυση (1024×1024 για icon/adaptive-icon,
+  headless Chromium render του ίδιου SVG path, όχι upscaled/θολή εικόνα).
+  Το `android.adaptiveIcon.backgroundColor` στο `app.json` ενημερώθηκε επίσης
+  σε `#E85D2C` ώστε να ταιριάζει με το νέο διάφανο foreground. Είναι πλέον
+  σταθερό, on-brand mark — **όχι** πλήρες grafik/marketing design pass
+  (χωρίς wordmark, χωρίς εναλλακτικές παραλλαγές για dark mode κ.λπ.), αλλά
+  δεν είναι πια αποσυνδεδεμένο placeholder σχήμα.
 - Οι εκδόσεις πακέτων στα `package.json` (Expo SDK 51, Next 14.2, κ.λπ.)
   είναι λογικές, τρέχουσες επιλογές, αλλά δεν επιβεβαιώθηκαν εδώ έναντι του
   npm registry. Ένα `npx expo install --check` στο `apps/mobile` μετά το
