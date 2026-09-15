@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { fetchOpeningHours, fetchPublicEvents, fetchPublicFeatureFlagsForRestaurant, fetchPublicOffers, fetchPublicRestaurant, fetchSpecialHours } from '@reservex/core';
 import { BookingForm } from '@/components/BookingForm';
 import { EventsOffersSection } from '@/components/EventsOffersSection';
@@ -5,6 +6,7 @@ import { MapPinIcon, PhoneIcon, UtensilsIcon } from '@/components/icons';
 import { OpeningHoursList } from '@/components/OpeningHoursList';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
 import { restaurantTypeLabelKey } from '@/lib/restaurantType';
+import { buildRestaurantJsonLd } from '@/lib/restaurantJsonLd';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
 import { badgeStyle } from '@/lib/ui';
 // Same reasoning as app/[locale]/page.tsx's own force-dynamic: opening
@@ -65,138 +67,160 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
   const waitlistPublicEnabled = flags.waitlist_public;
   const lastMinuteAlertsEnabled = flags.last_minute_alerts;
   const popularityIndicatorEnabled = flags.popularity_indicator;
+  // Schema.org (JSON-LD) structured data -- see restaurantJsonLd.ts for the
+  // full reasoning. Built from the request's own Host header (via
+  // next/headers) rather than a hardcoded/env-configured domain, so this
+  // stays correct automatically on the current Vercel preview/production
+  // domain AND once a custom domain is eventually attached -- this page is
+  // already `force-dynamic` (see this file's own top-of-file comment), so
+  // reading headers() here adds no additional caching trade-off.
+  const requestHeaders = headers();
+  const forwardedProto = requestHeaders.get('x-forwarded-proto');
+  const host = requestHeaders.get('host');
+  const pageUrl = host ? `${forwardedProto ?? 'https'}://${host}/${locale}/r/${restaurant.slug}` : `/${locale}/r/${restaurant.slug}`;
+  const restaurantJsonLd = buildRestaurantJsonLd({ restaurant, openingHours, pageUrl });
   return (
-    // Full-bleed layout (2026-09 redesign): no hard maxWidth container --
-    // the page fills the viewport width, with fluid side padding (clamp)
-    // instead of a centered fixed-width column, so the page feels like an
-    // immersive booking portal rather than a boxed document on very wide
-    // screens.
-    <div style={{ width: '100%', padding: '0 clamp(20px, 5vw, 64px) clamp(56px, 9vw, 104px)' }}>
-      {/* Hero (Phase 20 part 2). The data model has a restaurant `logoUrl`
-          (a brand mark) but no cover-photo/gallery field -- forcing that
-          into a full-bleed photographic banner would mean stretching a
-          logo into a crop it was never meant for, which is its own kind
-          of dishonesty about what's actually there. Same principle as
-          BookingForm's live-availability panel: real data only, no
-          invented content. So the "premium hero" feeling comes from
-          composition/type/color instead -- a soft decorative accent glow
-          (pure CSS, no image), the logo shown honestly as a small badge
-          next to the name when present, and a real restaurant-type chip
-          (data the app already has). Star ratings from the original brief
-          stay out for the same reason: there is no ratings table yet
-          (see this PR's README section). Events and offers landed
-          separately in Phase 21, rendered below via EventsOffersSection
-          rather than folded into this hero -- keeping this hero's own
-          scope (identity/contact/description) unchanged. */}
-      <div
-        style={{
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-sm)',
-          padding: 'clamp(40px, 8vw, 88px) 0 clamp(32px, 5vw, 56px)',
-          borderBottom: '1px solid var(--border)',
-          marginBottom: 'clamp(32px, 5vw, 56px)',
-          overflow: 'hidden',
-          animation: 'fade-in-up 0.5s ease both',
-        }}
-      >
+    <>
+      {/* Schema.org structured data, invisible to visitors -- see
+          restaurantJsonLd.ts. JSON.stringify output never contains raw
+          user-controlled "</script>" sequences that would need escaping
+          here: every string field embedded (name/description/phone/etc.)
+          comes from this restaurant's own profile data, not third-party
+          input, same trust boundary as the rest of this server-rendered
+          page. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(restaurantJsonLd) }} />
+      {/* Full-bleed layout (2026-09 redesign): no hard maxWidth container --
+          the page fills the viewport width, with fluid side padding (clamp)
+          instead of a centered fixed-width column, so the page feels like an
+          immersive booking portal rather than a boxed document on very wide
+          screens. */}
+      <div style={{ width: '100%', padding: '0 clamp(20px, 5vw, 64px) clamp(56px, 9vw, 104px)' }}>
+        {/* Hero (Phase 20 part 2). The data model has a restaurant `logoUrl`
+            (a brand mark) but no cover-photo/gallery field -- forcing that
+            into a full-bleed photographic banner would mean stretching a
+            logo into a crop it was never meant for, which is its own kind
+            of dishonesty about what's actually there. Same principle as
+            BookingForm's live-availability panel: real data only, no
+            invented content. So the "premium hero" feeling comes from
+            composition/type/color instead -- a soft decorative accent glow
+            (pure CSS, no image), the logo shown honestly as a small badge
+            next to the name when present, and a real restaurant-type chip
+            (data the app already has). Star ratings from the original brief
+            stay out for the same reason: there is no ratings table yet
+            (see this PR's README section). Events and offers landed
+            separately in Phase 21, rendered below via EventsOffersSection
+            rather than folded into this hero -- keeping this hero's own
+            scope (identity/contact/description) unchanged. */}
         <div
-          aria-hidden
           style={{
-            position: 'absolute',
-            top: '-45%',
-            left: '-8%',
-            width: 440,
-            height: 440,
-            background: 'radial-gradient(circle, var(--accent-soft) 0%, transparent 70%)',
-            pointerEvents: 'none',
+            position: 'relative',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-sm)',
+            padding: 'clamp(40px, 8vw, 88px) 0 clamp(32px, 5vw, 56px)',
+            borderBottom: '1px solid var(--border)',
+            marginBottom: 'clamp(32px, 5vw, 56px)',
+            overflow: 'hidden',
+            animation: 'fade-in-up 0.5s ease both',
           }}
-        />
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 16 }}>
-          {restaurant.logoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- see the
-            // directory card's own note; same reasoning here.
-            <img
-              src={restaurant.logoUrl}
-              alt=""
-              width={64}
-              height={64}
-              style={{
-                width: 64,
-                height: 64,
-                borderRadius: 'var(--radius-lg)',
-                objectFit: 'cover',
-                border: '1px solid var(--border)',
-                background: 'var(--surface-elevated)',
-                flexShrink: 0,
-              }}
-            />
-          )}
-          <h1
+        >
+          <div
+            aria-hidden
             style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 600,
-              fontSize: 'clamp(32px, 5vw, 52px)',
-              lineHeight: 1.08,
-              letterSpacing: '-0.01em',
-              margin: 0,
+              position: 'absolute',
+              top: '-45%',
+              left: '-8%',
+              width: 440,
+              height: 440,
+              background: 'radial-gradient(circle, var(--accent-soft) 0%, transparent 70%)',
+              pointerEvents: 'none',
             }}
-          >
-            {restaurant.name}
-          </h1>
-        </div>
-        <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-xs) var(--space-xl)', color: 'var(--text-muted)', fontSize: 15 }}>
-          <span style={badgeStyle('muted')}>
-            <UtensilsIcon size={12} />
-            {t(dict, restaurantTypeLabelKey(restaurant.restaurantType))}
-          </span>
-          {(restaurant.addressLine || restaurant.city) && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <MapPinIcon size={16} />
-              {[restaurant.addressLine, restaurant.city].filter(Boolean).join(', ')}
+          />
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 16 }}>
+            {restaurant.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- see the
+              // directory card's own note; same reasoning here.
+              <img
+                src={restaurant.logoUrl}
+                alt=""
+                width={64}
+                height={64}
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 'var(--radius-lg)',
+                  objectFit: 'cover',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-elevated)',
+                  flexShrink: 0,
+                }}
+              />
+            )}
+            <h1
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 600,
+                fontSize: 'clamp(32px, 5vw, 52px)',
+                lineHeight: 1.08,
+                letterSpacing: '-0.01em',
+                margin: 0,
+              }}
+            >
+              {restaurant.name}
+            </h1>
+          </div>
+          <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-xs) var(--space-xl)', color: 'var(--text-muted)', fontSize: 15 }}>
+            <span style={badgeStyle('muted')}>
+              <UtensilsIcon size={12} />
+              {t(dict, restaurantTypeLabelKey(restaurant.restaurantType))}
             </span>
-          )}
-          {restaurant.phone && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <PhoneIcon size={16} />
-              {restaurant.phone}
-            </span>
+            {(restaurant.addressLine || restaurant.city) && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <MapPinIcon size={16} />
+                {[restaurant.addressLine, restaurant.city].filter(Boolean).join(', ')}
+              </span>
+            )}
+            {restaurant.phone && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <PhoneIcon size={16} />
+                {restaurant.phone}
+              </span>
+            )}
+          </div>
+          {restaurant.description && (
+            <p style={{ position: 'relative', marginTop: 'var(--space-sm)', maxWidth: 680, lineHeight: 1.65, color: 'var(--text-primary)', fontSize: 15.5 }}>
+              {restaurant.description}
+            </p>
           )}
         </div>
-        {restaurant.description && (
-          <p style={{ position: 'relative', marginTop: 'var(--space-sm)', maxWidth: 680, lineHeight: 1.65, color: 'var(--text-primary)', fontSize: 15.5 }}>
-            {restaurant.description}
-          </p>
-        )}
-      </div>
-      <EventsOffersSection locale={locale} events={events} offers={offers} />
-      {/* Same auto-fit grid technique as the directory page: two columns
-          when there's room for both at >= ~340px each, one column
-          (opening hours above the booking form) on a narrow phone --
-          no separate mobile markup needed. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'start' }}>
-        <div style={{ paddingTop: 2 }}>
-          <OpeningHoursList locale={locale} openingHours={openingHours} specialHours={specialHours} />
+        <EventsOffersSection locale={locale} events={events} offers={offers} />
+        {/* Same auto-fit grid technique as the directory page: two columns
+            when there's room for both at >= ~340px each, one column
+            (opening hours above the booking form) on a narrow phone --
+            no separate mobile markup needed. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 'clamp(32px, 5vw, 64px)', alignItems: 'start' }}>
+          <div style={{ paddingTop: 2 }}>
+            <OpeningHoursList locale={locale} openingHours={openingHours} specialHours={specialHours} />
+          </div>
+          <BookingForm
+            locale={locale}
+            restaurant={{
+              id: restaurant.id,
+              slug: restaurant.slug,
+              name: restaurant.name,
+              timezone: restaurant.timezone,
+              minPartySize: restaurant.minPartySize,
+              maxPartySize: restaurant.maxPartySize,
+              bookingWindowMinHours: restaurant.bookingWindowMinHours,
+              bookingWindowMaxDays: restaurant.bookingWindowMaxDays,
+            }}
+            liveAvailabilityEnabled={liveAvailabilityEnabled}
+            waitlistPublicEnabled={waitlistPublicEnabled}
+            lastMinuteAlertsEnabled={lastMinuteAlertsEnabled}
+            popularityIndicatorEnabled={popularityIndicatorEnabled}
+          />
         </div>
-        <BookingForm
-          locale={locale}
-          restaurant={{
-            id: restaurant.id,
-            slug: restaurant.slug,
-            name: restaurant.name,
-            timezone: restaurant.timezone,
-            minPartySize: restaurant.minPartySize,
-            maxPartySize: restaurant.maxPartySize,
-            bookingWindowMinHours: restaurant.bookingWindowMinHours,
-            bookingWindowMaxDays: restaurant.bookingWindowMaxDays,
-          }}
-          liveAvailabilityEnabled={liveAvailabilityEnabled}
-          waitlistPublicEnabled={waitlistPublicEnabled}
-          lastMinuteAlertsEnabled={lastMinuteAlertsEnabled}
-          popularityIndicatorEnabled={popularityIndicatorEnabled}
-        />
       </div>
-    </div>
+    </>
   );
 }
