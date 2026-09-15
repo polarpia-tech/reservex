@@ -1593,11 +1593,6 @@ blueprint: η κάρτα του πελάτη κρατείται δεσμευμέ
 
 ### Τι ΔΕΝ χτίστηκε (σκόπιμα)
 
-- **Κανένας πραγματικός λογαριασμός Stripe, κλειδιά δοκιμής, ή δίκτυο προς
-  το Stripe.** Όλος ο κώδικας ενσωμάτωσης (StripeClient, τα 5 Edge
-  Functions, το Stripe Elements UI) είναι πραγματικός, αλλά ΔΕΝ δοκιμάστηκε
-  ποτέ ενάντια σε πραγματικό Stripe API -- δεν υπάρχει δίκτυο προς το
-  Stripe σε αυτό το sandbox.
 - **Κανένας πίνακας `invoices`.** Σκόπιμη απόφαση εμβέλειας MVP -- το ίδιο
   το Stripe Billing Portal/invoicing καλύπτει αυτή την ανάγκη χωρίς να
   χρειάζεται να ξαναχτιστεί εδώ.
@@ -1650,23 +1645,47 @@ blueprint: η κάρτα του πελάτη κρατείται δεσμευμέ
 - Και οι 4 γλώσσες (de/en/el/tr) έχουν πανομοιότυπο σύνολο i18n keys μετά
   την προσθήκη των `payments.*` και `public.booking.deposit.*` ενοτήτων
   (`packages/i18n/scripts/check-locale-parity.mjs`).
+- **(15/09/2026, μετά την αρχική δημοσίευση αυτής της φάσης) Πραγματικό
+  end-to-end τεστ ενάντια σε πραγματικό λογαριασμό Stripe (test mode),
+  όχι πια μόνο χειροποίητα synthetic events.** Δημιουργήθηκε πραγματικός
+  Stripe test account, ορίστηκαν `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_
+  SECRET` ως Edge Function secrets, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+  στο Vercel (web app), deploy και των 5 Edge Functions, και δημιουργήθηκε
+  πραγματικό webhook endpoint στο Stripe dashboard συνδεδεμένο στο
+  deployed `stripe-webhook`, ακούγοντας ακριβώς τα 8 event types που
+  χειρίζεται ο κώδικας. Μια πραγματική κράτηση έγινε μέσω της δημόσιας
+  σελίδας κράτησης (`/en/r/melina-restaurant`) πάνω σε εστιατόριο με
+  ενεργή `deposit_policies` γραμμή (fixed, €10): το `create-deposit-
+  payment-intent` δημιούργησε πραγματικό manual-capture PaymentIntent, το
+  Stripe Elements UI (`DepositPaymentStep.tsx`) δέχτηκε το test card
+  `4242 4242 4242 4242` και ολοκλήρωσε το `stripe.confirmPayment()`
+  πραγματικά, το πραγματικό Stripe έστειλε πραγματικό `payment_intent.
+  amount_capturable_updated` webhook event στο deployed `stripe-webhook`
+  (1/1 επιτυχής παράδοση, 0 αποτυχίες στο Stripe dashboard), και η
+  γραμμή `payments` στη βάση ενημερώθηκε σωστά σε
+  `status = 'requires_capture'`, `amount_cents = 1000` -- επιβεβαιωμένο
+  και στα τρία σημεία: Stripe dashboard (Payments, "Uncaptured"),
+  Stripe dashboard (Event deliveries, 200), και απευθείας SQL query.
 
 ⚠️ **Δεν μπόρεσα να επαληθεύσω εδώ**:
-- Ότι οποιοδήποτε από τα 5 Edge Functions ή το Stripe Elements UI
-  δουλεύει πράγματι ενάντια σε πραγματικό Stripe API -- κανένα δίκτυο,
-  κανένας λογαριασμός δοκιμής σε αυτό το sandbox. Ο κώδικας είναι
-  πραγματικός (πραγματικό Stripe REST API σχήμα, πραγματικές βιβλιοθήκες
-  `@stripe/stripe-js`/`@stripe/react-stripe-js`), αλλά ποτέ δεν εκτελέστηκε
-  end-to-end.
-- Ότι το `stripe-webhook` χειρίζεται σωστά ΚΑΘΕ πραγματικό event type
-  και edge case που θα έστελνε το πραγματικό Stripe -- δοκιμάστηκε μόνο η
-  υπογραφή (πραγματικά, βλ. πάνω) και η δική του λογική state-transition
-  ενάντια σε χειροποίητα, συντακτικά έγκυρα αντικείμενα event.
-- `@stripe/stripe-js`/`@stripe/react-stripe-js` δεν έχουν πράγματι
-  εγκατασταθεί (`npm install`) σε αυτό το sandbox -- προστέθηκαν στο
-  `apps/web/package.json`, ο κώδικας που τα χρησιμοποιεί περνάει
-  συντακτικό έλεγχο, αλλά δεν επαληθεύτηκε build/typecheck με τα
-  πραγματικά πακέτα εγκατεστημένα.
+- `capture-noshow-deposit`, `refund-deposit`, και `create-subscription-
+  checkout` -- τα άλλα 3 από τα 5 Edge Functions -- δεν δοκιμάστηκαν ακόμα
+  ενάντια στον πραγματικό Stripe test account (μόνο το `create-deposit-
+  payment-intent` και το `stripe-webhook` δοκιμάστηκαν, βλ. παραπάνω).
+  Ο κώδικας είναι πραγματικός αλλά ανεπιβεβαίωτος end-to-end.
+- Ότι το `stripe-webhook` χειρίζεται σωστά και τα υπόλοιπα event types
+  (`payment_intent.succeeded`, `payment_intent.canceled`, `payment_intent.
+  payment_failed`, `charge.refunded`, και τα 3 `customer.subscription.*`)
+  -- μόνο το `payment_intent.amount_capturable_updated` έχει πλέον
+  επιβεβαιωθεί με πραγματικό event. Τα υπόλοιπα δοκιμάστηκαν μόνο ενάντια
+  σε χειροποίητα, συντακτικά έγκυρα αντικείμενα event (η υπογραφή τους
+  όμως δοκιμάστηκε πραγματικά, βλ. `stripeSignature.ts` παραπάνω).
+- `@stripe/stripe-js`/`@stripe/react-stripe-js` δεν έχουν επαληθευτεί με
+  `npm install`/build σε αυτό το sandbox το ίδιο (ο έλεγχος έγινε στο
+  production deployment του Vercel, όχι εδώ) -- αλλά το πραγματικό
+  production build/runtime στο Vercel επιβεβαιώθηκε έμμεσα να δουλεύει,
+  αφού το πραγματικό Stripe Elements UI φόρτωσε και δούλεψε στο
+  `reservex-web.vercel.app`.
 
 ## Φάση 13: Admin Πλατφόρμας
 
