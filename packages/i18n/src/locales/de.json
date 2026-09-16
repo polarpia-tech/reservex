@@ -39,6 +39,8 @@
     "checkYourEmailTitle": "E-Mail-Postfach prüfen",
     "checkYourEmailBody": "Falls ein Konto mit dieser Adresse existiert, haben wir einen Link zum Zurücksetzen gesendet.",
     "backToLogin": "Zurück zur Anmeldung",
+    "orDivider": "oder",
+    "continueWithGoogle": "Weiter mit Google",
     "errors": {
       "invalidCredentials": "E-Mail oder Passwort ist falsch.",
       "emailInvalid": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",

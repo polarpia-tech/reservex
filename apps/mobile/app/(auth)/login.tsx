@@ -6,6 +6,7 @@ import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Vi
 
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
+import { signInWithGoogle } from '@/services/googleAuth';
 import { supabase } from '@/services/supabase';
 import { useTheme } from '@/theme/ThemeProvider';
 import { mapSupabaseAuthError } from '@/utils/authErrors';
@@ -19,6 +20,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleLogin() {
     setError(null);
@@ -37,6 +39,23 @@ export default function LoginScreen() {
     // send them to onboarding or straight into the app depending on
     // whether they already have a restaurant.
     router.replace('/');
+  }
+
+  // Success needs no handling here -- signInWithGoogle() already leaves a
+  // live Supabase session in place, and AuthProvider/useProtectedRoute pick
+  // it up and navigate the same way handleLogin's router.replace() does.
+  async function handleGoogleSignIn() {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (googleError) {
+      setError(
+        googleError instanceof Error ? mapSupabaseAuthError(googleError.message, t) : t('auth.errors.generic'),
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   return (
@@ -69,6 +88,16 @@ export default function LoginScreen() {
 
         <Button label={t('auth.login')} onPress={handleLogin} loading={loading} disabled={!email || !password} />
 
+        <Text style={[styles.divider, { color: theme.textMuted }]}>{t('auth.orDivider')}</Text>
+
+        <Button
+          label={t('auth.continueWithGoogle')}
+          variant="neutral"
+          onPress={handleGoogleSignIn}
+          loading={googleLoading}
+          disabled={loading}
+        />
+
         <Link href="/(auth)/forgot-password" style={[styles.linkCentered, { color: theme.textMuted }]}>
           {t('auth.forgotPassword')}
         </Link>
@@ -90,6 +119,7 @@ const styles = StyleSheet.create({
   appName: { ...typeScale.label, textAlign: 'center', letterSpacing: 1.5, textTransform: 'uppercase' },
   title: { ...typeScale.h1, textAlign: 'center', marginBottom: spacing.md },
   errorText: { ...typeScale.caption, textAlign: 'center' },
+  divider: { ...typeScale.caption, textAlign: 'center' },
   linkCentered: { ...typeScale.caption, textAlign: 'center' },
   footerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
 });

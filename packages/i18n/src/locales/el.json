@@ -39,6 +39,8 @@
     "checkYourEmailTitle": "Ελέγξτε το email σας",
     "checkYourEmailBody": "Αν υπάρχει λογαριασμός με αυτή τη διεύθυνση, σας στείλαμε σύνδεσμο επαναφοράς.",
     "backToLogin": "Επιστροφή στη σύνδεση",
+    "orDivider": "Ή",
+    "continueWithGoogle": "Συνέχεια με Google",
     "errors": {
       "invalidCredentials": "Λάθος email ή κωδικός.",
       "emailInvalid": "Δώστε μια έγκυρη διεύθυνση email.",

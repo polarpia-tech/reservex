@@ -6,6 +6,7 @@ import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Vi
 
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
+import { signInWithGoogle } from '@/services/googleAuth';
 import { supabase } from '@/services/supabase';
 import { useTheme } from '@/theme/ThemeProvider';
 import { mapSupabaseAuthError } from '@/utils/authErrors';
@@ -23,6 +24,7 @@ export default function SignupScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleSignUp() {
     setError(null);
@@ -57,6 +59,24 @@ export default function SignupScreen() {
       // Email confirmation is required (the default Supabase setting).
       // There is no session until they click the link in their inbox.
       setAwaitingConfirmation(true);
+    }
+  }
+
+  // Google accounts are created (or matched to an existing one, if the
+  // same email already signed up with a password) by Supabase itself and
+  // arrive with a session already attached -- there is no separate
+  // "awaiting confirmation" state to handle here, unlike handleSignUp.
+  async function handleGoogleSignIn() {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (googleError) {
+      setError(
+        googleError instanceof Error ? mapSupabaseAuthError(googleError.message, t) : t('auth.errors.generic'),
+      );
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -103,6 +123,16 @@ export default function SignupScreen() {
           disabled={!email || !password || !confirmPassword}
         />
 
+        <Text style={[styles.divider, { color: theme.textMuted }]}>{t('auth.orDivider')}</Text>
+
+        <Button
+          label={t('auth.continueWithGoogle')}
+          variant="neutral"
+          onPress={handleGoogleSignIn}
+          loading={googleLoading}
+          disabled={loading}
+        />
+
         <View style={styles.footerRow}>
           <Text style={{ color: theme.textMuted }}>{t('auth.alreadyHaveAccount')} </Text>
           <Link href="/(auth)/login" style={{ color: theme.accent, fontWeight: '600' }}>
@@ -119,6 +149,7 @@ const styles = StyleSheet.create({
   logo: { width: 64, height: 64, borderRadius: 16, alignSelf: 'center' },
   title: { ...typeScale.h1, textAlign: 'center', marginBottom: spacing.md },
   errorText: { ...typeScale.caption, textAlign: 'center' },
+  divider: { ...typeScale.caption, textAlign: 'center' },
   linkCentered: { ...typeScale.caption, textAlign: 'center' },
   footerRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.lg },
 });

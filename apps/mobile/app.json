@@ -18,14 +18,18 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.reservex.app"
+      "bundleIdentifier": "com.reservex.app",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#E85D2C"
       },
-      "package": "com.reservex.app"
+      "package": "com.reservex.app",
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "bundler": "metro",
@@ -45,6 +49,9 @@
         "projectId": "a0e61166-b905-4a9f-9538-c245daff68f5"
       }
     },
-    "owner": "polarpia"
+    "owner": "polarpia",
+    "updates": {
+      "url": "https://u.expo.dev/a0e61166-b905-4a9f-9538-c245daff68f5"
+    }
   }
 }

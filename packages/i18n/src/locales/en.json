@@ -39,6 +39,8 @@
     "checkYourEmailTitle": "Check your email",
     "checkYourEmailBody": "If an account exists for that address, we've sent a reset link.",
     "backToLogin": "Back to log in",
+    "orDivider": "or",
+    "continueWithGoogle": "Continue with Google",
     "errors": {
       "invalidCredentials": "Email or password is incorrect.",
       "emailInvalid": "Please enter a valid email address.",
