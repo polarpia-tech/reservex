@@ -13,7 +13,9 @@
       "resizeMode": "cover",
       "backgroundColor": "#0B0C10"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.reservex.app"
@@ -30,9 +32,19 @@
       "output": "static",
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router", "expo-font", "expo-localization"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-localization"
+    ],
     "extra": {
-      "router": { "origin": false }
-    }
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "a0e61166-b905-4a9f-9538-c245daff68f5"
+      }
+    },
+    "owner": "polarpia"
   }
 }
