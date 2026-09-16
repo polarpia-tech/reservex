@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "a0e61166-b905-4a9f-9538-c245daff68f5"
+      }
+    },
+    "android": {
+      "package": "com.polarpia.reservex"
+    }
+  }
+}
