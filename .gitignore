@@ -12,5 +12,4 @@ coverage/
 *.tsbuildinfo
 supabase/.temp/
 .vercel
-apps/mobile/android/
 apps/mobile/ios/
