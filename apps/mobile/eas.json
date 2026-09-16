@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "corepack": true,
       "android": {
         "buildType": "apk"
       }
@@ -14,6 +15,7 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "corepack": true,
       "android": {
         "buildType": "apk"
       }
@@ -21,6 +23,7 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "corepack": true,
       "android": {
         "buildType": "app-bundle"
       }

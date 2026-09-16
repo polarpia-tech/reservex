@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "eas-build-pre-install": "corepack enable && corepack prepare pnpm@9.9.0 --activate",
     "dev:mobile": "pnpm --filter @reservex/mobile start",
     "dev:web": "pnpm --filter @reservex/web dev",
     "build": "turbo run build",
