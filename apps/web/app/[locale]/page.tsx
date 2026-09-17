@@ -19,6 +19,18 @@ import { badgeStyle, cardStyle } from '@/lib/ui';
 // build-time fetch fails outright. `force-dynamic` makes the already-
 // documented behavior the actual behavior.
 export const dynamic = 'force-dynamic';
+// `force-dynamic` alone only forces this PAGE to render per request -- it
+// does not stop Next.js's Data Cache from separately caching the
+// individual fetch() calls this render makes. Confirmed live on the
+// restaurant profile page (app/[locale]/r/[slug]/page.tsx, 2026-09-17):
+// Vercel's own Function Invocation panel showed most of that page's
+// Supabase REST calls served "Using cache" instead of hitting Supabase,
+// which is exactly why edits made in the mobile app weren't showing up
+// here. This directory fetches the same way (createSupabaseServerClient +
+// a plain fetch() under the hood), so it's exposed to the same staleness
+// for restaurant name/logo/city/type edits -- forcing every fetch() in
+// this render to skip the Data Cache entirely fixes it here too.
+export const fetchCache = 'force-no-store';
 
 /**
  * The public restaurant directory -- every active restaurant on ReservX,

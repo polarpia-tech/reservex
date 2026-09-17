@@ -75,20 +75,6 @@ export default async function RestaurantProfilePage({ params }: { params: { loca
     // is fewer round trips regardless of the underlying bug.
     fetchPublicFeatureFlagsForRestaurant(supabase, restaurant.slug, ['live_availability', 'waitlist_public', 'last_minute_alerts', 'popularity_indicator']),
   ]);
-  // TEMP DEBUG (remove after diagnosing the opening-hours staleness bug,
-  // 2026-09-17): dumps exactly what THIS server render actually received,
-  // straight from Vercel's Runtime Logs -- which env vars/URL it used, which
-  // restaurant.id it queried with, and the raw rows fetchOpeningHours
-  // returned, so we can tell a Supabase/network-layer staleness issue
-  // apart from a bug somewhere in this file's own rendering.
-  console.log('[DEBUG opening-hours]', JSON.stringify({
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    anonKeyTail: (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '').slice(-12),
-    restaurantId: restaurant.id,
-    restaurantSlug: restaurant.slug,
-    openingHoursCount: openingHours.length,
-    openingHours,
-  }));
   const liveAvailabilityEnabled = flags.live_availability;
   const waitlistPublicEnabled = flags.waitlist_public;
   const lastMinuteAlertsEnabled = flags.last_minute_alerts;
