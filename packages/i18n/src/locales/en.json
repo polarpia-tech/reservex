@@ -40,6 +40,7 @@
     "checkYourEmailBody": "If an account exists for that address, we've sent a reset link.",
     "backToLogin": "Back to log in",
     "orDivider": "or",
+    "completingSignIn": "Completing sign-in…",
     "continueWithGoogle": "Continue with Google",
     "errors": {
       "invalidCredentials": "Email or password is incorrect.",

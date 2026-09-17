@@ -40,6 +40,7 @@
     "checkYourEmailBody": "Falls ein Konto mit dieser Adresse existiert, haben wir einen Link zum Zurücksetzen gesendet.",
     "backToLogin": "Zurück zur Anmeldung",
     "orDivider": "oder",
+    "completingSignIn": "Anmeldung wird abgeschlossen…",
     "continueWithGoogle": "Weiter mit Google",
     "errors": {
       "invalidCredentials": "E-Mail oder Passwort ist falsch.",

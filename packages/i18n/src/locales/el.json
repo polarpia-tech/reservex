@@ -40,6 +40,7 @@
     "checkYourEmailBody": "Αν υπάρχει λογαριασμός με αυτή τη διεύθυνση, σας στείλαμε σύνδεσμο επαναφοράς.",
     "backToLogin": "Επιστροφή στη σύνδεση",
     "orDivider": "Ή",
+    "completingSignIn": "Ολοκλήρωση σύνδεσης…",
     "continueWithGoogle": "Συνέχεια με Google",
     "errors": {
       "invalidCredentials": "Λάθος email ή κωδικός.",

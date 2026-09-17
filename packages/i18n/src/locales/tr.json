@@ -40,6 +40,7 @@
     "checkYourEmailBody": "Bu adresle bir hesap varsa, sıfırlama bağlantısı gönderdik.",
     "backToLogin": "Girişe dön",
     "orDivider": "veya",
+    "completingSignIn": "Oturum açılıyor…",
     "continueWithGoogle": "Google ile devam et",
     "errors": {
       "invalidCredentials": "E-posta veya şifre hatalı.",
