@@ -17,6 +17,18 @@ import { badgeStyle } from '@/lib/ui';
 // once (e.g. right after the restaurant is created, before any opening
 // hours exist) and keeps serving that same stale HTML indefinitely.
 export const dynamic = 'force-dynamic';
+// `dynamic = 'force-dynamic'` above only forces this PAGE to render on
+// every request -- it does NOT, on its own, stop Next.js's Data Cache from
+// caching the individual fetch() calls this render makes (confirmed live
+// in Vercel's Function Invocation panel: 5 of the 6 Supabase REST calls
+// this page issues showed "Using cache", only 1 was a real GET + "SET
+// Updating Data Cache" -- exactly why opening hours kept showing data from
+// whenever that particular query URL was first cached, while other
+// queries happened to get a fresh cache write at some point and looked
+// "live"). This line forces every fetch() in this render to skip the Data
+// Cache entirely, so it always hits Supabase fresh -- the actual fix for
+// the opening-hours staleness bug (2026-09-17).
+export const fetchCache = 'force-no-store';
 /**
  * A restaurant's public profile + inline booking form. Server Component for
  * everything that's just a read (profile, opening hours, special hours --
