@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { handleCors, jsonError, jsonResponse } from '../_shared/cors.ts';
 import { createAdminClient } from '../_shared/supabaseAdmin.ts';
-import { normalizeLocale, renderEmail, renderSms, type ReservationNotificationPayload } from '../_shared/notificationTemplates.ts';
+import { normalizeLocale, renderEmail, renderPush, renderSms, type ReservationNotificationPayload } from '../_shared/notificationTemplates.ts';
 
 /**
  * dispatch-notifications
@@ -41,10 +41,11 @@ interface ClaimedNotification {
   restaurant_id: string;
   restaurant_name: string;
   restaurant_timezone: string;
-  channel: 'email' | 'sms';
+  channel: 'email' | 'sms' | 'push';
   template_code: string;
   payload: ReservationNotificationPayload;
-  recipient_type: 'customer' | 'guest';
+  recipient_type: 'customer' | 'guest' | 'staff';
+  recipient_user_id: string | null;
   to_email: string | null;
   to_phone: string | null;
   locale: string | null;
@@ -112,6 +113,116 @@ async function sendSms(row: ClaimedNotification): Promise<{ providerMessageId?: 
   return { providerMessageId: json?.sid };
 }
 
+interface ExpoPushTicket {
+  status: 'ok' | 'error';
+  id?: string;
+  message?: string;
+  details?: { error?: string };
+}
+
+/**
+ * Sends one push notification to EVERY device (push_tokens row) currently
+ * registered for this staff member -- a staff member signed in on both
+ * their personal phone and the shop's tablet gets woken up on both.
+ * push_tokens has no restaurant scoping of its own (Phase 23, 0044): a
+ * token belongs to a user, not a (user, restaurant) pair, which is
+ * correct -- the same person gets notified the same way regardless of
+ * which of their restaurants the reservation belongs to.
+ *
+ * Expo's push endpoint accepts a batch (array) in one request -- one HTTP
+ * call per notification here, covering however many of this person's
+ * devices are registered, rather than one call per device.
+ *
+ * A `DeviceNotRegistered` ticket error means the OS itself told Expo this
+ * install no longer exists (app uninstalled, or a stale token from before
+ * a reinstall) -- that token is deleted here so this staff member is never
+ * retried against a device that can never receive it again. Any other
+ * per-ticket error is left alone (logged, not treated as fatal for the
+ * whole notification) -- a single bad token must not block delivery to
+ * this person's other devices.
+ */
+async function sendPush(adminClient: ReturnType<typeof createAdminClient>, row: ClaimedNotification): Promise<{ providerMessageId?: string }> {
+  if (!row.recipient_user_id) {
+    throw new Error('Push notification has no recipient_user_id.');
+  }
+
+  const { data: tokenRows, error: tokenError } = await adminClient
+    .from('push_tokens')
+    .select('expo_push_token')
+    .eq('user_id', row.recipient_user_id);
+  if (tokenError) {
+    throw new Error(`Failed to look up push tokens: ${tokenError.message}`);
+  }
+  const tokens = (tokenRows ?? []).map((r: { expo_push_token: string }) => r.expo_push_token);
+  if (tokens.length === 0) {
+    // Nobody's fault in particular (the staff member may simply never have
+    // opened the app on a device / granted permission) -- but there is
+    // genuinely nothing to send, so this is a real failure for this row,
+    // same as "no recipient email" is for sendEmail.
+    throw new Error('No push token registered for this staff member.');
+  }
+
+  const rendered = renderPush(row.template_code, row.locale, row.restaurant_name, row.restaurant_timezone, row.payload);
+
+  const messages = tokens.map((token) => ({
+    to: token,
+    title: rendered.title,
+    body: rendered.body,
+    sound: 'default',
+    priority: 'high',
+    channelId: 'reservations',
+    data: { reservationId: (row.payload as Record<string, unknown>).reservationId ?? null, templateCode: row.template_code },
+  }));
+
+  const expoAccessToken = Deno.env.get('EXPO_ACCESS_TOKEN');
+  const res = await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'Accept-Encoding': 'gzip, deflate',
+      ...(expoAccessToken ? { Authorization: `Bearer ${expoAccessToken}` } : {}),
+    },
+    body: JSON.stringify(messages),
+  });
+
+  const body = await res.json().catch(() => ({}) as any);
+  if (!res.ok) {
+    throw new Error(`Expo push API error (${res.status}): ${JSON.stringify(body)}`);
+  }
+
+  const tickets: ExpoPushTicket[] = body?.data ?? [];
+  const staleTokens: string[] = [];
+  let firstOkId: string | undefined;
+  let firstError: string | undefined;
+
+  tickets.forEach((ticket, index) => {
+    if (ticket.status === 'ok') {
+      firstOkId ??= ticket.id;
+      return;
+    }
+    if (ticket.details?.error === 'DeviceNotRegistered') {
+      const staleToken = tokens[index];
+      if (staleToken) staleTokens.push(staleToken);
+    }
+    firstError ??= ticket.message ?? ticket.details?.error ?? 'Unknown Expo push error';
+  });
+
+  if (staleTokens.length > 0) {
+    const { error: deleteError } = await adminClient.from('push_tokens').delete().in('expo_push_token', staleTokens);
+    if (deleteError) console.error('sendPush: failed to prune stale push token(s)', deleteError);
+  }
+
+  // At least one device received it successfully -> this notification
+  // counts as sent, even if a stale second device failed (already pruned
+  // above). Only throw when EVERY ticket failed.
+  if (!firstOkId && firstError) {
+    throw new Error(firstError);
+  }
+
+  return { providerMessageId: firstOkId };
+}
+
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -143,7 +254,7 @@ Deno.serve(async (req) => {
 
   for (const row of rows) {
     try {
-      const result = row.channel === 'email' ? await sendEmail(row) : await sendSms(row);
+      const result = row.channel === 'email' ? await sendEmail(row) : row.channel === 'sms' ? await sendSms(row) : await sendPush(adminClient, row);
       const { error } = await adminClient.rpc('mark_notification_dispatched', {
         p_id: row.id,
         p_success: true,

@@ -5,6 +5,8 @@ import type {
   NotificationChannel,
   NotificationRecipientType,
   NotificationStatus,
+  PushToken,
+  PushTokenPlatform,
   ReminderRule,
   StaffNotificationPreference,
   UUID,
@@ -228,5 +230,57 @@ export async function updateReminderRule(client: SupabaseClient, ruleId: UUID, i
  */
 export async function deleteReminderRule(client: SupabaseClient, ruleId: UUID): Promise<void> {
   const { error } = await client.from('reminder_rules').delete().eq('id', ruleId);
+  if (error) throw error;
+}
+
+
+// ---------------------------------------------------------------------------
+// push_tokens (Phase 23, migration 0044) -- registering/removing THIS
+// device's Expo push token for the signed-in staff member. Called from
+// apps/mobile/src/services/pushNotifications.ts only; nothing else in the
+// app should touch this table directly, same discipline as this file's own
+// header note about queue_notification.
+// ---------------------------------------------------------------------------
+interface PushTokenRow {
+  id: string;
+  user_id: string;
+  expo_push_token: string;
+  platform: PushTokenPlatform;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapPushTokenRow(row: PushTokenRow): PushToken {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    expoPushToken: row.expo_push_token,
+    platform: row.platform,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/**
+ * Registers (or refreshes) this device's push token for the CALLING user --
+ * push_tokens_owner_all (0044) only ever lets a user write user_id =
+ * auth.uid(), so userId here must be the signed-in user's own id.
+ * onConflict on expo_push_token means calling this again with the SAME
+ * token (e.g. every app foreground, to be safe) just bumps updated_at
+ * instead of erroring or duplicating.
+ */
+export async function upsertPushToken(client: SupabaseClient, userId: UUID, expoPushToken: string, platform: PushTokenPlatform): Promise<PushToken> {
+  const { data, error } = await client
+    .from('push_tokens')
+    .upsert({ user_id: userId, expo_push_token: expoPushToken, platform }, { onConflict: 'expo_push_token' })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return mapPushTokenRow(data as PushTokenRow);
+}
+
+/** Removes THIS device's token, e.g. on sign-out -- so a shared/handed-down device stops being woken up for a user who is no longer signed in on it. Best-effort by design (see pushNotifications.ts): never let this block sign-out. */
+export async function deletePushToken(client: SupabaseClient, expoPushToken: string): Promise<void> {
+  const { error } = await client.from('push_tokens').delete().eq('expo_push_token', expoPushToken);
   if (error) throw error;
 }

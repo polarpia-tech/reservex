@@ -165,6 +165,68 @@ const SMS_COPY: Record<SupportedLocale, {
   },
 };
 
+export interface RenderedPush {
+  title: string;
+  body: string;
+}
+
+const PUSH_COPY: Record<SupportedLocale, {
+  newReservationTitle: string;
+  newReservationBody: (when: string, size: number, guestName: string | null) => string;
+}> = {
+  en: {
+    newReservationTitle: 'New reservation',
+    newReservationBody: (when, size, guestName) =>
+      guestName ? `${guestName} -- table for ${size}, ${when}.` : `Table for ${size}, ${when}.`,
+  },
+  el: {
+    newReservationTitle: 'Νέα κράτηση',
+    newReservationBody: (when, size, guestName) =>
+      guestName ? `${guestName} -- τραπέζι για ${size} άτομα, ${when}.` : `Τραπέζι για ${size} άτομα, ${when}.`,
+  },
+  de: {
+    newReservationTitle: 'Neue Reservierung',
+    newReservationBody: (when, size, guestName) =>
+      guestName ? `${guestName} -- Tisch für ${size}, ${when}.` : `Tisch für ${size} Personen, ${when}.`,
+  },
+  tr: {
+    newReservationTitle: 'Yeni rezervasyon',
+    newReservationBody: (when, size, guestName) =>
+      guestName ? `${guestName} -- ${size} kişilik masa, ${when}.` : `${size} kişilik masa, ${when}.`,
+  },
+};
+
+/**
+ * Renders the push title/body for one template_code. Staff-only channel
+ * (see 0044) -- 'reservation_created' is the only template_code this ever
+ * queues on 'push' today; anything else is a hard failure for that row,
+ * same unknown-code contract as renderEmail/renderSms, so a bug that queues
+ * a push row this file doesn't know how to render shows up in
+ * error_message instead of silently sending a blank notification.
+ */
+export function renderPush(
+  templateCode: string,
+  localeRaw: string | null | undefined,
+  restaurantName: string,
+  timezone: string,
+  payload: ReservationNotificationPayload,
+): RenderedPush {
+  const locale = normalizeLocale(localeRaw);
+  const copy = PUSH_COPY[locale];
+  const when = payload.startsAt ? formatDateTime(payload.startsAt, locale, timezone) : '';
+  const size = payload.partySize ?? 0;
+
+  switch (templateCode) {
+    case 'reservation_created':
+      return {
+        title: `${restaurantName}: ${copy.newReservationTitle}`,
+        body: copy.newReservationBody(when, size, payload.guestName ?? null),
+      };
+    default:
+      throw new Error(`renderPush: no push template for template_code "${templateCode}"`);
+  }
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')

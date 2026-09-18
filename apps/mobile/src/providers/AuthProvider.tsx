@@ -1,6 +1,7 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 
+import { clearPushTokenForCurrentDeviceAsync } from '@/services/pushNotifications';
 import { supabase } from '@/services/supabase';
 
 interface AuthContextValue {
@@ -49,6 +50,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   async function signOut() {
+    // Best-effort, and deliberately BEFORE supabase.auth.signOut() -- once
+    // the session is gone, deletePushToken's RLS check (user_id =
+    // auth.uid()) would have no signed-in user left to match against.
+    await clearPushTokenForCurrentDeviceAsync();
     await supabase.auth.signOut();
   }
 

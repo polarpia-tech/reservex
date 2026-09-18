@@ -315,6 +315,19 @@ export interface StaffNotificationPreference {
   isEnabled: boolean;
 }
 
+// ---- Phase 23: staff push notification device tokens (migration 0044) ----
+
+export type PushTokenPlatform = 'ios' | 'android';
+
+export interface PushToken {
+  id: UUID;
+  userId: UUID;
+  expoPushToken: string;
+  platform: PushTokenPlatform;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
 export interface ReminderRule {
   id: UUID;
   restaurantId: UUID;

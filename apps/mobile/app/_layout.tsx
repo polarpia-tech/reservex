@@ -20,6 +20,7 @@ import { rootModeScreenOptions } from '@/navigation/screenTransitions';
 import { useProtectedRoute } from '@/navigation/useProtectedRoute';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { QueryProvider } from '@/providers/QueryProvider';
+import { syncPushTokenForCurrentUserAsync } from '@/services/pushNotifications';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 
 // Keep the native splash screen up until fonts are ready -- still true, and
@@ -49,6 +50,18 @@ function RootNavigator() {
     hasRestaurant: Boolean(restaurants && restaurants.length > 0),
     isResolving,
   });
+
+  // Phase 23: register this device for push notifications (new-reservation
+  // alerts) as soon as we know who's signed in. Re-runs if the user id
+  // changes (a sign-out/sign-in as someone else on the same device) --
+  // syncPushTokenForCurrentUserAsync itself is a safe no-op on a denied
+  // permission or a simulator, and an upsert on a device that already
+  // registered, so this is safe to fire on every session change.
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    void syncPushTokenForCurrentUserAsync(userId);
+  }, [session?.user?.id]);
 
   const [introDone, setIntroDone] = useState(false);
 
