@@ -1,7 +1,30 @@
 // deno-lint-ignore-file no-explicit-any
+import webpush from 'npm:web-push@3.6.7';
+
 import { handleCors, jsonError, jsonResponse } from '../_shared/cors.ts';
 import { createAdminClient } from '../_shared/supabaseAdmin.ts';
 import { normalizeLocale, renderEmail, renderPush, renderSms, type ReservationNotificationPayload } from '../_shared/notificationTemplates.ts';
+
+/**
+ * Phase 24: lazily configures web-push with this project's VAPID keys (the
+ * SAME keypair notify-waitlist already uses -- one VAPID identity per
+ * project, shared across every Edge Function that sends Web Push) the
+ * first time a row actually needs it, rather than failing the whole
+ * request if they're unset -- a restaurant with only Android/Expo staff
+ * devices registered must not be blocked by a missing web-push config that
+ * literally nothing in that request needs.
+ */
+let vapidConfigured = false;
+function ensureVapidConfigured(): boolean {
+  if (vapidConfigured) return true;
+  const publicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+  const privateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+  const subject = Deno.env.get('VAPID_SUBJECT');
+  if (!publicKey || !privateKey || !subject) return false;
+  webpush.setVapidDetails(subject, publicKey, privateKey);
+  vapidConfigured = true;
+  return true;
+}
 
 /**
  * dispatch-notifications
@@ -154,68 +177,119 @@ async function sendPush(adminClient: ReturnType<typeof createAdminClient>, row: 
     throw new Error(`Failed to look up push tokens: ${tokenError.message}`);
   }
   const tokens = (tokenRows ?? []).map((r: { expo_push_token: string }) => r.expo_push_token);
-  if (tokens.length === 0) {
+
+  // Phase 24: also fan out to every Web Push subscription this staff
+  // member has registered (the iPhone/desktop /staff PWA) -- a device
+  // fanout, exactly like the Expo tokens above, not a separate channel.
+  const { data: webSubRows, error: webSubError } = await adminClient
+    .from('staff_web_push_subscriptions')
+    .select('endpoint, p256dh, auth')
+    .eq('user_id', row.recipient_user_id);
+  if (webSubError) {
+    throw new Error(`Failed to look up web push subscriptions: ${webSubError.message}`);
+  }
+  const webSubs = (webSubRows ?? []) as { endpoint: string; p256dh: string; auth: string }[];
+
+  if (tokens.length === 0 && webSubs.length === 0) {
     // Nobody's fault in particular (the staff member may simply never have
-    // opened the app on a device / granted permission) -- but there is
-    // genuinely nothing to send, so this is a real failure for this row,
-    // same as "no recipient email" is for sendEmail.
-    throw new Error('No push token registered for this staff member.');
+    // opened the app / installed the PWA on a device, or granted
+    // permission) -- but there is genuinely nothing to send, so this is a
+    // real failure for this row, same as "no recipient email" is for
+    // sendEmail.
+    throw new Error('No push token or web push subscription registered for this staff member.');
   }
 
   const rendered = renderPush(row.template_code, row.locale, row.restaurant_name, row.restaurant_timezone, row.payload);
 
-  const messages = tokens.map((token) => ({
-    to: token,
-    title: rendered.title,
-    body: rendered.body,
-    sound: 'default',
-    priority: 'high',
-    channelId: 'reservations',
-    data: { reservationId: (row.payload as Record<string, unknown>).reservationId ?? null, templateCode: row.template_code },
-  }));
-
-  const expoAccessToken = Deno.env.get('EXPO_ACCESS_TOKEN');
-  const res = await fetch('https://exp.host/--/api/v2/push/send', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'Accept-Encoding': 'gzip, deflate',
-      ...(expoAccessToken ? { Authorization: `Bearer ${expoAccessToken}` } : {}),
-    },
-    body: JSON.stringify(messages),
-  });
-
-  const body = await res.json().catch(() => ({}) as any);
-  if (!res.ok) {
-    throw new Error(`Expo push API error (${res.status}): ${JSON.stringify(body)}`);
-  }
-
-  const tickets: ExpoPushTicket[] = body?.data ?? [];
-  const staleTokens: string[] = [];
   let firstOkId: string | undefined;
   let firstError: string | undefined;
 
-  tickets.forEach((ticket, index) => {
-    if (ticket.status === 'ok') {
-      firstOkId ??= ticket.id;
-      return;
-    }
-    if (ticket.details?.error === 'DeviceNotRegistered') {
-      const staleToken = tokens[index];
-      if (staleToken) staleTokens.push(staleToken);
-    }
-    firstError ??= ticket.message ?? ticket.details?.error ?? 'Unknown Expo push error';
-  });
+  if (tokens.length > 0) {
+    const messages = tokens.map((token) => ({
+      to: token,
+      title: rendered.title,
+      body: rendered.body,
+      sound: 'default',
+      priority: 'high',
+      channelId: 'reservations',
+      data: { reservationId: (row.payload as Record<string, unknown>).reservationId ?? null, templateCode: row.template_code },
+    }));
 
-  if (staleTokens.length > 0) {
-    const { error: deleteError } = await adminClient.from('push_tokens').delete().in('expo_push_token', staleTokens);
-    if (deleteError) console.error('sendPush: failed to prune stale push token(s)', deleteError);
+    const expoAccessToken = Deno.env.get('EXPO_ACCESS_TOKEN');
+    const res = await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Accept-Encoding': 'gzip, deflate',
+        ...(expoAccessToken ? { Authorization: `Bearer ${expoAccessToken}` } : {}),
+      },
+      body: JSON.stringify(messages),
+    });
+
+    const body = await res.json().catch(() => ({}) as any);
+    if (!res.ok) {
+      firstError ??= `Expo push API error (${res.status}): ${JSON.stringify(body)}`;
+    } else {
+      const tickets: ExpoPushTicket[] = body?.data ?? [];
+      const staleTokens: string[] = [];
+
+      tickets.forEach((ticket, index) => {
+        if (ticket.status === 'ok') {
+          firstOkId ??= ticket.id;
+          return;
+        }
+        if (ticket.details?.error === 'DeviceNotRegistered') {
+          const staleToken = tokens[index];
+          if (staleToken) staleTokens.push(staleToken);
+        }
+        firstError ??= ticket.message ?? ticket.details?.error ?? 'Unknown Expo push error';
+      });
+
+      if (staleTokens.length > 0) {
+        const { error: deleteError } = await adminClient.from('push_tokens').delete().in('expo_push_token', staleTokens);
+        if (deleteError) console.error('sendPush: failed to prune stale push token(s)', deleteError);
+      }
+    }
   }
 
-  // At least one device received it successfully -> this notification
-  // counts as sent, even if a stale second device failed (already pruned
-  // above). Only throw when EVERY ticket failed.
+  if (webSubs.length > 0) {
+    if (!ensureVapidConfigured()) {
+      firstError ??= 'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT not set in the function environment.';
+    } else {
+      const staleEndpoints: string[] = [];
+      const payload = JSON.stringify({ title: rendered.title, body: rendered.body, url: '/' });
+
+      for (const sub of webSubs) {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            payload,
+          );
+          firstOkId ??= sub.endpoint;
+        } catch (webErr: any) {
+          // 404/410 -- the browser/OS itself invalidated this subscription
+          // (uninstalled, permission revoked, endpoint expired). Prune it,
+          // same as a stale Expo token above, rather than retrying it
+          // forever.
+          if (webErr?.statusCode === 404 || webErr?.statusCode === 410) {
+            staleEndpoints.push(sub.endpoint);
+          }
+          firstError ??= webErr?.body || webErr?.message || 'Unknown Web Push error';
+        }
+      }
+
+      if (staleEndpoints.length > 0) {
+        const { error: deleteError } = await adminClient.from('staff_web_push_subscriptions').delete().in('endpoint', staleEndpoints);
+        if (deleteError) console.error('sendPush: failed to prune stale web push subscription(s)', deleteError);
+      }
+    }
+  }
+
+  // At least one device (Expo or Web Push) received it successfully ->
+  // this notification counts as sent, even if another device failed
+  // (already pruned above where applicable). Only throw when EVERY
+  // destination failed.
   if (!firstOkId && firstError) {
     throw new Error(firstError);
   }

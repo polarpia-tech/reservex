@@ -9,7 +9,9 @@ import type {
   PushTokenPlatform,
   ReminderRule,
   StaffNotificationPreference,
+  StaffWebPushSubscription,
   UUID,
+  WebPushSubscriptionJSON,
 } from '../types/database';
 
 // ---------------------------------------------------------------------------
@@ -282,5 +284,65 @@ export async function upsertPushToken(client: SupabaseClient, userId: UUID, expo
 /** Removes THIS device's token, e.g. on sign-out -- so a shared/handed-down device stops being woken up for a user who is no longer signed in on it. Best-effort by design (see pushNotifications.ts): never let this block sign-out. */
 export async function deletePushToken(client: SupabaseClient, expoPushToken: string): Promise<void> {
   const { error } = await client.from('push_tokens').delete().eq('expo_push_token', expoPushToken);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// staff_web_push_subscriptions (Phase 24, migration 0045) -- the iPhone/
+// desktop counterpart to push_tokens above. Called from apps/web's /staff
+// page (src/lib/webPush.ts's requestWebPushSubscription() gets the browser
+// subscription; this just persists it) -- nothing else should touch this
+// table directly, same discipline as push_tokens.
+// ---------------------------------------------------------------------------
+interface StaffWebPushSubscriptionRow {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapStaffWebPushSubscriptionRow(row: StaffWebPushSubscriptionRow): StaffWebPushSubscription {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    endpoint: row.endpoint,
+    p256dh: row.p256dh,
+    auth: row.auth,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/**
+ * Registers (or refreshes) this browser installation's Web Push
+ * subscription for the CALLING user -- staff_web_push_subscriptions_owner_all
+ * (0045) only ever lets a user write user_id = auth.uid(), so userId here
+ * must be the signed-in user's own id. onConflict on endpoint means
+ * re-subscribing the same installation just bumps updated_at instead of
+ * erroring or duplicating.
+ */
+export async function upsertStaffWebPushSubscription(
+  client: SupabaseClient,
+  userId: UUID,
+  subscription: WebPushSubscriptionJSON,
+): Promise<StaffWebPushSubscription> {
+  const { data, error } = await client
+    .from('staff_web_push_subscriptions')
+    .upsert(
+      { user_id: userId, endpoint: subscription.endpoint, p256dh: subscription.keys.p256dh, auth: subscription.keys.auth },
+      { onConflict: 'endpoint' },
+    )
+    .select('*')
+    .single();
+  if (error) throw error;
+  return mapStaffWebPushSubscriptionRow(data as StaffWebPushSubscriptionRow);
+}
+
+/** Removes THIS installation's subscription, e.g. on sign-out. Best-effort by design, same as deletePushToken: never let this block sign-out. */
+export async function deleteStaffWebPushSubscription(client: SupabaseClient, endpoint: string): Promise<void> {
+  const { error } = await client.from('staff_web_push_subscriptions').delete().eq('endpoint', endpoint);
   if (error) throw error;
 }

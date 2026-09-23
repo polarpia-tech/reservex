@@ -328,6 +328,23 @@ export interface PushToken {
   updatedAt: ISODateTime;
 }
 
+/**
+ * Phase 24 (migration 0045): the iPhone/desktop counterpart to PushToken
+ * above -- one row per (staff user, browser installation) Web Push
+ * subscription, stored as its three separate fields (endpoint/p256dh/auth)
+ * rather than the nested WebPushSubscriptionJSON shape used transiently by
+ * apps/web/src/lib/webPush.ts, matching the table's own columns.
+ */
+export interface StaffWebPushSubscription {
+  id: UUID;
+  userId: UUID;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
 export interface ReminderRule {
   id: UUID;
   restaurantId: UUID;

@@ -114,7 +114,11 @@ self.addEventListener('push', (event) => {
     body: typeof payload.body === 'string' ? payload.body : '',
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
-    data: { url: '/' },
+    // Phase 24: staff pushes (dispatch-notifications) include a `url`
+    // field; the waitlist push (notify-waitlist) still doesn't (see the
+    // comment above this listener), so this falls back to '/' exactly as
+    // before for that payload shape.
+    data: { url: typeof payload.url === 'string' && payload.url ? payload.url : '/' },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
