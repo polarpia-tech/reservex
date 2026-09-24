@@ -268,6 +268,19 @@ async function sendPush(adminClient: ReturnType<typeof createAdminClient>, row: 
           );
           firstOkId ??= sub.endpoint;
         } catch (webErr: any) {
+          // Always log the raw error -- previously this was only ever
+          // captured into firstError, which gets silently discarded
+          // whenever an Expo (Android) send already succeeded for this
+          // same row, making web-push failures invisible in the function
+          // logs even though the staff member's phone never received
+          // anything. Logging unconditionally here is the only way to
+          // diagnose web-push-only staff (iPhone/desktop) going forward.
+          console.error('sendPush: web push send failed', {
+            endpoint: sub.endpoint,
+            statusCode: webErr?.statusCode,
+            body: webErr?.body,
+            message: webErr?.message,
+          });
           // 404/410 -- the browser/OS itself invalidated this subscription
           // (uninstalled, permission revoked, endpoint expired). Prune it,
           // same as a stale Expo token above, rather than retrying it
