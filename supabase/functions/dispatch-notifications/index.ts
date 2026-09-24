@@ -254,7 +254,14 @@ async function sendPush(adminClient: ReturnType<typeof createAdminClient>, row: 
   }
 
   if (webSubs.length > 0) {
-    if (!ensureVapidConfigured()) {
+    const vapidOk = ensureVapidConfigured();
+    console.log('sendPush: web push section entered', { webSubsCount: webSubs.length, vapidOk });
+    if (!vapidOk) {
+      console.error('sendPush: VAPID env vars missing, skipping web push entirely', {
+        hasPublicKey: !!Deno.env.get('VAPID_PUBLIC_KEY'),
+        hasPrivateKey: !!Deno.env.get('VAPID_PRIVATE_KEY'),
+        hasSubject: !!Deno.env.get('VAPID_SUBJECT'),
+      });
       firstError ??= 'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT not set in the function environment.';
     } else {
       const staleEndpoints: string[] = [];
@@ -266,6 +273,7 @@ async function sendPush(adminClient: ReturnType<typeof createAdminClient>, row: 
             { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
             payload,
           );
+          console.log('sendPush: web push sent OK', { endpoint: sub.endpoint });
           firstOkId ??= sub.endpoint;
         } catch (webErr: any) {
           // Always log the raw error -- previously this was only ever
