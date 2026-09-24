@@ -416,6 +416,8 @@
       "subtitle": "Book directly with restaurants, cafés, bars and venues near you.",
       "searchPlaceholder": "Search by name or city",
       "noRestaurants": "No restaurants found.",
+      "clearSearch": "Clear search",
+      "noResults": "No restaurants match your search.",
       "viewAndBook": "View & book"
     },
     "restaurant": {

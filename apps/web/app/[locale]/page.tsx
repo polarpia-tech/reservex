@@ -1,11 +1,9 @@
 import { fetchPublicRestaurantDirectory } from '@reservex/core';
-import Link from 'next/link';
 
-import { ArrowRightIcon, MapPinIcon, UtensilsIcon } from '@/components/icons';
+import { RestaurantDirectoryList } from '@/components/RestaurantDirectoryList';
+import { UtensilsIcon } from '@/components/icons';
 import { getDictionary, isSupportedLocale, t, type SupportedLocale } from '@/lib/dictionary';
-import { restaurantTypeLabelKey } from '@/lib/restaurantType';
 import { createSupabaseServerClient } from '@/lib/supabaseServer';
-import { badgeStyle, cardStyle } from '@/lib/ui';
 
 // This page's own header comment already documents the intent: fetched
 // anonymously at REQUEST time, not baked in at build time -- a live
@@ -37,10 +35,9 @@ export const fetchCache = 'force-no-store';
  * for a visitor who arrived with no QR code or direct link. Server
  * Component: fetched anonymously at request time via
  * createSupabaseServerClient(), no client-side JS needed for this page at
- * all. Deliberately no search/filter UI yet (see BookPublicReservationInput's
- * README note) -- with only a handful of pilot restaurants at launch, a
- * plain list is honest about what's actually here; search is a natural
- * Phase 09+ addition once there are enough restaurants for it to matter.
+ * all. Search-as-you-type (RestaurantDirectoryList, 2026-09) filters this
+ * same server-fetched array client-side -- no second endpoint, and it only
+ * shows itself once there are enough restaurants for search to matter.
  */
 export default async function RestaurantDirectoryPage({ params }: { params: { locale: string } }) {
   if (!isSupportedLocale(params.locale)) return null; // layout already 404s; this satisfies the type narrowing below.
@@ -78,88 +75,7 @@ export default async function RestaurantDirectoryPage({ params }: { params: { lo
           <p style={{ margin: 0 }}>{t(dict, 'public.directory.noRestaurants')}</p>
         </div>
       ) : (
-        <ul
-          style={{
-            listStyle: 'none',
-            padding: 0,
-            margin: 0,
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
-            gap: 'var(--space-md)',
-          }}
-        >
-          {restaurants.map((restaurant, index) => (
-            <li key={restaurant.id} style={{ animation: 'fade-in-up 0.4s ease both', animationDelay: `${Math.min(index, 8) * 40}ms` }}>
-              {/* The whole card is one Link (not just the CTA at the
-                  bottom) -- a single clear click/focus target instead of
-                  two overlapping ones, and a much larger, easier-to-hit
-                  tap area on mobile. The visual "button" below is a plain
-                  span, since a real <button> nested inside an <a> is
-                  invalid HTML. */}
-              <Link
-                href={`/${locale}/r/${restaurant.slug}`}
-                className="card-hover"
-                style={{
-                  ...cardStyle,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-md)',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  height: '100%',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  {restaurant.logoUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element -- a
-                    // handful of remote restaurant-owned logo URLs; not worth
-                    // wiring next/image's domain allowlist for this yet.
-                    <img
-                      src={restaurant.logoUrl}
-                      alt=""
-                      width={40}
-                      height={40}
-                      style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', objectFit: 'cover', border: '1px solid var(--border)', flexShrink: 0 }}
-                    />
-                  )}
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 18 }}>{restaurant.name}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-xs) var(--space-sm)' }}>
-                  <span style={badgeStyle('muted')}>
-                    <UtensilsIcon size={12} />
-                    {t(dict, restaurantTypeLabelKey(restaurant.restaurantType))}
-                  </span>
-                  {restaurant.city && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--text-muted)', fontSize: 13 }}>
-                      <MapPinIcon size={13} />
-                      {restaurant.city}
-                    </span>
-                  )}
-                </div>
-                <span
-                  style={{
-                    marginTop: 'auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: 'var(--accent-contrast)',
-                    background: 'var(--accent)',
-                    borderRadius: 'var(--radius-full)',
-                    padding: '11px 16px',
-                    minHeight: 44,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {t(dict, 'public.directory.viewAndBook')}
-                  <ArrowRightIcon size={14} />
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <RestaurantDirectoryList restaurants={restaurants} locale={locale} />
       )}
     </div>
   );

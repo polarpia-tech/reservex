@@ -991,7 +991,7 @@ function LiveAvailabilityPanel({
   popularTimes?: string[] | null;
 }) {
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px var(--space-md)', background: 'var(--background)' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 8px', background: 'var(--background)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
         <p style={{ margin: 0, fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
           {t(dict, 'public.booking.liveAvailability.title')}
@@ -1026,7 +1026,7 @@ function LiveAvailabilityPanel({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))',
               gap: 8,
               animation: 'fade-in-up 0.25s ease',
             }}
@@ -1069,13 +1069,31 @@ function LiveAvailabilityPanel({
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 3,
+                    gap: 4,
                     aspectRatio: '1 / 1',
-                    padding: '6px 4px 9px',
+                    padding: '8px 6px 11px',
                     borderRadius: 'var(--radius-md)',
-                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                    background: isSelected ? 'var(--accent)' : isAvailable ? 'var(--surface)' : 'var(--background)',
-                    opacity: isAvailable ? 1 : 0.55,
+                    border: `1px solid ${
+                      isSelected
+                        ? 'var(--accent)'
+                        : isFullTier
+                          ? 'color-mix(in srgb, var(--danger) 28%, var(--border))'
+                          : isLimitedTier
+                            ? 'color-mix(in srgb, var(--warning) 32%, var(--border))'
+                            : 'color-mix(in srgb, var(--success) 28%, var(--border))'
+                    }`,
+                    // Tier-tinted background instead of a flat dark/dimmed
+                    // rectangle -- a light wash of the same status color
+                    // the dot and tier-bar already use, so the square reads
+                    // open/limited/full at a glance and never goes murky in
+                    // dark mode (no opacity dimming here on purpose).
+                    background: isSelected
+                      ? 'var(--accent)'
+                      : isFullTier
+                        ? 'color-mix(in srgb, var(--danger) 9%, var(--surface))'
+                        : isLimitedTier
+                          ? 'color-mix(in srgb, var(--warning) 13%, var(--surface))'
+                          : 'color-mix(in srgb, var(--success) 11%, var(--surface))',
                     cursor: isAvailable ? 'pointer' : 'default',
                   }}
                 >
@@ -1091,7 +1109,7 @@ function LiveAvailabilityPanel({
                   <span
                     style={{
                       fontFamily: 'var(--font-mono)',
-                      fontSize: 13,
+                      fontSize: 14.5,
                       fontWeight: 700,
                       color: isSelected ? 'var(--accent-contrast)' : 'var(--text-primary)',
                     }}
@@ -1100,17 +1118,17 @@ function LiveAvailabilityPanel({
                   </span>
                   <span
                     style={{
-                      width: 6,
-                      height: 6,
+                      width: 7,
+                      height: 7,
                       borderRadius: '50%',
                       flexShrink: 0,
-                      background: isSelected ? 'var(--accent-contrast)' : isAvailable ? 'var(--success)' : 'var(--danger)',
+                      background: isSelected ? 'var(--accent-contrast)' : tierColor,
                     }}
                   />
                   {slot.availableTableCount > 0 ? (
                     <span
                       style={{
-                        fontSize: 9,
+                        fontSize: 10,
                         fontWeight: 600,
                         color: isSelected ? 'var(--accent-contrast)' : 'var(--text-muted)',
                         opacity: 0.9,
@@ -1122,11 +1140,11 @@ function LiveAvailabilityPanel({
                   <div
                     style={{
                       position: 'absolute',
-                      left: 6,
-                      right: 6,
-                      bottom: 4,
-                      height: 3,
-                      borderRadius: 3,
+                      left: 7,
+                      right: 7,
+                      bottom: 5,
+                      height: 4,
+                      borderRadius: 4,
                       overflow: 'hidden',
                       background: isSelected ? 'color-mix(in srgb, var(--accent-contrast) 30%, transparent)' : 'var(--surface-elevated)',
                     }}

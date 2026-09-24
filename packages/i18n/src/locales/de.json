@@ -416,6 +416,8 @@
       "subtitle": "Buchen Sie direkt bei Restaurants, Cafés, Bars und Locations in Ihrer Nähe.",
       "searchPlaceholder": "Suche nach Name oder Stadt",
       "noRestaurants": "Keine Restaurants gefunden.",
+      "clearSearch": "Suche löschen",
+      "noResults": "Keine Restaurants entsprechen Ihrer Suche.",
       "viewAndBook": "Ansehen & buchen"
     },
     "restaurant": {

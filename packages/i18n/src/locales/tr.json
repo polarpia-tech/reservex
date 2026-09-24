@@ -416,6 +416,8 @@
       "subtitle": "Yakınınızdaki restoran, kafe, bar ve mekanlarda doğrudan rezervasyon yapın.",
       "searchPlaceholder": "İsim veya şehre göre ara",
       "noRestaurants": "Restoran bulunamadı.",
+      "clearSearch": "Aramayı temizle",
+      "noResults": "Aramanızla eşleşen restoran bulunamadı.",
       "viewAndBook": "Görüntüle & rezervasyon yap"
     },
     "restaurant": {
