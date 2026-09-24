@@ -15,13 +15,21 @@
  */
 
 export const palette = {
-  // Neutrals -- cool-leaning near-black, not a warm "hospitality" cliche.
-  ink900: '#0B0C10',
-  ink800: '#16181D',
-  ink700: '#1E2129',
-  ink600: '#2A2E38',
-  ink400: '#5B6270',
-  ink200: '#8B909C',
+  // Neutrals -- cool-leaning charcoal, not a warm "hospitality" cliche.
+  // 2026-09: lightened from a near-black OLED palette (ink900 was #0B0C10)
+  // to a softer charcoal-slate scale -- the original read as harsh/heavy,
+  // especially stacked (a bordered card on the near-black page background,
+  // itself holding bordered chips/squares) where each extra layer of near-
+  // black-on-near-black just compounded. Same relative step sizes between
+  // background/surface/surfaceElevated/border, just a lighter starting
+  // point, so contrast ratios and the "this sits above that" layering
+  // still read correctly -- this is a brightness retune, not a redesign.
+  ink900: '#1A1C22',
+  ink800: '#23262E',
+  ink700: '#2C2F39',
+  ink600: '#3B3F4B',
+  ink400: '#646B7A',
+  ink200: '#9BA1AE',
   ink100: '#C7CAD1',
   paper: '#FAFAFA',
   paperElevated: '#FFFFFF',
@@ -44,6 +52,15 @@ export const palette = {
   success: '#34D399',
   warning: '#FBBF24',
   danger: '#F87171',
+  info: '#38BDF8',
+  infoLight: '#0284C7',
+
+  // Depth -- one extra dark-theme step ABOVE surfaceElevated, used only for
+  // an interactive card's hover/selected background (never a base surface).
+  // Kept as its own named step, distinct from ink600 (which already means
+  // "border"), so the two roles never accidentally collapse into the same
+  // literal value if one is retuned later.
+  ink550: '#343847',
 } as const;
 
 export type ColorScheme = 'light' | 'dark';
@@ -52,7 +69,17 @@ export interface ThemeColors {
   background: string;
   surface: string;
   surfaceElevated: string;
+  /**
+   * One step lighter than surfaceElevated -- an interactive card's
+   * pressed/selected background (e.g. a table card the host just tapped,
+   * a selected date chip). Never a base surface for ordinary content.
+   */
+  surfaceHighlight: string;
   border: string;
+  /** A stronger border for a selected/focused card outline, distinct from the ordinary hairline `border`. */
+  borderStrong: string;
+  /** Modal / bottom-sheet backdrop scrim. */
+  overlay: string;
   textPrimary: string;
   textMuted: string;
   accent: string;      // "ember" -- primary actions, reservation-domain UI
@@ -60,6 +87,8 @@ export interface ThemeColors {
   success: string;
   warning: string;
   danger: string;
+  /** Neutral informational tone -- distinct from both accents and from warning/danger. */
+  info: string;
 }
 
 export const themes: Record<ColorScheme, ThemeColors> = {
@@ -67,7 +96,10 @@ export const themes: Record<ColorScheme, ThemeColors> = {
     background: palette.ink900,
     surface: palette.ink800,
     surfaceElevated: palette.ink700,
+    surfaceHighlight: palette.ink550,
     border: palette.ink600,
+    borderStrong: palette.ink400,
+    overlay: 'rgba(5, 6, 8, 0.72)',
     textPrimary: '#F2F3F5',
     textMuted: palette.ink200,
     accent: palette.emberDark,
@@ -75,12 +107,16 @@ export const themes: Record<ColorScheme, ThemeColors> = {
     success: palette.success,
     warning: palette.warning,
     danger: palette.danger,
+    info: palette.info,
   },
   light: {
     background: palette.paper,
     surface: palette.paperElevated,
     surfaceElevated: palette.paperMuted,
+    surfaceHighlight: '#E9E7E1',
     border: palette.paperLine,
+    borderStrong: '#C7C4BC',
+    overlay: 'rgba(20, 21, 26, 0.5)',
     textPrimary: '#14151A',
     textMuted: '#6B7280',
     accent: palette.emberLight,
@@ -88,6 +124,7 @@ export const themes: Record<ColorScheme, ThemeColors> = {
     success: '#0F9D6E',
     warning: '#B27C00',
     danger: '#D64545',
+    info: palette.infoLight,
   },
 };
 
@@ -145,3 +182,70 @@ export const typeScale = {
 export function getTheme(scheme: ColorScheme): ThemeColors {
   return themes[scheme];
 }
+
+/**
+ * RN-shape shadow presets (shadowColor/Offset/Opacity/Radius for iOS,
+ * `elevation` for Android -- the two platforms' native depth systems, no
+ * extra dependency). Three plain levels for ordinary depth, plus a
+ * `glow(color)` helper for a colored highlight (a selected card's border
+ * glow, an important CTA's breathing halo) -- pass a theme color so the
+ * glow always matches the accent it belongs to instead of a hardcoded hex.
+ *
+ * These intentionally read as "this element sits above the surface behind
+ * it" at three distinct strengths, so depth communicates hierarchy (a
+ * plain list row vs. a stat card vs. a modal sheet) instead of every
+ * surface in the app getting the same shadow.
+ */
+export const shadows = {
+  none: {},
+  /** List rows, ordinary cards sitting directly on the background. */
+  sm: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.16,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  /** Stat cards, section cards -- the app's default "elevated" card. */
+  md: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  /** Modals/sheets, floating action buttons -- the top of the stack. */
+  lg: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 14,
+  },
+} as const;
+
+export function glowShadow(color: string, intensity: 'soft' | 'strong' = 'soft') {
+  return {
+    shadowColor: color,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: intensity === 'strong' ? 0.55 : 0.32,
+    shadowRadius: intensity === 'strong' ? 18 : 10,
+    elevation: intensity === 'strong' ? 10 : 6,
+  } as const;
+}
+
+/**
+ * Two-stop gradient pairs, one per accent (never mixed -- see this file's
+ * header comment on ember vs. pulse) plus one neutral "surface" gradient
+ * for a premium card background that is still clearly part of the dark
+ * neutral system, not a third accent. Consumed by expo-linear-gradient on
+ * the Expo app; unused by the web codegen script (scripts/generate-css-
+ * tokens.mjs only reads `themes`/`spacing`/`radii`/`fonts` by name), so
+ * adding this here cannot affect the web app's generated CSS.
+ */
+export const gradients = {
+  ember: [palette.emberLight, palette.emberDark] as [string, string],
+  pulse: [palette.pulseLight, palette.pulseDark] as [string, string],
+  surfaceCard: [palette.ink800, palette.ink700] as [string, string],
+} as const;
+

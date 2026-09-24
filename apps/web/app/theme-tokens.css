@@ -34,12 +34,12 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-  --background: #0B0C10;
-  --surface: #16181D;
-  --surface-elevated: #1E2129;
-  --border: #2A2E38;
+  --background: #1A1C22;
+  --surface: #23262E;
+  --surface-elevated: #2C2F39;
+  --border: #3B3F4B;
   --text-primary: #F2F3F5;
-  --text-muted: #8B909C;
+  --text-muted: #9BA1AE;
   --accent: #FF7A45;
   --ai: #7C5CFF;
   --success: #34D399;

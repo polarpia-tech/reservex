@@ -991,7 +991,7 @@ function LiveAvailabilityPanel({
   popularTimes?: string[] | null;
 }) {
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 8px', background: 'var(--background)' }}>
+    <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
         <p style={{ margin: 0, fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
           {t(dict, 'public.booking.liveAvailability.title')}
@@ -1026,8 +1026,8 @@ function LiveAvailabilityPanel({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))',
-              gap: 8,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(62px, 1fr))',
+              gap: 6,
               animation: 'fade-in-up 0.25s ease',
             }}
           >
@@ -1069,10 +1069,10 @@ function LiveAvailabilityPanel({
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 4,
+                    gap: 2,
                     aspectRatio: '1 / 1',
-                    padding: '8px 6px 11px',
-                    borderRadius: 'var(--radius-md)',
+                    padding: '5px 3px 8px',
+                    borderRadius: 'var(--radius-sm)',
                     border: `1px solid ${
                       isSelected
                         ? 'var(--accent)'
@@ -1109,7 +1109,7 @@ function LiveAvailabilityPanel({
                   <span
                     style={{
                       fontFamily: 'var(--font-mono)',
-                      fontSize: 14.5,
+                      fontSize: 12,
                       fontWeight: 700,
                       color: isSelected ? 'var(--accent-contrast)' : 'var(--text-primary)',
                     }}
@@ -1118,8 +1118,8 @@ function LiveAvailabilityPanel({
                   </span>
                   <span
                     style={{
-                      width: 7,
-                      height: 7,
+                      width: 5,
+                      height: 5,
                       borderRadius: '50%',
                       flexShrink: 0,
                       background: isSelected ? 'var(--accent-contrast)' : tierColor,
@@ -1128,7 +1128,7 @@ function LiveAvailabilityPanel({
                   {slot.availableTableCount > 0 ? (
                     <span
                       style={{
-                        fontSize: 10,
+                        fontSize: 8.5,
                         fontWeight: 600,
                         color: isSelected ? 'var(--accent-contrast)' : 'var(--text-muted)',
                         opacity: 0.9,
@@ -1140,11 +1140,11 @@ function LiveAvailabilityPanel({
                   <div
                     style={{
                       position: 'absolute',
-                      left: 7,
-                      right: 7,
-                      bottom: 5,
-                      height: 4,
-                      borderRadius: 4,
+                      left: 5,
+                      right: 5,
+                      bottom: 3,
+                      height: 3,
+                      borderRadius: 3,
                       overflow: 'hidden',
                       background: isSelected ? 'color-mix(in srgb, var(--accent-contrast) 30%, transparent)' : 'var(--surface-elevated)',
                     }}
