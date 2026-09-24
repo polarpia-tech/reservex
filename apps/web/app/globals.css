@@ -115,6 +115,60 @@ a:focus-visible {
   box-shadow: var(--shadow-elevated);
 }
 
+/* 2026-09: customer-facing "live" indicator for the booking page's
+   real-time availability panel (Phase 21) -- a thin bar whose highlight
+   sweeps back and forth (Uber-style "this is live" cue) plus a small
+   pulsing dot next to the panel title. Same convention as the other
+   keyframe rules above: plain inline style objects can't express a
+   pseudo-element or a keyframe animation, so this is one of the narrow
+   deliberate exceptions. Already covered by the prefers-reduced-motion
+   block below (it collapses every animation-duration via the `*` rule),
+   so no separate reduced-motion override is needed here. */
+@keyframes live-sweep {
+  0%,
+  100% {
+    left: -30%;
+  }
+  50% {
+    left: 100%;
+  }
+}
+
+.live-indicator-track {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--surface-elevated);
+  overflow: hidden;
+}
+
+.live-indicator-track::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -30%;
+  width: 30%;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, var(--success), transparent);
+  animation: live-sweep 2.4s ease-in-out infinite;
+}
+
+@keyframes live-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.live-dot {
+  animation: live-dot-pulse 1.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none;

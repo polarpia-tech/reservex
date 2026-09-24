@@ -171,6 +171,7 @@
   },
   "reservations": {
     "title": "Rezervasyonlar",
+    "total": "Toplam",
     "listView": "Liste görünümü",
     "timelineView": "Zaman çizelgesi görünümü",
     "newReservation": "Yeni rezervasyon",
@@ -241,6 +242,8 @@
   },
   "tables": {
     "title": "Masalar",
+    "total": "Toplam",
+    "unavailable": "Kullanılamaz",
     "listView": "Liste görünümü",
     "mapView": "Harita görünümü",
     "zones": "Bölgeler",
@@ -456,6 +459,7 @@
       "bookAnother": "Başka bir masa ayırt",
       "liveAvailability": {
         "title": "Uygunluk",
+        "liveBadge": "Canlı",
         "loading": "Uygunluk kontrol ediliyor…",
         "closed": "Bu tarihte kapalı.",
         "hint": "Otomatik doldurmak için bir saat seçin.",

@@ -171,6 +171,7 @@
   },
   "reservations": {
     "title": "Reservierungen",
+    "total": "Gesamt",
     "listView": "Listenansicht",
     "timelineView": "Zeitachsenansicht",
     "newReservation": "Neue Reservierung",
@@ -241,6 +242,8 @@
   },
   "tables": {
     "title": "Tische",
+    "total": "Gesamt",
+    "unavailable": "Nicht verfügbar",
     "listView": "Listenansicht",
     "mapView": "Kartenansicht",
     "zones": "Bereiche",
@@ -456,6 +459,7 @@
       "bookAnother": "Weiteren Tisch buchen",
       "liveAvailability": {
         "title": "Verfügbarkeit",
+        "liveBadge": "Live",
         "loading": "Verfügbarkeit wird geprüft…",
         "closed": "An diesem Tag geschlossen.",
         "hint": "Wählen Sie eine Uhrzeit, um sie automatisch einzutragen.",

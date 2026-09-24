@@ -992,9 +992,16 @@ function LiveAvailabilityPanel({
 }) {
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px var(--space-md)', background: 'var(--background)' }}>
-      <p style={{ margin: '0 0 8px', fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
-        {t(dict, 'public.booking.liveAvailability.title')}
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+        <p style={{ margin: 0, fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+          {t(dict, 'public.booking.liveAvailability.title')}
+        </p>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: 'var(--success)', textTransform: 'uppercase', letterSpacing: 0.5, flexShrink: 0 }}>
+          <span className="live-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', display: 'inline-block' }} />
+          {t(dict, 'public.booking.liveAvailability.liveBadge')}
+        </span>
+      </div>
+      <div className="live-indicator-track" style={{ marginBottom: 10 }} />
       {loading && !slots ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} aria-label={t(dict, 'public.booking.liveAvailability.loading')}>
           {[0, 1, 2].map((i) => (
@@ -1005,25 +1012,29 @@ function LiveAvailabilityPanel({
         <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>{t(dict, 'public.booking.liveAvailability.closed')}</p>
       ) : slots && slots.length > 0 ? (
         <>
-          {/* ΚΡΑΤΩ-inspired "board" restyle (2026-09): same rows, same data,
-              same click/disabled/selected logic as before -- only the
-              container changed, from a flex-wrap chip grid to a vertical
-              list of full-width rows (grid-template-columns), so it reads
-              like a schedule board instead of a tag cloud. */}
-          <div style={{ display: 'flex', flexDirection: 'column', animation: 'fade-in-up 0.25s ease' }}>
+          {/* Mobile-friendly square grid (2026-09): same slots, same data,
+              same click/disabled/selected/popular logic as the earlier
+              full-width-row layout -- only the container and each slot's
+              markup changed, from a vertical list of full-width rows to a
+              responsive grid of small square buttons (CSS grid,
+              auto-fill/minmax), so a full day's worth of times fits the
+              screen without heavy scrolling on mobile. The colored dot +
+              thin tier bar at the bottom of each square still carry the
+              exact same open/limited/full read DemandTicker's bars use;
+              the full sentence ("3 τραπέζια διαθέσιμα") moves to
+              title/aria-label since the square is too small to hold it. */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(72px, 1fr))',
+              gap: 8,
+              animation: 'fade-in-up 0.25s ease',
+            }}
+          >
             {slots.map((slot) => {
               const localTime = formatTimeInTimeZone(slot.slotStartsAt, timezone, locale);
               const isAvailable = slot.availableTableCount > 0 || slot.hasCombinableOption;
               const isSelected = selectedTime === localTime;
-              // Phase 6, sub-feature 4 (migration 0036/0037): a plain string
-              // match against the "HH:MM" 24h buckets get_public_popularity_
-              // indicators returned -- formatTimeInTimeZone above already
-              // formats localTime the same way (hourCycle: 'h23'), so no
-              // separate parsing is needed. Shown regardless of whether the
-              // slot is currently available: "historically popular" and
-              // "free right now" are deliberately independent signals (see
-              // fetchPublicPopularityIndicators's own comment) and can
-              // legitimately disagree.
               const isPopular = Boolean(popularTimes?.includes(localTime));
               const availabilityLabel =
                 slot.availableTableCount > 0
@@ -1039,10 +1050,6 @@ function LiveAvailabilityPanel({
                   : slot.hasCombinableOption
                     ? t(dict, 'public.booking.liveAvailability.availableCombinable')
                     : t(dict, 'public.booking.liveAvailability.none');
-              // Same 3-tier bucket DemandTicker's bars use -- "full" (no
-              // standalone table AND no combinable option), "limited" (down
-              // to the last table, or combinable-only), "open" -- never a
-              // real occupancy percentage (see DemandTicker's own comment).
               const isFullTier = !isAvailable;
               const isLimitedTier = isAvailable && (slot.availableTableCount <= 1 || slot.hasCombinableOption);
               const tierPct = isFullTier ? 100 : isLimitedTier ? 55 : 24;
@@ -1053,65 +1060,85 @@ function LiveAvailabilityPanel({
                   type="button"
                   disabled={!isAvailable}
                   onClick={() => onPickTime(localTime)}
+                  title={`${localTime} — ${availabilityLabel}`}
+                  aria-label={`${localTime} — ${availabilityLabel}`}
                   style={{
                     fontFamily: 'var(--font-family)',
-                    background: 'none',
-                    border: 'none',
-                    padding: 0,
-                    width: '100%',
-                    textAlign: 'left',
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 3,
+                    aspectRatio: '1 / 1',
+                    padding: '6px 4px 9px',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                    background: isSelected ? 'var(--accent)' : isAvailable ? 'var(--surface)' : 'var(--background)',
+                    opacity: isAvailable ? 1 : 0.55,
                     cursor: isAvailable ? 'pointer' : 'default',
                   }}
                 >
-                  <div
+                  {isPopular ? (
+                    <span
+                      title={t(dict, 'public.booking.liveAvailability.popularBadge')}
+                      aria-hidden="true"
+                      style={{ position: 'absolute', top: 3, right: 4, fontSize: 10, lineHeight: 1 }}
+                    >
+                      🔥
+                    </span>
+                  ) : null}
+                  <span
                     style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 6,
-                      padding: '8px 10px',
-                      marginBottom: 6,
-                      borderRadius: 'var(--radius-md)',
-                      border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                      background: isSelected ? 'var(--accent)' : isAvailable ? 'var(--surface)' : 'var(--background)',
-                      opacity: isAvailable ? 1 : 0.55,
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: isSelected ? 'var(--accent-contrast)' : 'var(--text-primary)',
                     }}
                   >
-                    <div style={{ display: 'grid', gridTemplateColumns: '52px 1fr auto', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, fontWeight: 600, color: isSelected ? 'var(--accent-contrast)' : 'var(--text-primary)' }}>
-                        {localTime}
-                      </span>
-                      <span
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          fontSize: 11.5,
-                          color: isSelected ? 'var(--accent-contrast)' : 'var(--text-muted)',
-                          opacity: 0.9,
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: '50%',
-                            flexShrink: 0,
-                            background: isSelected ? 'var(--accent-contrast)' : isAvailable ? 'var(--success)' : 'var(--danger)',
-                          }}
-                        />
-                        {availabilityLabel}
-                      </span>
-                      {isPopular ? (
-                        <span title={t(dict, 'public.booking.liveAvailability.popularBadge')} aria-label={t(dict, 'public.booking.liveAvailability.popularBadge')} style={{ fontSize: 13, lineHeight: 1 }}>
-                          🔥
-                        </span>
-                      ) : (
-                        <span />
-                      )}
-                    </div>
-                    <div style={{ height: 4, borderRadius: 4, background: isSelected ? 'color-mix(in srgb, var(--accent-contrast) 30%, transparent)' : 'var(--surface-elevated)', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${tierPct}%`, borderRadius: 4, background: isSelected ? 'var(--accent-contrast)' : tierColor }} />
-                    </div>
+                    {localTime}
+                  </span>
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      flexShrink: 0,
+                      background: isSelected ? 'var(--accent-contrast)' : isAvailable ? 'var(--success)' : 'var(--danger)',
+                    }}
+                  />
+                  {slot.availableTableCount > 0 ? (
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 600,
+                        color: isSelected ? 'var(--accent-contrast)' : 'var(--text-muted)',
+                        opacity: 0.9,
+                      }}
+                    >
+                      {slot.availableTableCount}
+                    </span>
+                  ) : null}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 6,
+                      right: 6,
+                      bottom: 4,
+                      height: 3,
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                      background: isSelected ? 'color-mix(in srgb, var(--accent-contrast) 30%, transparent)' : 'var(--surface-elevated)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${tierPct}%`,
+                        borderRadius: 3,
+                        background: isSelected ? 'var(--accent-contrast)' : tierColor,
+                      }}
+                    />
                   </div>
                 </button>
               );

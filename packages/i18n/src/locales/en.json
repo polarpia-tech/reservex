@@ -171,6 +171,7 @@
   },
   "reservations": {
     "title": "Reservations",
+    "total": "Total",
     "listView": "List view",
     "timelineView": "Timeline view",
     "newReservation": "New reservation",
@@ -241,6 +242,8 @@
   },
   "tables": {
     "title": "Tables",
+    "total": "Total",
+    "unavailable": "Unavailable",
     "listView": "List view",
     "mapView": "Map view",
     "zones": "Zones",
@@ -456,6 +459,7 @@
       "bookAnother": "Book another table",
       "liveAvailability": {
         "title": "Availability",
+        "liveBadge": "Live",
         "loading": "Checking availability…",
         "closed": "Closed on this date.",
         "hint": "Pick a time to fill it in automatically.",
