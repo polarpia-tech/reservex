@@ -1,46 +1,53 @@
 'use client';
 
-import { deleteStaffWebPushSubscription, upsertStaffWebPushSubscription } from '@reservex/core';
+import { fetchMyRestaurants, type MyRestaurantMembership } from '@reservex/core';
 import type { Session } from '@supabase/supabase-js';
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 
+import { CreateRestaurantForm } from '@/components/staff/CreateRestaurantForm';
+import { OpeningHoursTab } from '@/components/staff/OpeningHoursTab';
+import { ReservationsTab } from '@/components/staff/ReservationsTab';
+import { SettingsTab } from '@/components/staff/SettingsTab';
+import { StaffAuthScreen } from '@/components/staff/StaffAuthScreen';
+import { TablesTab } from '@/components/staff/TablesTab';
 import { getSupabaseBrowserClient } from '@/lib/supabase';
-import { buttonStyle, cardStyle } from '@/lib/ui';
-import { isWebPushSupported, requestWebPushSubscription } from '@/lib/webPush';
+
+type TabKey = 'reservations' | 'hours' | 'tables' | 'settings';
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'reservations', label: 'Κρατήσεις' },
+  { key: 'hours', label: 'Ωράριο' },
+  { key: 'tables', label: 'Τραπέζια' },
+  { key: 'settings', label: 'Ρυθμίσεις' },
+];
 
 /**
- * Phase 24: the iPhone/desktop half of staff push notifications (see
- * migration 0045's own header comment for the full reasoning -- native
- * iOS needs an Apple Developer account + Mac + App Store/TestFlight,
- * which don't exist for this project; this route is the alternative).
+ * Web staff dashboard shell, built 2026-09 so an iPhone/iPad-only
+ * restaurant (no iOS build of apps/mobile exists yet -- see that app's own
+ * README/eas.json) can run its whole front-of-house workflow from Safari:
+ * sign in or sign up, create the restaurant if it doesn't exist yet, then
+ * manage reservations/hours/tables/settings. Every tab below is a thin UI
+ * over @reservex/core functions the mobile app already uses in production
+ * -- this route adds no new backend behaviour, only a second UI for staff
+ * who cannot install the Android-only APK.
  *
- * Deliberately a top-level route (/staff), not nested under app/[locale]/:
- * this is an internal tool for restaurant staff, not part of the public,
- * localized guest-facing site, and Next.js resolves a literal segment
- * ('staff') before a dynamic one ('[locale]') at the same level, so this
- * never collides with a locale value. Unlocalized on purpose, same
- * reasoning as app/manifest.ts's name/short_name.
- *
- * Deliberately login-only (no sign-up mode, unlike account/page.tsx): a
- * staff account is created by an owner/manager (or via the mobile app),
- * never self-service here. Deliberately no restaurant/membership lookup
- * either -- dispatch-notifications (0044/0045) already decides who gets
- * notified about what per-restaurant; this page's only job is "does this
- * signed-in user's browser have a live Web Push subscription on file".
+ * Three-state gate, same shape as the original /staff page's session gate
+ * plus one more level (restaurant membership):
+ *   1. no session -> StaffAuthScreen (login or sign-up)
+ *   2. session but no active restaurant membership -> CreateRestaurantForm
+ *   3. session + membership -> the tabbed dashboard
+ * Deliberately picks memberships[0] when a user belongs to more than one
+ * restaurant -- multi-restaurant switching is a real feature some owners
+ * will eventually want, but every restaurant onboarded today has exactly
+ * one owner with exactly one restaurant, so building a switcher now would
+ * be speculative scope on a same-day deadline.
  */
-export default function StaffPushPage() {
+export default function StaffDashboardPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authBusy, setAuthBusy] = useState(false);
-
-  const [subscribed, setSubscribed] = useState(false);
-  const [subscribing, setSubscribing] = useState(false);
-  const [subscribeMessage, setSubscribeMessage] = useState<string | null>(null);
-  const [checkedExistingSubscription, setCheckedExistingSubscription] = useState(false);
+  const [memberships, setMemberships] = useState<MyRestaurantMembership[] | null>(null);
+  const [membershipsError, setMembershipsError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>('reservations');
 
   useEffect(() => {
     const client = getSupabaseBrowserClient();
@@ -48,167 +55,119 @@ export default function StaffPushPage() {
       setSession(data.session);
       setSessionLoaded(true);
     });
-    const { data: listener } = client.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession));
+    const { data: listener } = client.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setMemberships(null); // force a re-fetch of memberships for the new session
+    });
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Reflect whether THIS browser already has a live push subscription
-  // (e.g. the staff member enabled it on a previous visit) -- purely a
-  // local browser check (PushManager), not a round-trip to the database,
-  // so it works even before we know whether that endpoint is still saved
-  // server-side.
   useEffect(() => {
-    if (!session || !isWebPushSupported()) {
-      setCheckedExistingSubscription(true);
-      return;
-    }
-    void navigator.serviceWorker.ready
-      .then((registration) => registration.pushManager.getSubscription())
-      .then((existing) => setSubscribed(Boolean(existing)))
-      .finally(() => setCheckedExistingSubscription(true));
+    if (!session) return;
+    const client = getSupabaseBrowserClient();
+    setMembershipsError(null);
+    fetchMyRestaurants(client, session.user.id)
+      .then(setMemberships)
+      .catch(() => setMembershipsError('Δεν φορτώθηκαν τα στοιχεία του εστιατορίου. Δοκίμασε ανανέωση της σελίδας.'));
   }, [session]);
 
-  async function handleAuthSubmit(event: FormEvent) {
-    event.preventDefault();
-    setAuthError(null);
-    setAuthBusy(true);
+  function refetchMemberships() {
+    if (!session) return;
     const client = getSupabaseBrowserClient();
-    const { error } = await client.auth.signInWithPassword({ email, password });
-    setAuthBusy(false);
-    if (error) setAuthError(error.message);
+    setMemberships(null);
+    fetchMyRestaurants(client, session.user.id)
+      .then(setMemberships)
+      .catch(() => setMembershipsError('Δεν φορτώθηκαν τα στοιχεία του εστιατορίου. Δοκίμασε ανανέωση της σελίδας.'));
   }
 
-  async function handleSignOut() {
-    const client = getSupabaseBrowserClient();
-    try {
-      if (isWebPushSupported()) {
-        const registration = await navigator.serviceWorker.ready;
-        const existing = await registration.pushManager.getSubscription();
-        if (existing) await deleteStaffWebPushSubscription(client, existing.endpoint);
-      }
-    } catch {
-      // Best-effort, same discipline as the mobile app's sign-out cleanup
-      // (clearPushTokenForCurrentDeviceAsync) -- never block sign-out over it.
-    }
-    await client.auth.signOut();
-    setSubscribed(false);
-  }
-
-  async function handleEnableNotifications() {
-    setSubscribing(true);
-    setSubscribeMessage(null);
-    const result = await requestWebPushSubscription();
-    setSubscribing(false);
-
-    if (result.status === 'subscribed') {
-      const client = getSupabaseBrowserClient();
-      try {
-        await upsertStaffWebPushSubscription(client, session!.user.id, result.subscription);
-        setSubscribed(true);
-        setSubscribeMessage('Οι ειδοποιήσεις ενεργοποιήθηκαν σε αυτή τη συσκευή.');
-      } catch {
-        setSubscribeMessage('Η συσκευή σου έδωσε άδεια, αλλά κάτι πήγε στραβά κατά την αποθήκευση. Δοκίμασε ξανά.');
-      }
-      return;
-    }
-    if (result.status === 'denied') {
-      setSubscribeMessage('Δεν δόθηκε άδεια ειδοποιήσεων. Άνοιξε τις Ρυθμίσεις της συσκευής και επίτρεψε τις ειδοποιήσεις για το ReservX.');
-      return;
-    }
-    if (result.status === 'unsupported') {
-      setSubscribeMessage(
-        'Αυτό το πρόγραμμα περιήγησης δεν υποστηρίζει ακόμα ειδοποιήσεις εδώ. Σε iPhone: πρόσθεσε πρώτα αυτή τη σελίδα στην Αρχική Οθόνη (Μοιράσου → "Προσθήκη στην Αρχική Οθόνη"), άνοιξέ την από εκεί, και ξαναδοκίμασε.',
-      );
-      return;
-    }
-    setSubscribeMessage('Κάτι πήγε στραβά. Δοκίμασε ξανά σε λίγο.');
-  }
-
-  const pageStyle: CSSProperties = {
-    minHeight: '100dvh',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 'clamp(20px, 5vw, 48px)',
-    gap: 'var(--space-lg, 20px)',
-  };
-
-  const fieldStyle: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 6,
-    width: '100%',
-  };
-
-  const inputStyle: CSSProperties = {
-    fontFamily: 'var(--font-family)',
-    fontSize: 15,
-    padding: '12px 14px',
-    borderRadius: 'var(--radius-md, 10px)',
-    border: '1px solid var(--border)',
-    background: 'var(--background)',
-    color: 'inherit',
-  };
+  const pageStyle: CSSProperties = { minHeight: '100dvh', display: 'flex', flexDirection: 'column' };
 
   if (!sessionLoaded) {
     return <div style={pageStyle} />;
   }
 
   if (!session) {
+    return <StaffAuthScreen />;
+  }
+
+  if (memberships === null) {
     return (
-      <div style={pageStyle}>
-        <div style={{ ...cardStyle, maxWidth: 380, width: '100%' }}>
-          <h1 style={{ fontSize: 20, marginTop: 0, marginBottom: 4 }}>ReservX — Προσωπικό</h1>
-          <p style={{ color: 'var(--text-muted)', marginTop: 0, marginBottom: 20, fontSize: 14 }}>
-            Σύνδεση με τον λογαριασμό σου (owner/manager) για να ενεργοποιήσεις ειδοποιήσεις νέων κρατήσεων σε αυτή τη συσκευή.
-          </p>
-          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={fieldStyle}>
-              <label htmlFor="email" style={{ fontSize: 13, color: 'var(--text-muted)' }}>Email</label>
-              <input id="email" type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={fieldStyle}>
-              <label htmlFor="password" style={{ fontSize: 13, color: 'var(--text-muted)' }}>Κωδικός</label>
-              <input id="password" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} />
-            </div>
-            {authError ? <p style={{ color: '#e05252', fontSize: 13, margin: 0 }}>{authError}</p> : null}
-            <button type="submit" disabled={authBusy} style={buttonStyle('primary', { disabled: authBusy, fullWidth: true })}>
-              {authBusy ? 'Σύνδεση...' : 'Σύνδεση'}
-            </button>
-          </form>
-        </div>
+      <div style={{ ...pageStyle, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        {membershipsError ? <p style={{ color: 'var(--danger)', fontSize: 14 }}>{membershipsError}</p> : <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Φόρτωση...</p>}
       </div>
     );
   }
 
+  const membership = memberships[0];
+
+  if (!membership) {
+    return <CreateRestaurantForm onCreated={refetchMemberships} />;
+  }
+
+  const client = getSupabaseBrowserClient();
+  const restaurant = membership.restaurant;
+
   return (
     <div style={pageStyle}>
-      <div style={{ ...cardStyle, maxWidth: 380, width: '100%' }}>
-        <h1 style={{ fontSize: 20, marginTop: 0, marginBottom: 4 }}>ReservX — Προσωπικό</h1>
-        <p style={{ color: 'var(--text-muted)', marginTop: 0, marginBottom: 20, fontSize: 14 }}>
-          Συνδεδεμένος ως {session.user.email}
-        </p>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          padding: '14px clamp(16px, 4vw, 28px)',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>{restaurant.name}</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>ReservX — Προσωπικό</span>
+        </div>
+      </header>
 
-        {checkedExistingSubscription && subscribed ? (
-          <p style={{ fontSize: 14, marginBottom: 16 }}>✓ Οι ειδοποιήσεις είναι ενεργές σε αυτή τη συσκευή.</p>
-        ) : (
+      <nav
+        style={{
+          display: 'flex',
+          gap: 4,
+          padding: '10px clamp(16px, 4vw, 28px) 0',
+          borderBottom: '1px solid var(--border)',
+          overflowX: 'auto',
+          background: 'var(--surface)',
+        }}
+      >
+        {TABS.map((tab) => (
           <button
+            key={tab.key}
             type="button"
-            onClick={handleEnableNotifications}
-            disabled={subscribing || !checkedExistingSubscription}
-            style={buttonStyle('primary', { disabled: subscribing, fullWidth: true })}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              fontFamily: 'var(--font-family)',
+              fontSize: 13.5,
+              fontWeight: 600,
+              padding: '10px 14px',
+              border: 'none',
+              borderBottom: `2px solid ${activeTab === tab.key ? 'var(--accent)' : 'transparent'}`,
+              background: 'none',
+              color: activeTab === tab.key ? 'var(--text-primary)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
           >
-            {subscribing ? 'Ενεργοποίηση...' : 'Ενεργοποίηση ειδοποιήσεων'}
+            {tab.label}
           </button>
-        )}
+        ))}
+      </nav>
 
-        {subscribeMessage ? <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 14 }}>{subscribeMessage}</p> : null}
-
-        <button type="button" onClick={() => void handleSignOut()} style={{ ...buttonStyle('ghost', { fullWidth: true }), marginTop: 20 }}>
-          Αποσύνδεση
-        </button>
-      </div>
+      <main style={{ flex: 1, padding: 'clamp(16px, 4vw, 28px)', maxWidth: 720, width: '100%', margin: '0 auto' }}>
+        {activeTab === 'reservations' ? <ReservationsTab client={client} restaurant={restaurant} /> : null}
+        {activeTab === 'hours' ? <OpeningHoursTab client={client} restaurant={restaurant} /> : null}
+        {activeTab === 'tables' ? <TablesTab client={client} restaurant={restaurant} /> : null}
+        {activeTab === 'settings' ? <SettingsTab client={client} restaurant={restaurant} session={session} /> : null}
+      </main>
     </div>
   );
 }
