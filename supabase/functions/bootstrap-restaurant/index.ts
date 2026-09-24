@@ -35,11 +35,36 @@ interface BootstrapRequestBody {
   timezone?: string;
 }
 
+// Standard-ish (ELOT 743-like) Greek-to-Latin transliteration, just
+// thorough enough for a readable URL slug -- not a linguistically perfect
+// romanization. This is the actual fix for the bug the old comment on
+// slugify() claimed to already handle: NFKD + combining-accent-stripping
+// only decomposes LATIN accented letters (e.g. German u-umlaut -> u).
+// Greek letters are not Latin lookalikes at all, so a name typed in Greek
+// (the app's own default locale, and its largest market) fell all the way
+// through to the 'restaurant' fallback below -- every Greek-named
+// restaurant got the same generic slug (or 'restaurant-xxxx' on a
+// collision) instead of anything readable. Map runs BEFORE the existing
+// Latin-accent-stripping step, so German/Turkish names keep working
+// exactly as before.
+const GREEK_TRANSLITERATION: Record<string, string> = {
+  α: 'a', ά: 'a', β: 'v', γ: 'g', δ: 'd', ε: 'e', έ: 'e', ζ: 'z',
+  η: 'i', ή: 'i', θ: 'th', ι: 'i', ί: 'i', ϊ: 'i', ΐ: 'i',
+  κ: 'k', λ: 'l', μ: 'm', ν: 'n', ξ: 'x', ο: 'o', ό: 'o',
+  π: 'p', ρ: 'r', σ: 's', ς: 's', τ: 't', υ: 'y', ύ: 'y', ϋ: 'y', ΰ: 'y',
+  φ: 'f', χ: 'ch', ψ: 'ps', ω: 'o', ώ: 'o',
+};
+
+function transliterateGreek(input: string): string {
+  return Array.from(input)
+    .map((ch) => GREEK_TRANSLITERATION[ch] ?? ch)
+    .join('');
+}
+
 function slugify(name: string): string {
-  const base = name
-    .toLowerCase()
+  const base = transliterateGreek(name.toLowerCase())
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip combining accents so Greek/German/Turkish names still produce a readable ascii slug
+    .replace(/[̀-ͯ]/g, '') // strip combining accents so German/Turkish names still produce a readable ascii slug
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60);
