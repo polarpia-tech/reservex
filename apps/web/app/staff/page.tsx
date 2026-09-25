@@ -166,7 +166,7 @@ export default function StaffDashboardPage() {
         {activeTab === 'reservations' ? <ReservationsTab client={client} restaurant={restaurant} /> : null}
         {activeTab === 'hours' ? <OpeningHoursTab client={client} restaurant={restaurant} /> : null}
         {activeTab === 'tables' ? <TablesTab client={client} restaurant={restaurant} /> : null}
-        {activeTab === 'settings' ? <SettingsTab client={client} restaurant={restaurant} session={session} /> : null}
+        {activeTab === 'settings' ? <SettingsTab client={client} restaurant={restaurant} session={session} onProfileUpdated={refetchMemberships} /> : null}
       </main>
     </div>
   );

@@ -3,12 +3,13 @@ import {
   deleteStaffWebPushSubscription,
   fetchOwnerConfigurableFlags,
   setOwnerFeatureFlag,
+  updateRestaurant,
   upsertStaffWebPushSubscription,
   type OwnerConfigurableFlag,
   type Restaurant,
 } from '@reservex/core';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 
 import { buttonStyle, cardStyle } from '@/lib/ui';
 import { isWebPushSupported, requestWebPushSubscription } from '@/lib/webPush';
@@ -34,19 +35,69 @@ const FLAG_COPY: Record<string, { title: string; description: string }> = {
 
 const rowStyle: CSSProperties = { ...cardStyle, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 };
 
+const inputStyle: CSSProperties = {
+  fontFamily: 'var(--font-family)',
+  fontSize: 14,
+  padding: '9px 11px',
+  borderRadius: 'var(--radius-md, 10px)',
+  border: '1px solid var(--border)',
+  background: 'var(--background)',
+  color: 'inherit',
+  width: '100%',
+};
+
+interface ProfileDraft {
+  name: string;
+  phone: string;
+  email: string;
+  addressLine: string;
+  city: string;
+  postalCode: string;
+  description: string;
+}
+
+function draftFromRestaurant(r: Restaurant): ProfileDraft {
+  return {
+    name: r.name ?? '',
+    phone: r.phone ?? '',
+    email: r.email ?? '',
+    addressLine: r.addressLine ?? '',
+    city: r.city ?? '',
+    postalCode: r.postalCode ?? '',
+    description: r.description ?? '',
+  };
+}
+
 /**
- * The catch-all "everything else" tab: owner-configurable feature flags
+ * The catch-all "everything else" tab: restaurant profile (name/contact/
+ * address -- added so an owner can fix these without ever needing a
+ * developer, since CreateRestaurantForm only captures name/type/timezone
+ * at signup time), owner-configurable feature flags
  * (fetchOwnerConfigurableFlags/setOwnerFeatureFlag -- all default OFF, see
- * migrations 0010/0011/0020/0023/0024/0028/0033/0035/0040), plus the
- * Phase 24 web-push enable/disable flow ported verbatim from the original
- * /staff page (same upsertStaffWebPushSubscription/
- * deleteStaffWebPushSubscription/requestWebPushSubscription/
- * isWebPushSupported calls, same iOS "add to home screen first" copy), and
- * sign-out. None of these are launch BLOCKERS the way opening hours/tables
- * are -- flags default off and push is a nice-to-have -- which is why this
- * tab comes last, not because it matters less as an ongoing settings home.
+ * migrations 0010/0011/0020/0023/0024/0028/0033/0035/0040), the Phase 24
+ * web-push enable/disable flow ported verbatim from the original /staff
+ * page, and sign-out.
  */
-export function SettingsTab({ client, restaurant, session }: { client: SupabaseClient; restaurant: Restaurant; session: Session }) {
+export function SettingsTab({
+  client,
+  restaurant,
+  session,
+  onProfileUpdated,
+}: {
+  client: SupabaseClient;
+  restaurant: Restaurant;
+  session: Session;
+  onProfileUpdated?: () => void;
+}) {
+  const [profile, setProfile] = useState<ProfileDraft>(() => draftFromRestaurant(restaurant));
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  useEffect(() => {
+    setProfile(draftFromRestaurant(restaurant));
+  }, [restaurant]);
+
   const [flags, setFlags] = useState<OwnerConfigurableFlag[] | null>(null);
   const [flagError, setFlagError] = useState<string | null>(null);
   const [busyFlagId, setBusyFlagId] = useState<string | null>(null);
@@ -72,6 +123,34 @@ export function SettingsTab({ client, restaurant, session }: { client: SupabaseC
       .then((existing) => setSubscribed(Boolean(existing)))
       .finally(() => setCheckedExistingSubscription(true));
   }, []);
+
+  async function handleSaveProfile(event: FormEvent) {
+    event.preventDefault();
+    setProfileError(null);
+    setProfileSaved(false);
+    if (profile.name.trim().length < 2) {
+      setProfileError('Το όνομα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
+      return;
+    }
+    setProfileSaving(true);
+    try {
+      await updateRestaurant(client, restaurant.id, {
+        name: profile.name.trim(),
+        phone: profile.phone.trim() || null,
+        email: profile.email.trim() || null,
+        addressLine: profile.addressLine.trim() || null,
+        city: profile.city.trim() || null,
+        postalCode: profile.postalCode.trim() || null,
+        description: profile.description.trim() || null,
+      });
+      setProfileSaved(true);
+      onProfileUpdated?.();
+    } catch {
+      setProfileError('Η αποθήκευση απέτυχε. Δοκίμασε ξανά.');
+    } finally {
+      setProfileSaving(false);
+    }
+  }
 
   async function handleToggleFlag(flag: OwnerConfigurableFlag) {
     setFlagError(null);
@@ -130,6 +209,56 @@ export function SettingsTab({ client, restaurant, session }: { client: SupabaseC
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div>
+        <h3 style={{ fontSize: 15, marginTop: 0, marginBottom: 10 }}>Στοιχεία εστιατορίου</h3>
+        <div style={{ ...cardStyle, padding: 16 }}>
+          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Όνομα</label>
+              <input type="text" value={profile.name} onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))} style={inputStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 140 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Τηλέφωνο</label>
+                <input type="tel" value={profile.phone} onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))} style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 140 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Email επικοινωνίας</label>
+                <input type="email" value={profile.email} onChange={(e) => setProfile((p) => ({ ...p, email: e.target.value }))} style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Διεύθυνση</label>
+              <input type="text" value={profile.addressLine} onChange={(e) => setProfile((p) => ({ ...p, addressLine: e.target.value }))} style={inputStyle} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 140 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Πόλη</label>
+                <input type="text" value={profile.city} onChange={(e) => setProfile((p) => ({ ...p, city: e.target.value }))} style={inputStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 130 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Τ.Κ.</label>
+                <input type="text" value={profile.postalCode} onChange={(e) => setProfile((p) => ({ ...p, postalCode: e.target.value }))} style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Περιγραφή (προαιρετικό, το βλέπουν οι πελάτες)</label>
+              <textarea
+                value={profile.description}
+                onChange={(e) => setProfile((p) => ({ ...p, description: e.target.value }))}
+                rows={3}
+                style={{ ...inputStyle, resize: 'vertical', fontFamily: 'var(--font-family)' }}
+              />
+            </div>
+            {profileError ? <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{profileError}</p> : null}
+            {profileSaved ? <p style={{ color: 'var(--success)', fontSize: 13, margin: 0 }}>Αποθηκεύτηκε.</p> : null}
+            <button type="submit" disabled={profileSaving} style={buttonStyle('primary', { disabled: profileSaving, fullWidth: true })}>
+              {profileSaving ? 'Αποθήκευση...' : 'Αποθήκευση στοιχείων'}
+            </button>
+          </form>
+        </div>
+      </div>
+
       <div>
         <h3 style={{ fontSize: 15, marginTop: 0, marginBottom: 10 }}>Ειδοποιήσεις σε αυτή τη συσκευή</h3>
         <div style={{ ...cardStyle, padding: 14 }}>
