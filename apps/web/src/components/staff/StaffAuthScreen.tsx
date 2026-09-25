@@ -26,11 +26,14 @@ const inputStyle: CSSProperties = {
  * onboard (no iOS build exists yet -- see the mobile app's own signup
  * screen), a brand-new owner needs to be able to create their account here
  * too. Same call as the mobile screen: plain supabase.auth.signUp(), no
- * custom backend -- see that screen's own comment on why. Email
- * confirmation is disabled for this Supabase project, so a successful
- * sign-up normally signs the caller in immediately (data.session set); the
- * "check your email" branch is a fallback in case that setting ever
- * changes, not the expected path today.
+ * custom backend -- see that screen's own comment on why. This project's
+ * "Confirm email" setting is currently OFF, so a successful sign-up
+ * normally signs the caller in immediately (data.session set); the "check
+ * your email" branch handles the case where it's back on. If it ever is
+ * (Supabase Dashboard -> Authentication -> Sign In / Providers -> Email),
+ * a login before confirming fails with "Email not confirmed" --
+ * mapAuthError() below surfaces that specific, actionable message rather
+ * than folding it into the generic "invalid email" one.
  */
 export function StaffAuthScreen() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -161,6 +164,15 @@ function mapAuthError(message: string): string {
   const lower = message.toLowerCase();
   if (lower.includes('invalid login credentials')) return 'Λάθος email ή κωδικός.';
   if (lower.includes('user already registered')) return 'Υπάρχει ήδη λογαριασμός με αυτό το email — δοκίμασε "Σύνδεση".';
+  // Must come before the generic 'email' fallback below -- otherwise this
+  // specific, actionable error ("Email not confirmed", returned by
+  // Supabase when the project's "Confirm email" setting is on and the
+  // account hasn't clicked the confirmation link yet) gets masked behind
+  // the vague "Μη έγκυρο email." message, which sent us on a real,
+  // time-consuming debugging detour in production before this fix.
+  if (lower.includes('email not confirmed')) {
+    return 'Ο λογαριασμός δεν έχει επιβεβαιωθεί ακόμα. Έλεγξε το email σου (και τα Ανεπιθύμητα) για το μήνυμα επιβεβαίωσης, ή ζήτα από τον διαχειριστή να το επιβεβαιώσει.';
+  }
   if (lower.includes('password')) return 'Ο κωδικός δεν πληροί τις απαιτήσεις (τουλάχιστον 6 χαρακτήρες).';
   if (lower.includes('email')) return 'Μη έγκυρο email.';
   return 'Κάτι πήγε στραβά. Δοκίμασε ξανά.';
