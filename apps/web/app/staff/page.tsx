@@ -5,6 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState, type CSSProperties } from 'react';
 
 import { CreateRestaurantForm } from '@/components/staff/CreateRestaurantForm';
+import { HelpPanel } from '@/components/staff/HelpPanel';
 import { OpeningHoursTab } from '@/components/staff/OpeningHoursTab';
 import { ReservationsTab } from '@/components/staff/ReservationsTab';
 import { SettingsTab } from '@/components/staff/SettingsTab';
@@ -48,6 +49,7 @@ export default function StaffDashboardPage() {
   const [memberships, setMemberships] = useState<MyRestaurantMembership[] | null>(null);
   const [membershipsError, setMembershipsError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('reservations');
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     const client = getSupabaseBrowserClient();
@@ -127,6 +129,26 @@ export default function StaffDashboardPage() {
           <span style={{ fontSize: 15, fontWeight: 700 }}>{restaurant.name}</span>
           <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>ReservX — Προσωπικό</span>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowHelp(true)}
+          aria-label="Βοήθεια"
+          style={{
+            fontFamily: 'var(--font-family)',
+            fontSize: 15,
+            fontWeight: 700,
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            border: '1px solid var(--border)',
+            background: 'var(--surface-elevated)',
+            color: 'var(--text-primary)',
+            cursor: 'pointer',
+            flexShrink: 0,
+          }}
+        >
+          ?
+        </button>
       </header>
 
       <nav
@@ -168,6 +190,8 @@ export default function StaffDashboardPage() {
         {activeTab === 'tables' ? <TablesTab client={client} restaurant={restaurant} /> : null}
         {activeTab === 'settings' ? <SettingsTab client={client} restaurant={restaurant} session={session} onProfileUpdated={refetchMemberships} /> : null}
       </main>
+
+      {showHelp ? <HelpPanel restaurant={restaurant} onClose={() => setShowHelp(false)} /> : null}
     </div>
   );
 }
