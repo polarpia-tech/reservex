@@ -29,9 +29,29 @@ const noteStyle: CSSProperties = {
  * text written for one specific owner. A PDF someone was sent once is easy
  * to lose; this is always one tap away.
  */
+/**
+ * This component only ever mounts client-side (it's not rendered until the
+ * "?" button's onClick flips showHelp to true in page.tsx), so reading
+ * navigator.userAgent here directly -- no useEffect/hydration dance needed
+ * -- is safe: there is no server-rendered version of this markup to
+ * mismatch against. iOS is the one platform whose browser (Safari) still
+ * requires "Add to Home Screen" before Web Push works at all; every other
+ * platform (Android Chrome, desktop browsers) supports it directly from a
+ * normal tab, so showing the iOS-only steps to a non-iOS reader would just
+ * be wrong, not merely irrelevant.
+ */
+function detectPlatform(): 'ios' | 'android' | 'other' {
+  if (typeof navigator === 'undefined') return 'other';
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) return 'ios';
+  if (/Android/.test(ua)) return 'android';
+  return 'other';
+}
+
 export function HelpPanel({ restaurant, onClose }: { restaurant: Restaurant; onClose: () => void }) {
   const [bookingLink, setBookingLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const platform = detectPlatform();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -79,21 +99,43 @@ export function HelpPanel({ restaurant, onClose }: { restaurant: Restaurant; onC
           διαχειρίζεσαι τα τραπέζια που ελέγχει αυτόματα το σύστημα για διαθεσιμότητα.
         </p>
 
-        <p style={h3Style}>Ειδοποιήσεις στο iPhone — σημαντικό</p>
-        <p style={pStyle}>
-          Για να έρχεται ειδοποίηση στην κορυφή της οθόνης για κάθε νέα κράτηση, το iPhone χρειάζεται τη σελίδα
-          προσθεμένη στην Αρχική Οθόνη — δεν αρκεί μια απλή καρτέλα Safari:
-        </p>
-        <ol style={{ margin: '0 0 4px', paddingLeft: 18 }}>
-          <li style={liStyle}>Άνοιξε αυτή τη σελίδα στο Safari (όχι Chrome).</li>
-          <li style={liStyle}>Μοιράσου → «Προσθήκη στην Αρχική Οθόνη».</li>
-          <li style={liStyle}>Άνοιξέ την ξανά από το νέο εικονίδιο στην Αρχική Οθόνη.</li>
-          <li style={liStyle}>Στο tab «Ρυθμίσεις», πάτα «Ενεργοποίηση ειδοποιήσεων» και επίτρεψέ το.</li>
-        </ol>
-        <p style={noteStyle}>
-          Από κανονική καρτέλα Safari (χωρίς το βήμα «Προσθήκη στην Αρχική Οθόνη»), οι ειδοποιήσεις δεν λειτουργούν
-          καθόλου σε iPhone.
-        </p>
+        <p style={h3Style}>Ειδοποιήσεις — {platform === 'ios' ? 'σημαντικό για iPhone' : platform === 'android' ? 'στο Android' : 'σε αυτή τη συσκευή'}</p>
+        {platform === 'ios' ? (
+          <>
+            <p style={pStyle}>
+              Για να έρχεται ειδοποίηση στην κορυφή της οθόνης για κάθε νέα κράτηση, το iPhone χρειάζεται τη σελίδα
+              προσθεμένη στην Αρχική Οθόνη — δεν αρκεί μια απλή καρτέλα Safari:
+            </p>
+            <ol style={{ margin: '0 0 4px', paddingLeft: 18 }}>
+              <li style={liStyle}>Άνοιξε αυτή τη σελίδα στο Safari (όχι Chrome).</li>
+              <li style={liStyle}>Μοιράσου → «Προσθήκη στην Αρχική Οθόνη».</li>
+              <li style={liStyle}>Άνοιξέ την ξανά από το νέο εικονίδιο στην Αρχική Οθόνη.</li>
+              <li style={liStyle}>Στο tab «Ρυθμίσεις», πάτα «Ενεργοποίηση ειδοποιήσεων» και επίτρεψέ το.</li>
+            </ol>
+            <p style={noteStyle}>
+              Από κανονική καρτέλα Safari (χωρίς το βήμα «Προσθήκη στην Αρχική Οθόνη»), οι ειδοποιήσεις δεν λειτουργούν
+              καθόλου σε iPhone.
+            </p>
+          </>
+        ) : (
+          <>
+            <p style={pStyle}>
+              {platform === 'android'
+                ? 'Στο Android οι ειδοποιήσεις δουλεύουν κατευθείαν από το Chrome, χωρίς κανένα επιπλέον βήμα:'
+                : 'Οι ειδοποιήσεις δουλεύουν κατευθείαν από τον browser, χωρίς κανένα επιπλέον βήμα:'}
+            </p>
+            <ol style={{ margin: '0 0 4px', paddingLeft: 18 }}>
+              <li style={liStyle}>Στο tab «Ρυθμίσεις», πάτα «Ενεργοποίηση ειδοποιήσεων».</li>
+              <li style={liStyle}>Επίτρεψέ το όταν σου το ζητήσει ο browser.</li>
+            </ol>
+            {platform === 'android' ? (
+              <p style={noteStyle}>
+                Προαιρετικά μπορείς να προσθέσεις τη σελίδα στην Αρχική Οθόνη (μενού ⋮ → «Προσθήκη στην αρχική οθόνη»)
+                για πιο γρήγορη πρόσβαση — δεν είναι όμως απαραίτητο για να δουλέψουν οι ειδοποιήσεις.
+              </p>
+            ) : null}
+          </>
+        )}
 
         <p style={h3Style}>Ο σύνδεσμος κράτησης του μαγαζιού σου</p>
         <p style={pStyle}>Μοιράσου τον με τους πελάτες σου (ή φτιάξε από αυτόν ένα QR code):</p>
